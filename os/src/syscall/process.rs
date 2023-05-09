@@ -5,9 +5,14 @@ use crate::task::{
     suspend_current_and_run_next, SignalFlags,
 };
 use crate::timer::get_time_ms;
+use crate::sbi::shutdown;
 use alloc::string::String;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
+
+pub fn sys_shutdown(failure:bool) -> !{
+    shutdown(failure);
+}
 
 pub fn sys_exit(exit_code: i32) -> ! {
     exit_current_and_run_next(exit_code);
