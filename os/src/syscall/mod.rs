@@ -10,6 +10,8 @@ const SYSCALL_EXIT: usize = 93;
 const SYSCALL_SLEEP: usize = 101;
 const SYSCALL_YIELD: usize = 124;
 const SYSCALL_KILL: usize = 129;
+const SYSCALL_TIMES: usize = 153;
+const SYSCALL_UNAME: usize = 160;
 const SYSCALL_GET_TIME: usize = 169;
 const SYSCALL_GETPID: usize = 172;
 const SYSCALL_GETPPID: usize = 173;
@@ -37,11 +39,13 @@ mod fs;
 mod process;
 mod sync;
 mod thread;
+mod system;
 
 use fs::*;
 use process::*;
 use sync::*;
 use thread::*;
+use system::*;
 use log::{debug, error, info, trace, warn};
 
 pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
@@ -56,10 +60,12 @@ pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
         SYSCALL_SLEEP => sys_sleep(args[0] as *const u64, args[1] as *mut u64),
         SYSCALL_YIELD => sys_yield(),
         SYSCALL_KILL => sys_kill(args[0], args[1] as u32),
-        SYSCALL_GET_TIME => sys_get_time(),
+        SYSCALL_TIMES => sys_get_process_time(args[0] as *mut u64),
+        SYSCALL_UNAME => sys_uname(args[0]),
+        SYSCALL_GET_TIME => sys_get_time(arg[0] as *mut u64),
         SYSCALL_GETPID => sys_getpid(),
         SYSCALL_GETPPID=> sys_getppid(),
-        SYSCALL_BRK=> sys_brk(arg[0]),
+        SYSCALL_BRK=> sys_brk(args[0]),
         SYSCALL_FORK => sys_fork(
             args[0] as u32,
             args[1] as *const u8,

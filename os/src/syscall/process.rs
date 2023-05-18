@@ -25,8 +25,26 @@ pub fn sys_yield() -> isize {
     0
 }
 
-pub fn sys_get_time() -> isize {
-    get_time_ms() as isize
+///fake
+pub fn sys_get_process_time(times: *mut u64) -> isize{
+    let token = current_user_token();
+    let usec = get_time_us() as u64;
+
+    *translated_refmut(token, times) = usec;
+    *translated_refmut(token, unsafe { times.add(1) }) = usec;
+    *translated_refmut(token, unsafe { times.add(2) }) = usec;
+    *translated_refmut(token, unsafe { times.add(3) }) = usec;
+
+    usec as isize
+}
+
+pub fn sys_get_time(time_return: *mut u64) -> isize {
+    let token = current_user_token();
+    if time_remain as usize != 0 {
+        *translated_refmut(token, time_remain) = get_time();
+        *translated_refmut(token, unsafe { time_remain.add(1) }) = 0;
+    }
+    0
 }
 
 pub fn sys_getpid() -> isize {
@@ -93,6 +111,7 @@ pub fn sys_exec(path: *const u8, mut args: *const usize) -> isize {
     }
 }
 
+///fake
 pub fn sys_brk(addr: usize) -> isize {
     0
 }
