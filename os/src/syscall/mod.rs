@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 const SYSCALL_DUP: usize = 24;
 const SYSCALL_OPEN: usize = 56;
 const SYSCALL_CLOSE: usize = 57;
@@ -10,6 +12,8 @@ const SYSCALL_YIELD: usize = 124;
 const SYSCALL_KILL: usize = 129;
 const SYSCALL_GET_TIME: usize = 169;
 const SYSCALL_GETPID: usize = 172;
+const SYSCALL_GETPPID: usize = 173;
+const SYSCALL_BRK: usize = 214;
 const SYSCALL_FORK: usize = 220;
 const SYSCALL_EXEC: usize = 221;
 const SYSCALL_WAITPID: usize = 260;
@@ -38,9 +42,10 @@ use fs::*;
 use process::*;
 use sync::*;
 use thread::*;
+use log::{debug, error, info, trace, warn};
 
-pub fn syscall(syscall_id: usize, args: [usize; 3]) -> isize {
-    match syscall_id {
+pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
+    let ret = match syscall_id {
         SYSCALL_DUP => sys_dup(args[0]),
         SYSCALL_OPEN => sys_open(args[0] as *const u8, args[1] as u32),
         SYSCALL_CLOSE => sys_close(args[0]),
@@ -48,12 +53,20 @@ pub fn syscall(syscall_id: usize, args: [usize; 3]) -> isize {
         SYSCALL_READ => sys_read(args[0], args[1] as *const u8, args[2]),
         SYSCALL_WRITE => sys_write(args[0], args[1] as *const u8, args[2]),
         SYSCALL_EXIT => sys_exit(args[0] as i32),
-        SYSCALL_SLEEP => sys_sleep(args[0]),
+        SYSCALL_SLEEP => sys_sleep(args[0] as *const u64, args[1] as *mut u64),
         SYSCALL_YIELD => sys_yield(),
         SYSCALL_KILL => sys_kill(args[0], args[1] as u32),
         SYSCALL_GET_TIME => sys_get_time(),
         SYSCALL_GETPID => sys_getpid(),
-        SYSCALL_FORK => sys_fork(),
+        SYSCALL_GETPPID=> sys_getppid(),
+        SYSCALL_BRK=> sys_brk(arg[0]),
+        SYSCALL_FORK => sys_fork(
+            args[0] as u32,
+            args[1] as *const u8,
+            args[2] as *const u32,
+            args[3] as *const usize,
+            args[4] as *const u32,
+        ),
         SYSCALL_EXEC => sys_exec(args[0] as *const u8, args[1] as *const usize),
         SYSCALL_WAITPID => sys_waitpid(args[0] as isize, args[1] as *mut i32),
         SYSCALL_THREAD_CREATE => sys_thread_create(args[0], args[1]),
@@ -70,5 +83,13 @@ pub fn syscall(syscall_id: usize, args: [usize; 3]) -> isize {
         SYSCALL_CONDVAR_WAIT => sys_condvar_wait(args[0], args[1]),
         SYSCALL_SHUTDOWN => sys_shutdown(args[0] != 0),
         _ => panic!("Unsupported syscall_id: {}", syscall_id),
-    }
+    };
+    info!(
+        "[syscall] pid: {}, syscall_id: {} ({}) returned {}",
+        sys_getpid(),
+        syscall_name(syscall_id),
+        syscall_id,
+        ret
+    );
+    ret
 }

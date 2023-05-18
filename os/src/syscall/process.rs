@@ -9,6 +9,7 @@ use crate::sbi::shutdown;
 use alloc::string::String;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
+use log::{debug, error, info, trace, warn};
 
 pub fn sys_shutdown(failure:bool) -> !{
     shutdown(failure);
@@ -32,7 +33,27 @@ pub fn sys_getpid() -> isize {
     current_task().unwrap().process.upgrade().unwrap().getpid() as isize
 }
 
-pub fn sys_fork() -> isize {
+pub fn sys_getppid() -> isize {
+    current_task()
+        .unwrap()
+        .process
+        .upgrade()
+        .unwrap()
+        .inner_exclusive_access()
+        .parent
+        .unwrap()
+        .upgrade()
+        .unwrap()
+        .getpid() as isize
+}
+
+pub fn sys_fork(
+    flags: u32,
+    stack: *const u8,
+    ptid: *const u32,
+    tls: *const usize,
+    ctid: *const u32,
+) -> isize {
     let current_process = current_process();
     let new_process = current_process.fork();
     let new_pid = new_process.getpid();
@@ -72,6 +93,19 @@ pub fn sys_exec(path: *const u8, mut args: *const usize) -> isize {
     }
 }
 
+pub fn sys_brk(addr: usize) -> isize {
+    0
+}
+
+bitflags! {
+    struct WaitOption: u32 {
+        const WNOHANG    = 1;
+        const WSTOPPED   = 2;
+        const WEXITED    = 4;
+        const WCONTINUED = 8;
+        const WNOWAIT    = 0x1000000;
+    }
+}
 /// If there is not a child process whose pid is same as given, return -1.
 /// Else if there is a child process but it is still running, return -2.
 pub fn sys_waitpid(pid: isize, exit_code_ptr: *mut i32) -> isize {
