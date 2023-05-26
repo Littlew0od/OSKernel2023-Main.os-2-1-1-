@@ -1,8 +1,10 @@
+#![allow(unused)]
 use super::{File, DiskInodeType};
 use crate::{mm::UserBuffer, syscall::errno::ENOTDIR};
 use crate::sbi::console_getchar;
 use crate::task::suspend_current_and_run_next;
 use alloc::sync::{Arc, Weak};
+use alloc::vec::Vec;
 
 pub struct Stdin;
 
@@ -52,6 +54,10 @@ impl File for Stdin {
 
     fn read(&self, offset: Option<&mut usize>, buf: &mut [u8]) -> usize {
         todo!()
+    }
+
+    fn read_all(&self) -> Vec<u8> {
+        Vec::new()
     }
 
     fn write(&self, offset: Option<&mut usize>, buf: &[u8]) -> usize {
@@ -193,6 +199,10 @@ impl File for Stdout {
 
     fn read(&self, offset: Option<&mut usize>, buf: &mut [u8]) -> usize {
         todo!()
+    }
+
+    fn read_all(&self) -> Vec<u8> {
+        Vec::new()
     }
 
     fn write(&self, offset: Option<&mut usize>, buf: &[u8]) -> usize {

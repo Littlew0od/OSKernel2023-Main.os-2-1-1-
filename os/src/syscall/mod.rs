@@ -51,14 +51,14 @@ use log::{debug, error, info, trace, warn};
 
 pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
     let ret = match syscall_id {
-        SYSCALL_DUP => sys_dup(args[0]),
+        // SYSCALL_DUP => sys_dup(args[0]),
         // SYSCALL_OPEN => sys_openat(
         //     AT_FDCWD, 
         //     args[0] as *const u8, 
         //     args[1] as u32,
         //     0o777u32
         // ),
-        SYSCALL_CLOSE => sys_close(args[0]),
+        // SYSCALL_CLOSE => sys_close(args[0]),
         // SYSCALL_PIPE => sys_pipe2(args[0], args[1] as u32),
         // SYSCALL_READ => sys_read(args[0], args[1] as *const u8, args[2]),
         // SYSCALL_WRITE => sys_write(args[0], args[1] as *const u8, args[2]),

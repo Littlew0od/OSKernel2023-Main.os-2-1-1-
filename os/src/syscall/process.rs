@@ -60,6 +60,7 @@ pub fn sys_getppid() -> isize {
         .unwrap()
         .inner_exclusive_access()
         .parent
+        .as_ref()
         .unwrap()
         .upgrade()
         .unwrap()
@@ -100,50 +101,18 @@ pub fn sys_exec(path: *const u8, mut args: *const usize) -> isize {
             args = args.add(1);
         }
     }
-    let proscee = current_process();
-    let working_inode = proscee.inner_exclusive_access().work_path.working_inode;
+    let process = current_process();
+    let working_inode = process.inner_exclusive_access().work_path.working_inode.clone();
     match working_inode.open(&path, OpenFlags::O_RDONLY, false) {
         Ok(file) => {
-            // if file.get_size() < 4 {
-            //     return ENOEXEC;
-            // }
-            // let mut magic_number = Box::<[u8; 4]>::new([0; 4]);
-            // this operation may be expensive... I'm not sure
-            file.read(Some(&mut 0usize), magic_number.as_mut_slice());
-            let elf = match magic_number.as_slice() {
-                b"\x7fELF" => file,
-                b"#!" => {
-                    let shell_file = working_inode
-                        .open(DEFAULT_SHELL, OpenFlags::O_RDONLY, false)
-                        .unwrap();
-                    argv_vec.insert(0, DEFAULT_SHELL.to_string());
-                    shell_file
-                }
-                _ => return ENOEXEC,
-            };
-
-            let task = current_task().unwrap();
-            show_frame_consumption! {
-                "load_elf";
-                if let Err(errno) = task.load_elf(elf, &argv_vec, &envp_vec) {
-                    return errno;
-                };
-            }
-            // should return 0 in success
-            SUCCESS
+            let all_data = file.read_all();
+            let argc = args_vec.len();
+            process.exec(all_data.as_slice(), args_vec);
+            // return argc because cx.x[10] will be covered with it later
+            argc as isize
         }
         Err(errno) => -1,
     }
-    // if let Some(app_inode) = open_file(path.as_str(), OpenFlags::RDONLY) {
-    //     let all_data = app_inode.read_all();
-    //     let process = current_process();
-    //     let argc = args_vec.len();
-    //     process.exec(all_data.as_slice(), args_vec);
-    //     // return argc because cx.x[10] will be covered with it later
-    //     argc as isize
-    // } else {
-    //     -1
-    // }
 }
 
 ///fake

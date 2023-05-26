@@ -9,7 +9,7 @@ mod switch;
 mod task;
 
 use self::id::TaskUserRes;
-use crate::fs::{open_file, OpenFlags};
+use crate::fs::{OpenFlags, ROOT_FD};// open_file,
 use crate::sbi::shutdown;
 use crate::timer::remove_timer;
 use alloc::{sync::Arc, vec::Vec};
@@ -142,8 +142,8 @@ pub fn exit_current_and_run_next(exit_code: i32) {
 
 lazy_static! {
     pub static ref INITPROC: Arc<ProcessControlBlock> = {
-        let inode = open_file("initproc", OpenFlags::O_RDONLY).unwrap();
-        let v = inode.read_all();
+        let initproc_fd = ROOT_FD.open("initproc", OpenFlags::O_RDONLY, true).unwrap();
+        let v = initproc_fd.read_all();
         ProcessControlBlock::new(v.as_slice())
     };
 }

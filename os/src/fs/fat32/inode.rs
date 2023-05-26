@@ -104,13 +104,13 @@ impl File for OSInode {
         let mut buffer = [0u8; 512];
         let mut buffer = buffer.as_mut_slice();
         let mut v: Vec<u8> = Vec::new();
-        let mut offset = &0;
+        let mut offset = 0;
         loop {
-            let len = self.inner.read_at_block_cache(*offset, buffer);
+            let len = self.inner.read_at_block_cache(offset.clone(), buffer);
             if len == 0 {
                 break;
             }
-            *offset += len;
+            offset += len;
             v.extend_from_slice(&buffer[..len]);
         }
         v

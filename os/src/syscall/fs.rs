@@ -21,20 +21,20 @@ pub const AT_FDCWD: usize = 100usize.wrapping_neg();
 
 /// # Warning
 /// `fs` & `files` is locked in this function
-fn __openat(dirfd: usize, path: &str) -> Result<FileDescriptor, isize> {
-    let task = current_task().unwrap();
-    let file_descriptor = match dirfd {
-        AT_FDCWD => task.fs.lock().working_inode.as_ref().clone(),
-        fd => {
-            let fd_table = task.files.lock();
-            match fd_table.get_ref(fd) {
-                Ok(file_descriptor) => file_descriptor.clone(),
-                Err(errno) => return Err(errno),
-            }
-        }
-    };
-    file_descriptor.open(path, OpenFlags::O_RDONLY, false)
-}
+// fn __openat(dirfd: usize, path: &str) -> Result<FileDescriptor, isize> {
+//     let task = current_task().unwrap();
+//     let file_descriptor = match dirfd {
+//         AT_FDCWD => task.fs.lock().working_inode.as_ref().clone(),
+//         fd => {
+//             let fd_table = task.files.lock();
+//             match fd_table.get_ref(fd) {
+//                 Ok(file_descriptor) => file_descriptor.clone(),
+//                 Err(errno) => return Err(errno),
+//             }
+//         }
+//     };
+//     file_descriptor.open(path, OpenFlags::O_RDONLY, false)
+// }
 
 // pub fn sys_getcwd(buf: usize, size: usize) -> isize {
 //     let task = current_task().unwrap();
@@ -67,77 +67,77 @@ fn __openat(dirfd: usize, path: &str) -> Result<FileDescriptor, isize> {
 //     buf as isize
 // }
 
-pub fn sys_lseek(fd: usize, offset: isize, whence: u32) -> isize {
-    // whence is not valid
-    let whence = match SeekWhence::from_bits(whence) {
-        Some(whence) => whence,
-        None => {
-            warn!("[sys_lseek] unknown flags");
-            return EINVAL;
-        }
-    };
-    info!(
-        "[sys_lseek] fd: {}, offset: {}, whence: {:?}",
-        fd, offset, whence,
-    );
-    let task = current_task().unwrap();
-    let fd_table = task.files.lock();
-    let file_descriptor = match fd_table.get_ref(fd) {
-        Ok(file_descriptor) => file_descriptor,
-        Err(errno) => return errno,
-    };
-    match file_descriptor.lseek(offset, whence) {
-        Ok(pos) => pos as isize,
-        Err(errno) => errno,
-    }
-}
+// pub fn sys_lseek(fd: usize, offset: isize, whence: u32) -> isize {
+//     // whence is not valid
+//     let whence = match SeekWhence::from_bits(whence) {
+//         Some(whence) => whence,
+//         None => {
+//             warn!("[sys_lseek] unknown flags");
+//             return EINVAL;
+//         }
+//     };
+//     info!(
+//         "[sys_lseek] fd: {}, offset: {}, whence: {:?}",
+//         fd, offset, whence,
+//     );
+//     let task = current_task().unwrap();
+//     let fd_table = task.files.lock();
+//     let file_descriptor = match fd_table.get_ref(fd) {
+//         Ok(file_descriptor) => file_descriptor,
+//         Err(errno) => return errno,
+//     };
+//     match file_descriptor.lseek(offset, whence) {
+//         Ok(pos) => pos as isize,
+//         Err(errno) => errno,
+//     }
+// }
 
-pub fn sys_read(fd: usize, buf: usize, count: usize) -> isize {
-    let task = current_task().unwrap();
-    let fd_table = task.files.lock();
-    let file_descriptor = match fd_table.get_ref(fd) {
-        Ok(file_descriptor) => file_descriptor,
-        Err(errno) => return errno,
-    };
-    // fd is not open for reading
-    if !file_descriptor.readable() {
-        return EBADF;
-    }
-    let token = task.get_user_token();
-    file_descriptor.read_user(
-        None,
-        UserBuffer::new({
-            // Error!
-            match Ok(translated_byte_buffer(token, buf as *const u8, count)) {
-                Ok(buffer) => buffer,
-                Err(errno) => return errno,
-            }
-        }),
-    ) as isize
-}
+// pub fn sys_read(fd: usize, buf: usize, count: usize) -> isize {
+//     let task = current_task().unwrap();
+//     let fd_table = task.files.lock();
+//     let file_descriptor = match fd_table.get_ref(fd) {
+//         Ok(file_descriptor) => file_descriptor,
+//         Err(errno) => return errno,
+//     };
+//     // fd is not open for reading
+//     if !file_descriptor.readable() {
+//         return EBADF;
+//     }
+//     let token = task.get_user_token();
+//     file_descriptor.read_user(
+//         None,
+//         UserBuffer::new({
+//             // Error!
+//             match Ok(translated_byte_buffer(token, buf as *const u8, count)) {
+//                 Ok(buffer) => buffer,
+//                 Err(errno) => return errno,
+//             }
+//         }),
+//     ) as isize
+// }
 
-pub fn sys_write(fd: usize, buf: usize, count: usize) -> isize {
-    let task = current_task().unwrap();
-    let fd_table = task.files.lock();
-    let file_descriptor = match fd_table.get_ref(fd) {
-        Ok(file_descriptor) => file_descriptor,
-        Err(errno) => return errno,
-    };
-    if !file_descriptor.writable() {
-        return EBADF;
-    }
-    let token = task.get_user_token();
-    file_descriptor.write_user(
-        None,
-        UserBuffer::new({
-            // Error
-            match Ok(translated_byte_buffer(token, buf as *const u8, count)) {
-                Ok(buffer) => buffer,
-                Err(errno) => return errno,
-            }
-        }),
-    ) as isize
-}
+// pub fn sys_write(fd: usize, buf: usize, count: usize) -> isize {
+//     let task = current_task().unwrap();
+//     let fd_table = task.files.lock();
+//     let file_descriptor = match fd_table.get_ref(fd) {
+//         Ok(file_descriptor) => file_descriptor,
+//         Err(errno) => return errno,
+//     };
+//     if !file_descriptor.writable() {
+//         return EBADF;
+//     }
+//     let token = task.get_user_token();
+//     file_descriptor.write_user(
+//         None,
+//         UserBuffer::new({
+//             // Error
+//             match Ok(translated_byte_buffer(token, buf as *const u8, count)) {
+//                 Ok(buffer) => buffer,
+//                 Err(errno) => return errno,
+//             }
+//         }),
+//     ) as isize
+// }
 
 // pub fn sys_pread(fd: usize, buf: usize, count: usize, offset: usize) -> isize {
 //     let task = current_task().unwrap();
@@ -327,15 +327,15 @@ struct IOVec {
 //     write_size as isize
 // }
 
-pub fn sys_close(fd: usize) -> isize {
-    info!("[sys_close] fd: {}", fd);
-    let task = current_task().unwrap();
-    let mut fd_table = task.files.lock();
-    match fd_table.remove(fd) {
-        Ok(_) => SUCCESS,
-        Err(errno) => errno,
-    }
-}
+// pub fn sys_close(fd: usize) -> isize {
+//     info!("[sys_close] fd: {}", fd);
+//     let task = current_task().unwrap();
+//     let mut fd_table = task.files.lock();
+//     match fd_table.remove(fd) {
+//         Ok(_) => SUCCESS,
+//         Err(errno) => errno,
+//     }
+// }
 
 /// # Warning
 /// Only O_CLOEXEC is supported now
@@ -425,58 +425,58 @@ pub fn sys_close(fd: usize) -> isize {
 //     (dirent_vec.len() * size_of::<Dirent>()) as isize
 // }
 
-pub fn sys_dup(oldfd: usize) -> isize {
-    let task = current_task().unwrap();
-    let mut fd_table = task.files.lock();
-    let old_file_descriptor = match fd_table.get_ref(oldfd) {
-        Ok(file_descriptor) => file_descriptor.clone(),
-        Err(errno) => return errno,
-    };
-    let newfd = match fd_table.insert(old_file_descriptor) {
-        Ok(fd) => fd,
-        Err(errno) => return errno,
-    };
-    info!("[sys_dup] oldfd: {}, newfd: {}", oldfd, newfd);
-    newfd as isize
-}
+// pub fn sys_dup(oldfd: usize) -> isize {
+//     let task = current_task().unwrap();
+//     let mut fd_table = task.files.lock();
+//     let old_file_descriptor = match fd_table.get_ref(oldfd) {
+//         Ok(file_descriptor) => file_descriptor.clone(),
+//         Err(errno) => return errno,
+//     };
+//     let newfd = match fd_table.insert(old_file_descriptor) {
+//         Ok(fd) => fd,
+//         Err(errno) => return errno,
+//     };
+//     info!("[sys_dup] oldfd: {}, newfd: {}", oldfd, newfd);
+//     newfd as isize
+// }
 
-pub fn sys_dup3(oldfd: usize, newfd: usize, flags: u32) -> isize {
-    info!(
-        "[sys_dup3] oldfd: {}, newfd: {}, flags: {:?}",
-        oldfd,
-        newfd,
-        OpenFlags::from_bits(flags)
-    );
-    if oldfd == newfd {
-        return EINVAL;
-    }
-    let is_cloexec = match OpenFlags::from_bits(flags) {
-        Some(OpenFlags::O_CLOEXEC) => true,
-        // `O_RDONLY == 0`, so it means *NO* cloexec in fact
-        Some(OpenFlags::O_RDONLY) => false,
-        // flags contain an invalid value
-        Some(flags) => {
-            warn!("[sys_dup3] invalid flags: {:?}", flags);
-            return EINVAL;
-        }
-        None => {
-            warn!("[sys_dup3] unknown flags");
-            return EINVAL;
-        }
-    };
-    let task = current_task().unwrap();
-    let mut fd_table = task.files.lock();
+// pub fn sys_dup3(oldfd: usize, newfd: usize, flags: u32) -> isize {
+//     info!(
+//         "[sys_dup3] oldfd: {}, newfd: {}, flags: {:?}",
+//         oldfd,
+//         newfd,
+//         OpenFlags::from_bits(flags)
+//     );
+//     if oldfd == newfd {
+//         return EINVAL;
+//     }
+//     let is_cloexec = match OpenFlags::from_bits(flags) {
+//         Some(OpenFlags::O_CLOEXEC) => true,
+//         // `O_RDONLY == 0`, so it means *NO* cloexec in fact
+//         Some(OpenFlags::O_RDONLY) => false,
+//         // flags contain an invalid value
+//         Some(flags) => {
+//             warn!("[sys_dup3] invalid flags: {:?}", flags);
+//             return EINVAL;
+//         }
+//         None => {
+//             warn!("[sys_dup3] unknown flags");
+//             return EINVAL;
+//         }
+//     };
+//     let task = current_task().unwrap();
+//     let mut fd_table = task.files.lock();
 
-    let mut file_descriptor = match fd_table.get_ref(oldfd) {
-        Ok(file_descriptor) => file_descriptor.clone(),
-        Err(errno) => return errno,
-    };
-    file_descriptor.set_cloexec(is_cloexec);
-    match fd_table.insert_at(file_descriptor, newfd) {
-        Ok(fd) => fd as isize,
-        Err(errno) => errno,
-    }
-}
+//     let mut file_descriptor = match fd_table.get_ref(oldfd) {
+//         Ok(file_descriptor) => file_descriptor.clone(),
+//         Err(errno) => return errno,
+//     };
+//     file_descriptor.set_cloexec(is_cloexec);
+//     match fd_table.insert_at(file_descriptor, newfd) {
+//         Ok(fd) => fd as isize,
+//         Err(errno) => errno,
+//     }
+// }
 
 // This syscall is not complete at all, only /read proc/self/exe
 // pub fn sys_readlinkat(dirfd: usize, pathname: *const u8, buf: *mut u8, bufsiz: usize) -> isize {
@@ -631,16 +631,16 @@ pub struct Statfs {
 //     SUCCESS
 // }
 
-pub fn sys_fsync(fd: usize) -> isize {
-    let task = current_task().unwrap();
+// pub fn sys_fsync(fd: usize) -> isize {
+//     let task = current_task().unwrap();
 
-    info!("[sys_fsync] fd: {}", fd);
-    let fd_table = task.files.lock();
-    if let Err(errno) = fd_table.check(fd) {
-        return errno;
-    }
-    SUCCESS
-}
+//     info!("[sys_fsync] fd: {}", fd);
+//     let fd_table = task.files.lock();
+//     if let Err(errno) = fd_table.check(fd) {
+//         return errno;
+//     }
+//     SUCCESS
+// }
 
 // pub fn sys_chdir(path: *const u8) -> isize {
 //     let task = current_task().unwrap();
@@ -759,15 +759,15 @@ pub fn sys_fsync(fd: usize) -> isize {
 //     }
 // }
 
-pub fn sys_ioctl(fd: usize, cmd: u32, arg: usize) -> isize {
-    let task = current_task().unwrap();
-    let fd_table = task.files.lock();
-    let file_descriptor = match fd_table.get_ref(fd) {
-        Ok(file_descriptor) => file_descriptor,
-        Err(errno) => return errno,
-    };
-    file_descriptor.ioctl(cmd, arg)
-}
+// pub fn sys_ioctl(fd: usize, cmd: u32, arg: usize) -> isize {
+//     let task = current_task().unwrap();
+//     let fd_table = task.files.lock();
+//     let file_descriptor = match fd_table.get_ref(fd) {
+//         Ok(file_descriptor) => file_descriptor,
+//         Err(errno) => return errno,
+//     };
+//     file_descriptor.ioctl(cmd, arg)
+// }
 
 // pub fn sys_ppoll(fds: usize, nfds: usize, tmo_p: usize, sigmask: usize) -> isize {
 //     ppoll(
@@ -1047,77 +1047,77 @@ pub enum Fcntl_Command {
     ILLEAGAL,
 }
 
-pub fn sys_fcntl(fd: usize, cmd: u32, arg: usize) -> isize {
-    const FD_CLOEXEC: usize = 1;
+// pub fn sys_fcntl(fd: usize, cmd: u32, arg: usize) -> isize {
+//     const FD_CLOEXEC: usize = 1;
 
-    let task = current_task().unwrap();
-    let mut fd_table = task.files.lock();
+//     let task = current_task().unwrap();
+//     let mut fd_table = task.files.lock();
 
-    info!(
-        "[sys_fcntl] fd: {}, cmd: {:?}, arg: {:X}",
-        fd,
-        Fcntl_Command::from_primitive(cmd),
-        arg
-    );
+//     info!(
+//         "[sys_fcntl] fd: {}, cmd: {:?}, arg: {:X}",
+//         fd,
+//         Fcntl_Command::from_primitive(cmd),
+//         arg
+//     );
 
-    match Fcntl_Command::from_primitive(cmd) {
-        Fcntl_Command::DUPFD => {
-            let new_file_descriptor = match fd_table.get_ref(fd) {
-                Ok(file_descriptor) => file_descriptor.clone(),
-                Err(errno) => return errno,
-            };
-            match fd_table.try_insert_at(new_file_descriptor, arg) {
-                Ok(fd) => fd as isize,
-                Err(errno) => errno,
-            }
-        }
-        Fcntl_Command::DUPFD_CLOEXEC => {
-            let mut new_file_descriptor = match fd_table.get_ref(fd) {
-                Ok(file_descriptor) => file_descriptor.clone(),
-                Err(errno) => return errno,
-            };
-            new_file_descriptor.set_cloexec(true);
-            match fd_table.try_insert_at(new_file_descriptor, arg) {
-                Ok(fd) => fd as isize,
-                Err(errno) => errno,
-            }
-        }
-        Fcntl_Command::GETFD => {
-            let file_descriptor = match fd_table.get_ref(fd) {
-                Ok(file_descriptor) => file_descriptor,
-                Err(errno) => return errno,
-            };
-            file_descriptor.get_cloexec() as isize
-        }
-        Fcntl_Command::SETFD => {
-            let file_descriptor = match fd_table.get_refmut(fd) {
-                Ok(file_descriptor) => file_descriptor,
-                Err(errno) => return errno,
-            };
-            file_descriptor.set_cloexec((arg & FD_CLOEXEC) != 0);
-            if (arg & !FD_CLOEXEC) != 0 {
-                warn!("[fcntl] Unsupported flag exists: {:X}", arg);
-            }
-            SUCCESS
-        }
-        Fcntl_Command::GETFL => {
-            let file_descriptor = match fd_table.get_ref(fd) {
-                Ok(file_descriptor) => file_descriptor,
-                Err(errno) => return errno,
-            };
-            // Access control is not fully implemented
-            let mut res = OpenFlags::O_RDWR.bits() as isize;
-            if file_descriptor.get_nonblock() {
-                res |= OpenFlags::O_NONBLOCK.bits() as isize;
-            }
-            res
-        }
-        command => {
-            warn!("[fcntl] Unsupported command: {:?}", command);
-            SUCCESS
-        } // WARNING!!!
-    }
-}
+//     match Fcntl_Command::from_primitive(cmd) {
+//         Fcntl_Command::DUPFD => {
+//             let new_file_descriptor = match fd_table.get_ref(fd) {
+//                 Ok(file_descriptor) => file_descriptor.clone(),
+//                 Err(errno) => return errno,
+//             };
+//             match fd_table.try_insert_at(new_file_descriptor, arg) {
+//                 Ok(fd) => fd as isize,
+//                 Err(errno) => errno,
+//             }
+//         }
+//         Fcntl_Command::DUPFD_CLOEXEC => {
+//             let mut new_file_descriptor = match fd_table.get_ref(fd) {
+//                 Ok(file_descriptor) => file_descriptor.clone(),
+//                 Err(errno) => return errno,
+//             };
+//             new_file_descriptor.set_cloexec(true);
+//             match fd_table.try_insert_at(new_file_descriptor, arg) {
+//                 Ok(fd) => fd as isize,
+//                 Err(errno) => errno,
+//             }
+//         }
+//         Fcntl_Command::GETFD => {
+//             let file_descriptor = match fd_table.get_ref(fd) {
+//                 Ok(file_descriptor) => file_descriptor,
+//                 Err(errno) => return errno,
+//             };
+//             file_descriptor.get_cloexec() as isize
+//         }
+//         Fcntl_Command::SETFD => {
+//             let file_descriptor = match fd_table.get_refmut(fd) {
+//                 Ok(file_descriptor) => file_descriptor,
+//                 Err(errno) => return errno,
+//             };
+//             file_descriptor.set_cloexec((arg & FD_CLOEXEC) != 0);
+//             if (arg & !FD_CLOEXEC) != 0 {
+//                 warn!("[fcntl] Unsupported flag exists: {:X}", arg);
+//             }
+//             SUCCESS
+//         }
+//         Fcntl_Command::GETFL => {
+//             let file_descriptor = match fd_table.get_ref(fd) {
+//                 Ok(file_descriptor) => file_descriptor,
+//                 Err(errno) => return errno,
+//             };
+//             // Access control is not fully implemented
+//             let mut res = OpenFlags::O_RDWR.bits() as isize;
+//             if file_descriptor.get_nonblock() {
+//                 res |= OpenFlags::O_NONBLOCK.bits() as isize;
+//             }
+//             res
+//         }
+//         command => {
+//             warn!("[fcntl] Unsupported command: {:?}", command);
+//             SUCCESS
+//         } // WARNING!!!
+//     }
+// }
 
 // pub fn sys_pselect(
 //     nfds: usize,
@@ -1196,39 +1196,39 @@ bitflags! {
     }
 }
 
-pub fn sys_faccessat2(dirfd: usize, pathname: *const u8, mode: u32, flags: u32) -> isize {
-    let token = current_user_token();
-    let pathname = match Ok(translated_str(token, pathname)) {
-        Ok(path) => path,
-        Err(errno) => return errno,
-    };
-    let mode = match FaccessatMode::from_bits(mode) {
-        Some(mode) => mode,
-        None => {
-            warn!("[sys_faccessat2] unknown mode");
-            return EINVAL;
-        }
-    };
-    let flags = match FaccessatFlags::from_bits(flags) {
-        Some(flags) => flags,
-        None => {
-            warn!("[sys_faccessat2] unknown flags");
-            return EINVAL;
-        }
-    };
+// pub fn sys_faccessat2(dirfd: usize, pathname: *const u8, mode: u32, flags: u32) -> isize {
+//     let token = current_user_token();
+//     let pathname = match Ok(translated_str(token, pathname)) {
+//         Ok(path) => path,
+//         Err(errno) => return errno,
+//     };
+//     let mode = match FaccessatMode::from_bits(mode) {
+//         Some(mode) => mode,
+//         None => {
+//             warn!("[sys_faccessat2] unknown mode");
+//             return EINVAL;
+//         }
+//     };
+//     let flags = match FaccessatFlags::from_bits(flags) {
+//         Some(flags) => flags,
+//         None => {
+//             warn!("[sys_faccessat2] unknown flags");
+//             return EINVAL;
+//         }
+//     };
 
-    info!(
-        "[sys_faccessat2] dirfd: {}, pathname: {}, mode: {:?}, flags: {:?}",
-        dirfd as isize, pathname, mode, flags
-    );
+//     info!(
+//         "[sys_faccessat2] dirfd: {}, pathname: {}, mode: {:?}, flags: {:?}",
+//         dirfd as isize, pathname, mode, flags
+//     );
 
-    // Do not check user's authority, because user group is not implemented yet.
-    // All existing files can be accessed.
-    match __openat(dirfd, pathname.as_str()) {
-        Ok(_) => SUCCESS,
-        Err(errno) => errno,
-    }
-}
+//     // Do not check user's authority, because user group is not implemented yet.
+//     // All existing files can be accessed.
+//     match __openat(dirfd, pathname.as_str()) {
+//         Ok(_) => SUCCESS,
+//         Err(errno) => errno,
+//     }
+// }
 
 bitflags! {
     pub struct MsyncFlags: u32 {
@@ -1261,15 +1261,15 @@ bitflags! {
 //     SUCCESS
 // }
 
-pub fn sys_ftruncate(fd: usize, length: isize) -> isize {
-    let task = current_task().unwrap();
-    let fd_table = task.files.lock();
-    let file_descriptor = match fd_table.get_ref(fd) {
-        Ok(file_descriptor) => file_descriptor,
-        Err(errno) => return errno,
-    };
-    match file_descriptor.truncate_size(length) {
-        Ok(()) => SUCCESS,
-        Err(errno) => errno,
-    }
-}
+// pub fn sys_ftruncate(fd: usize, length: isize) -> isize {
+//     let task = current_task().unwrap();
+//     let fd_table = task.files.lock();
+//     let file_descriptor = match fd_table.get_ref(fd) {
+//         Ok(file_descriptor) => file_descriptor,
+//         Err(errno) => return errno,
+//     };
+//     match file_descriptor.truncate_size(length) {
+//         Ok(()) => SUCCESS,
+//         Err(errno) => errno,
+//     }
+// }
