@@ -106,7 +106,7 @@ impl File for OSInode {
         let mut v: Vec<u8> = Vec::new();
         let mut offset = 0;
         loop {
-            let len = self.inner.read_at_block_cache(offset.clone(), buffer);
+            let len = self.inner.read_at_block_cache(offset, buffer);
             if len == 0 {
                 break;
             }

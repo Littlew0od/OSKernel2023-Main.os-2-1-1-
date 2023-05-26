@@ -142,7 +142,7 @@ pub fn exit_current_and_run_next(exit_code: i32) {
 
 lazy_static! {
     pub static ref INITPROC: Arc<ProcessControlBlock> = {
-        let initproc_fd = ROOT_FD.open("initproc", OpenFlags::O_RDONLY, true).unwrap();
+        let initproc_fd = ROOT_FD.open("/initproc", OpenFlags::O_RDONLY, true).unwrap();
         let v = initproc_fd.read_all();
         ProcessControlBlock::new(v.as_slice())
     };

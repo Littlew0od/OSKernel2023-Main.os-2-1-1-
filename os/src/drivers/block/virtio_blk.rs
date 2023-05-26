@@ -1,4 +1,4 @@
-use super::BlockDevice;
+use super::{BlockDevice, BLOCK_SZ};
 use crate::mm::{
     frame_alloc, frame_dealloc, kernel_token, FrameTracker, PageTable, PhysAddr, PhysPageNum,
     StepByOne, VirtAddr,
@@ -18,17 +18,23 @@ lazy_static! {
 }
 
 impl BlockDevice for VirtIOBlock {
-    fn read_block(&self, block_id: usize, buf: &mut [u8]) {
-        self.0
-            .exclusive_access()
-            .read_block(block_id, buf)
-            .expect("Error when reading VirtIOBlk");
+    fn read_block(&self, mut block_id: usize, buf: &mut [u8]) {
+        for buf in buf.chunks_mut(BLOCK_SZ) {
+            self.0
+                .exclusive_access()
+                .read_block(block_id, buf)
+                .expect("Error when reading VirtIOBlk");
+            block_id += 1;
+        }
     }
-    fn write_block(&self, block_id: usize, buf: &[u8]) {
-        self.0
-            .exclusive_access()
-            .write_block(block_id, buf)
-            .expect("Error when writing VirtIOBlk");
+    fn write_block(&self, mut block_id: usize, buf: &[u8]) {
+        for buf in buf.chunks(BLOCK_SZ) {
+            self.0
+                .exclusive_access()
+                .write_block(block_id, buf)
+                .expect("Error when writing VirtIOBlk");
+            block_id += 1;
+        }
     }
 }
 

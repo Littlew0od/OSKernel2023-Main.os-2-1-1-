@@ -1,12 +1,14 @@
 #![no_std]
 #![no_main]
 
+#[macro_use]
 extern crate user_lib;
 
 use user_lib::{exec, fork, wait, yield_};
 
 #[no_mangle]
 fn main() -> i32 {
+    println!("[initproc] starting");
     if fork() == 0 {
         exec("user_shell\0", &[core::ptr::null::<u8>()]);
     } else {

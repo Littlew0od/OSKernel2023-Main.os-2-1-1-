@@ -34,8 +34,10 @@ TEST ?=
 
 build: env $(KERNEL_BIN) # fat32 # fs-img 
 
-fat32:
-	./buildfs.sh "$(U_FAT32_DIR)/fat32.img"
+fat32: $(APPS)
+	@cd ../user && make build TEST=$(TEST)
+	@cd ../os
+	@./buildfs.sh "$(U_FAT32_DIR)/fat32.img"
 
 env:
 	(rustup target list | grep "riscv64gc-unknown-none-elf (installed)") || rustup target add $(TARGET)

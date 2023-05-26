@@ -278,6 +278,7 @@ impl PageCache {
                 con_length * BUFFER_SIZE,
             )
         };
+        //problem
         block_device.read_block(start_block_id, buf);
         self.page_ptr[block_ids.len() * BUFFER_SIZE..].fill(0);
         // KERNEL_SPACE

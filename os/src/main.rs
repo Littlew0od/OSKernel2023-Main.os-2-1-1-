@@ -49,11 +49,17 @@ pub fn rust_main() -> ! {
     mm::init();
     mm::remap_test();
     trap::init();
+    println!("[kernel] Finish trap init! ");
     trap::enable_timer_interrupt();
+    println!("[kernel] Finish enable timer interrupt! ");
     timer::set_next_trigger();
-    // fs::list_apps();
+    println!("[kernel] Finish set trigger! ");
     fs::directory_tree::init_fs();
+    println!("[kernel] Finish init fs! ");
+    // fs::list_apps();
     task::add_initproc();
+    println!("[kernel] Finish add initproc! ");
     task::run_tasks();
+    println!("[kernel] Finish run tasks? ");
     panic!("Unreachable in rust_main!");
 }
