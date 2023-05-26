@@ -4,6 +4,7 @@ use super::TaskControlBlock;
 use super::{add_task, SignalFlags};
 use super::{pid_alloc, PidHandle};
 use crate::fs::{File, Stdin, Stdout};
+use crate::fs::{FdTable, FileDescriptor, OpenFlags, ROOT_FD};
 use crate::mm::{translated_refmut, MemorySet, KERNEL_SPACE};
 use crate::sync::{Condvar, Mutex, Semaphore, UPSafeCell};
 use crate::trap::{trap_handler, TrapContext};
@@ -20,6 +21,11 @@ pub struct ProcessControlBlock {
     inner: UPSafeCell<ProcessControlBlockInner>,
 }
 
+#[derive(Clone)]
+pub struct FsStatus {
+    pub working_inode: Arc<FileDescriptor>,
+}
+
 pub struct ProcessControlBlockInner {
     pub is_zombie: bool,
     pub memory_set: MemorySet,
@@ -27,6 +33,7 @@ pub struct ProcessControlBlockInner {
     pub children: Vec<Arc<ProcessControlBlock>>,
     pub exit_code: i32,
     pub fd_table: Vec<Option<Arc<dyn File + Send + Sync>>>,
+    pub work_path: Arc<FsStatus>,
     pub signals: SignalFlags,
     pub tasks: Vec<Option<Arc<TaskControlBlock>>>,
     pub task_res_allocator: RecycleAllocator,
@@ -94,6 +101,13 @@ impl ProcessControlBlock {
                         // 2 -> stderr
                         Some(Arc::new(Stdout)),
                     ],
+                    work_path: Arc::new(FsStatus {
+                        working_inode: Arc::new(
+                            ROOT_FD
+                                .open(".", OpenFlags::O_RDONLY | OpenFlags::O_DIRECTORY, true)
+                                .unwrap(),
+                        ),
+                    }),
                     signals: SignalFlags::empty(),
                     tasks: Vec::new(),
                     task_res_allocator: RecycleAllocator::new(),
@@ -213,6 +227,13 @@ impl ProcessControlBlock {
                     children: Vec::new(),
                     exit_code: 0,
                     fd_table: new_fd_table,
+                    work_path: Arc::new(FsStatus {
+                        working_inode: Arc::new(
+                            ROOT_FD
+                                .open(".", OpenFlags::O_RDONLY | OpenFlags::O_DIRECTORY, true)
+                                .unwrap(),
+                        ),
+                    }),
                     signals: SignalFlags::empty(),
                     tasks: Vec::new(),
                     task_res_allocator: RecycleAllocator::new(),

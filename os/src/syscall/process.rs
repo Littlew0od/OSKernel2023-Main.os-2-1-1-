@@ -1,10 +1,11 @@
-use crate::fs::{open_file, OpenFlags};
+use crate::fs::{OpenFlags};//open_file
+use crate::fs::FileDescriptor;
 use crate::mm::{translated_ref, translated_refmut, translated_str};
 use crate::task::{
     current_process, current_task, current_user_token, exit_current_and_run_next, pid2process,
     suspend_current_and_run_next, SignalFlags,
 };
-use crate::timer::get_time_ms;
+use crate::timer::{get_time_ms, get_time_us, get_time};
 use crate::sbi::shutdown;
 use alloc::string::String;
 use alloc::sync::Arc;
@@ -40,9 +41,9 @@ pub fn sys_get_process_time(times: *mut u64) -> isize{
 
 pub fn sys_get_time(time_return: *mut u64) -> isize {
     let token = current_user_token();
-    if time_remain as usize != 0 {
-        *translated_refmut(token, time_remain) = get_time();
-        *translated_refmut(token, unsafe { time_remain.add(1) }) = 0;
+    if time_return as usize != 0 {
+        *translated_refmut(token, time_return) = get_time() as u64;
+        *translated_refmut(token, unsafe { time_return.add(1) }) = 0;
     }
     0
 }
@@ -99,16 +100,50 @@ pub fn sys_exec(path: *const u8, mut args: *const usize) -> isize {
             args = args.add(1);
         }
     }
-    if let Some(app_inode) = open_file(path.as_str(), OpenFlags::RDONLY) {
-        let all_data = app_inode.read_all();
-        let process = current_process();
-        let argc = args_vec.len();
-        process.exec(all_data.as_slice(), args_vec);
-        // return argc because cx.x[10] will be covered with it later
-        argc as isize
-    } else {
-        -1
+    let proscee = current_process();
+    let working_inode = proscee.inner_exclusive_access().work_path.working_inode;
+    match working_inode.open(&path, OpenFlags::O_RDONLY, false) {
+        Ok(file) => {
+            // if file.get_size() < 4 {
+            //     return ENOEXEC;
+            // }
+            // let mut magic_number = Box::<[u8; 4]>::new([0; 4]);
+            // this operation may be expensive... I'm not sure
+            file.read(Some(&mut 0usize), magic_number.as_mut_slice());
+            let elf = match magic_number.as_slice() {
+                b"\x7fELF" => file,
+                b"#!" => {
+                    let shell_file = working_inode
+                        .open(DEFAULT_SHELL, OpenFlags::O_RDONLY, false)
+                        .unwrap();
+                    argv_vec.insert(0, DEFAULT_SHELL.to_string());
+                    shell_file
+                }
+                _ => return ENOEXEC,
+            };
+
+            let task = current_task().unwrap();
+            show_frame_consumption! {
+                "load_elf";
+                if let Err(errno) = task.load_elf(elf, &argv_vec, &envp_vec) {
+                    return errno;
+                };
+            }
+            // should return 0 in success
+            SUCCESS
+        }
+        Err(errno) => -1,
     }
+    // if let Some(app_inode) = open_file(path.as_str(), OpenFlags::RDONLY) {
+    //     let all_data = app_inode.read_all();
+    //     let process = current_process();
+    //     let argc = args_vec.len();
+    //     process.exec(all_data.as_slice(), args_vec);
+    //     // return argc because cx.x[10] will be covered with it later
+    //     argc as isize
+    // } else {
+    //     -1
+    // }
 }
 
 ///fake

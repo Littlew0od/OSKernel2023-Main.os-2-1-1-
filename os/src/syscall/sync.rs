@@ -1,6 +1,6 @@
 use crate::sync::{Condvar, Mutex, MutexBlocking, MutexSpin, Semaphore};
 use crate::task::{suspend_current_and_run_next, current_process, current_task, current_user_token};
-use crate::timer::{get_time, add_timer, get_time_ms};
+use crate::timer::{get_time, get_time_ms, NSEC_PER_SEC};
 use crate::mm::{translated_ref, translated_refmut};
 use crate::config::CLOCK_FREQ;
 use alloc::sync::Arc;

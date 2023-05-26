@@ -31,6 +31,6 @@ do
     sudo cp -r ../user/target/riscv64gc-unknown-none-elf/release/${programname%.rs} ${U_FAT32_DIR}/fs/${programname%.rs}
 done
 
-sudo cp -r ../bash-5.1.16/bash ${U_FAT32_DIR}/fs/bin/
+sudo cp -r ../riscv-syscalls-testing ${U_FAT32_DIR}/fs/bin/
 
 sudo umount ${U_FAT32_DIR}/fs

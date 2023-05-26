@@ -1,10 +1,11 @@
 mod virtio_blk;
+mod block_dev;
 
 pub use virtio_blk::VirtIOBlock;
+pub use block_dev::{BlockDevice, BLOCK_SZ};
 
 use crate::board::BlockDeviceImpl;
 use alloc::sync::Arc;
-use easy_fs::BlockDevice;
 use lazy_static::*;
 
 lazy_static! {

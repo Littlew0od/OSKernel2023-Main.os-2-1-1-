@@ -35,6 +35,7 @@ const SYSCALL_CONDVAR_WAIT: usize = 1032;
 //temporary syscall
 const SYSCALL_SHUTDOWN: usize = 23;
 
+pub mod errno;
 mod fs;
 mod process;
 mod sync;
@@ -51,18 +52,23 @@ use log::{debug, error, info, trace, warn};
 pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
     let ret = match syscall_id {
         SYSCALL_DUP => sys_dup(args[0]),
-        SYSCALL_OPEN => sys_open(args[0] as *const u8, args[1] as u32),
+        // SYSCALL_OPEN => sys_openat(
+        //     AT_FDCWD, 
+        //     args[0] as *const u8, 
+        //     args[1] as u32,
+        //     0o777u32
+        // ),
         SYSCALL_CLOSE => sys_close(args[0]),
-        SYSCALL_PIPE => sys_pipe(args[0] as *mut usize),
-        SYSCALL_READ => sys_read(args[0], args[1] as *const u8, args[2]),
-        SYSCALL_WRITE => sys_write(args[0], args[1] as *const u8, args[2]),
+        // SYSCALL_PIPE => sys_pipe2(args[0], args[1] as u32),
+        // SYSCALL_READ => sys_read(args[0], args[1] as *const u8, args[2]),
+        // SYSCALL_WRITE => sys_write(args[0], args[1] as *const u8, args[2]),
         SYSCALL_EXIT => sys_exit(args[0] as i32),
         SYSCALL_SLEEP => sys_sleep(args[0] as *const u64, args[1] as *mut u64),
         SYSCALL_YIELD => sys_yield(),
         SYSCALL_KILL => sys_kill(args[0], args[1] as u32),
         SYSCALL_TIMES => sys_get_process_time(args[0] as *mut u64),
-        SYSCALL_UNAME => sys_uname(args[0]),
-        SYSCALL_GET_TIME => sys_get_time(arg[0] as *mut u64),
+        // SYSCALL_UNAME => sys_uname(args[0]),
+        SYSCALL_GET_TIME => sys_get_time(args[0] as *mut u64),
         SYSCALL_GETPID => sys_getpid(),
         SYSCALL_GETPPID=> sys_getppid(),
         SYSCALL_BRK=> sys_brk(args[0]),
@@ -91,9 +97,9 @@ pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
         _ => panic!("Unsupported syscall_id: {}", syscall_id),
     };
     info!(
-        "[syscall] pid: {}, syscall_id: {} ({}) returned {}",
+        "[syscall] pid: {}, syscall_id: {} returned {}",
         sys_getpid(),
-        syscall_name(syscall_id),
+        // syscall_name(syscall_id),
         syscall_id,
         ret
     );

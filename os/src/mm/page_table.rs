@@ -210,6 +210,11 @@ impl UserBuffer {
         }
         total
     }
+    pub fn clear(&mut self) {
+        self.buffers.iter_mut().for_each(|buffer| {
+            buffer.fill(0);
+        })
+    }
 }
 
 impl IntoIterator for UserBuffer {

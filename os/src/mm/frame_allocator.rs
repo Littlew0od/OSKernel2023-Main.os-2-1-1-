@@ -1,7 +1,7 @@
 use super::{PhysAddr, PhysPageNum};
 use crate::config::MEMORY_END;
 use crate::sync::UPSafeCell;
-use alloc::vec::Vec;
+use alloc::{vec::Vec, sync::Arc};
 use core::fmt::{self, Debug, Formatter};
 use lazy_static::*;
 
@@ -102,6 +102,11 @@ pub fn frame_alloc() -> Option<FrameTracker> {
         .exclusive_access()
         .alloc()
         .map(FrameTracker::new)
+}
+
+#[cfg(not(feature = "oom_handler"))]
+pub fn frame_alloc_arc() -> Option<Arc<FrameTracker>> {
+    FRAME_ALLOCATOR.exclusive_access().alloc().map(FrameTracker::new).map(|frame_tracker| Arc::new(frame_tracker))
 }
 
 pub fn frame_dealloc(ppn: PhysPageNum) {

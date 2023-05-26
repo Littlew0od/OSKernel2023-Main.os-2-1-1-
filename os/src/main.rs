@@ -1,5 +1,7 @@
 #![no_std]
 #![no_main]
+#![feature(int_roundings)]
+#![feature(string_remove_matches)]
 #![feature(panic_info_message)]
 #![feature(alloc_error_handler)]
 
