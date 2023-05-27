@@ -1,12 +1,11 @@
 // use crate::fs::poll::{ppoll, pselect, FdSet, PollFd};
 use crate::fs::*;
-use crate::mm::{    
-    translated_byte_buffer,  translated_refmut,
-    translated_str, MapPermission, UserBuffer, VirtAddr,
+use crate::mm::{
+    translated_byte_buffer, translated_refmut, translated_str, MapPermission, UserBuffer, VirtAddr,
 };
 // translated_byte_buffer_append_to_existing_vec,copy_from_user, try_get_from_user,
 //copy_from_user_array,copy_to_user, copy_to_user_array, copy_to_user_string,
-use crate::task::{current_task, current_user_token};
+use crate::task::{current_process, current_user_token};
 // use crate::timer::TimeSpec;
 use alloc::boxed::Box;
 use alloc::string::String;
@@ -116,28 +115,24 @@ pub const AT_FDCWD: usize = 100usize.wrapping_neg();
 //     ) as isize
 // }
 
-// pub fn sys_write(fd: usize, buf: usize, count: usize) -> isize {
-//     let task = current_task().unwrap();
-//     let fd_table = task.files.lock();
-//     let file_descriptor = match fd_table.get_ref(fd) {
-//         Ok(file_descriptor) => file_descriptor,
-//         Err(errno) => return errno,
-//     };
-//     if !file_descriptor.writable() {
-//         return EBADF;
-//     }
-//     let token = task.get_user_token();
-//     file_descriptor.write_user(
-//         None,
-//         UserBuffer::new({
-//             // Error
-//             match Ok(translated_byte_buffer(token, buf as *const u8, count)) {
-//                 Ok(buffer) => buffer,
-//                 Err(errno) => return errno,
-//             }
-//         }),
-//     ) as isize
-// }
+pub fn sys_write(fd: usize, buf: *const u8, len: usize) -> isize {
+    let token = current_user_token();
+    let process = current_process();
+    let inner = process.inner_exclusive_access();
+    let fd_table = inner.fd_table.lock();
+    let file_descriptor = match fd_table.get_ref(fd) {
+        Ok(file_descriptor) => file_descriptor,
+        Err(errno) => return errno,
+    };
+    if !file_descriptor.writable() {
+        return EBADF;
+    }
+    file_descriptor.write_user(
+        None,
+        UserBuffer::new(translated_byte_buffer(token, buf, len)),
+    ) as isize
+}
+
 
 // pub fn sys_pread(fd: usize, buf: usize, count: usize, offset: usize) -> isize {
 //     let task = current_task().unwrap();

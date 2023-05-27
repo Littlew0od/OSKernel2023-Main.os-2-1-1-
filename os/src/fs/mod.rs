@@ -444,4 +444,7 @@ impl FdTable {
             }
         }
     }
+    pub fn clear_inner(&mut self){
+        self.inner.clear();
+    }
 }

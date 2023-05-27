@@ -130,7 +130,7 @@ pub fn exit_current_and_run_next(exit_code: i32) {
         // deallocate other data in user space i.e. program code/data section
         process_inner.memory_set.recycle_data_pages();
         // drop file descriptors
-        process_inner.fd_table.clear();
+        process_inner.fd_table.lock().clear_inner();
         // remove all tasks
         process_inner.tasks.clear();
     }

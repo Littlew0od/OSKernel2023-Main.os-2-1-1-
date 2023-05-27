@@ -1,8 +1,8 @@
 #![allow(unused)]
-use super::{File, DiskInodeType};
-use crate::{mm::UserBuffer, syscall::errno::ENOTDIR};
+use super::{DiskInodeType, File};
 use crate::sbi::console_getchar;
 use crate::task::suspend_current_and_run_next;
+use crate::{mm::UserBuffer, syscall::errno::ENOTDIR};
 use alloc::sync::{Arc, Weak};
 use alloc::vec::Vec;
 
@@ -72,12 +72,28 @@ impl File for Stdin {
         todo!()
     }
 
-    fn read_user(&self, offset: Option<usize>, buf: crate::mm::UserBuffer) -> usize {
-        todo!()
+    fn read_user(&self, offset: Option<usize>, mut user_buf: UserBuffer) -> usize {
+        assert_eq!(user_buf.len(), 1);
+        // busy loop
+        let mut c: usize;
+        loop {
+            c = console_getchar();
+            if c == 0 {
+                suspend_current_and_run_next();
+                continue;
+            } else {
+                break;
+            }
+        }
+        let ch = c as u8;
+        unsafe {
+            user_buf.buffers[0].as_mut_ptr().write_volatile(ch);
+        }
+        1
     }
 
-    fn write_user(&self, offset: Option<usize>, buf: crate::mm::UserBuffer) -> usize {
-        todo!()
+    fn write_user(&self, offset: Option<usize>, buf: UserBuffer) -> usize {
+        panic!("Cannot write to stdin!");
     }
 
     fn get_size(&self) -> usize {
@@ -104,7 +120,9 @@ impl File for Stdin {
         todo!()
     }
 
-    fn open_subfile(&self) -> Result<alloc::vec::Vec<(alloc::string::String, alloc::sync::Arc<dyn File>)>, isize> {
+    fn open_subfile(
+        &self,
+    ) -> Result<alloc::vec::Vec<(alloc::string::String, alloc::sync::Arc<dyn File>)>, isize> {
         Err(ENOTDIR)
     }
 
@@ -217,12 +235,15 @@ impl File for Stdout {
         todo!()
     }
 
-    fn read_user(&self, offset: Option<usize>, buf: crate::mm::UserBuffer) -> usize {
-        todo!()
+    fn read_user(&self, offset: Option<usize>, buf: UserBuffer) -> usize {
+        panic!("Cannot read from stdout!");
     }
 
-    fn write_user(&self, offset: Option<usize>, buf: crate::mm::UserBuffer) -> usize {
-        todo!()
+    fn write_user(&self, offset: Option<usize>, user_buf: UserBuffer) -> usize {
+        for buffer in user_buf.buffers.iter() {
+            print!("{}", core::str::from_utf8(*buffer).unwrap());
+        }
+        user_buf.len()
     }
 
     fn get_size(&self) -> usize {
@@ -249,7 +270,9 @@ impl File for Stdout {
         todo!()
     }
 
-    fn open_subfile(&self) -> Result<alloc::vec::Vec<(alloc::string::String, alloc::sync::Arc<dyn File>)>, isize> {
+    fn open_subfile(
+        &self,
+    ) -> Result<alloc::vec::Vec<(alloc::string::String, alloc::sync::Arc<dyn File>)>, isize> {
         Err(ENOTDIR)
     }
 

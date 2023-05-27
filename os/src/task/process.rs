@@ -13,6 +13,7 @@ use alloc::sync::{Arc, Weak};
 use alloc::vec;
 use alloc::vec::Vec;
 use core::cell::RefMut;
+use spin::Mutex as MutexSpin; 
 
 pub struct ProcessControlBlock {
     // immutable
@@ -32,7 +33,7 @@ pub struct ProcessControlBlockInner {
     pub parent: Option<Weak<ProcessControlBlock>>,
     pub children: Vec<Arc<ProcessControlBlock>>,
     pub exit_code: i32,
-    pub fd_table: Vec<Option<Arc<dyn File + Send + Sync>>>,
+    pub fd_table: Arc<MutexSpin<FdTable>>,
     pub work_path: Arc<FsStatus>,
     pub signals: SignalFlags,
     pub tasks: Vec<Option<Arc<TaskControlBlock>>>,
@@ -48,14 +49,14 @@ impl ProcessControlBlockInner {
         self.memory_set.token()
     }
 
-    pub fn alloc_fd(&mut self) -> usize {
-        if let Some(fd) = (0..self.fd_table.len()).find(|fd| self.fd_table[*fd].is_none()) {
-            fd
-        } else {
-            self.fd_table.push(None);
-            self.fd_table.len() - 1
-        }
-    }
+    // pub fn alloc_fd(&mut self) -> usize {
+    //     if let Some(fd) = (0..self.fd_table.len()).find(|fd| self.fd_table[*fd].is_none()) {
+    //         fd
+    //     } else {
+    //         self.fd_table.push(None);
+    //         self.fd_table.len() - 1
+    //     }
+    // }
 
     pub fn alloc_tid(&mut self) -> usize {
         self.task_res_allocator.alloc()
@@ -93,14 +94,25 @@ impl ProcessControlBlock {
                     parent: None,
                     children: Vec::new(),
                     exit_code: 0,
-                    fd_table: vec![
-                        // 0 -> stdin
-                        Some(Arc::new(Stdin)),
-                        // 1 -> stdout
-                        Some(Arc::new(Stdout)),
-                        // 2 -> stderr
-                        Some(Arc::new(Stdout)),
-                    ],
+                    // fd_table: vec![
+                    //     // 0 -> stdin
+                    //     Some(Arc::new(Stdin)),
+                    //     // 1 -> stdout
+                    //     Some(Arc::new(Stdout)),
+                    //     // 2 -> stderr
+                    //     Some(Arc::new(Stdout)),
+                    // ],
+                    fd_table:Arc::new(MutexSpin::new(FdTable::new({
+                        let mut vec = Vec::with_capacity(144);
+                        let stdin = Some(FileDescriptor::new(false,false,Arc::new(Stdin)));
+                        let stdout = Some(FileDescriptor::new(false,false,Arc::new(Stdout)));
+                        let stderr = Some(FileDescriptor::new(false,false,Arc::new(Stdout)));
+                        // vec.resize(3, tty);
+                        vec.push(stdin);
+                        vec.push(stdout);
+                        vec.push(stderr);
+                        vec
+                    }))),
                     work_path: Arc::new(FsStatus {
                         working_inode: Arc::new(
                             ROOT_FD
@@ -208,14 +220,15 @@ impl ProcessControlBlock {
         // alloc a pid
         let pid = pid_alloc();
         // copy fd table
-        let mut new_fd_table: Vec<Option<Arc<dyn File + Send + Sync>>> = Vec::new();
-        for fd in parent.fd_table.iter() {
-            if let Some(file) = fd {
-                new_fd_table.push(Some(file.clone()));
-            } else {
-                new_fd_table.push(None);
-            }
-        }
+        // let mut new_fd_table: Vec<Option<Arc<dyn File + Send + Sync>>> = Vec::new();
+        let mut new_fd_table = parent.fd_table.clone();
+        // for fd in parent.fd_table.iter() {
+        //     if let Some(file) = fd {
+        //         new_fd_table.push(Some(file.clone()));
+        //     } else {
+        //         new_fd_table.push(None);
+        //     }
+        // }
         // create child process pcb
         let child = Arc::new(Self {
             pid,
