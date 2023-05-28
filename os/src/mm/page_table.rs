@@ -215,6 +215,28 @@ impl UserBuffer {
             buffer.fill(0);
         })
     }
+    ///从第一个buf开始写入,返回写入长度 返回0 表示写入失败
+    pub fn write(&mut self, buf: &[u8]) -> usize {
+        assert!(!self.buffers.is_empty());
+        let len = self.len().min(buf.len());
+        let mut write_len = 0;
+        for buffer in self.buffers.iter_mut() {
+            //当前写入的终点
+            let write_end = len.min(write_len + buffer.len());
+    
+            //取部分保证两个slice等长
+            let copied_part = &buf[write_len..write_end];
+            let copy_part = &mut buffer[..(write_end - write_len)];
+            copy_part.copy_from_slice(copied_part);
+    
+            //写入完成
+            if write_end == len {
+                break;
+            }
+            write_len += buffer.len();
+        }
+        len
+    }
 }
 
 impl IntoIterator for UserBuffer {

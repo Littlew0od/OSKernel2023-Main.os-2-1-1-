@@ -1,5 +1,6 @@
 #![allow(unused)]
 
+const SYSCALL_GETPWD: usize = 14;
 const SYSCALL_DUP: usize = 24;
 const SYSCALL_OPEN: usize = 56;
 const SYSCALL_CLOSE: usize = 57;
@@ -51,6 +52,7 @@ use log::{debug, error, info, trace, warn};
 
 pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
     let ret = match syscall_id {
+        SYSCALL_GETPWD => sys_getpwd(args[0] as *mut u8, args[1]),
         // SYSCALL_DUP => sys_dup(args[0]),
         // SYSCALL_OPEN => sys_openat(
         //     AT_FDCWD, 

@@ -35,61 +35,27 @@ pub const AT_FDCWD: usize = 100usize.wrapping_neg();
 //     file_descriptor.open(path, OpenFlags::O_RDONLY, false)
 // }
 
-// pub fn sys_getcwd(buf: usize, size: usize) -> isize {
-//     let task = current_task().unwrap();
-//     if !task
-//         .vm
-//         .lock()
-//         .contains_valid_buffer(buf, size, MapPermission::W)
-//     {
-//         // buf points to a bad address.
-//         return EFAULT;
-//     }
-//     if size == 0 && buf != 0 {
-//         // The size argument is zero and buf is not a NULL pointer.
-//         return EINVAL;
-//     }
-//     let working_dir = task.fs.lock().working_inode.get_cwd().unwrap();
-//     if working_dir.len() >= size {
-//         // The size argument is less than the length of the absolute pathname of the working directory,
-//         // including the terminating null byte.
-//         return ERANGE;
-//     }
-//     let token = task.get_user_token();
-//     UserBuffer::new({
-//         match translated_byte_buffer(token, buf as *const u8, size) {
-//             Ok(buffer) => buffer,
-//             Err(errno) => return errno,
-//         }
-//     })
-//     .write(working_dir.as_bytes());
-//     buf as isize
-// }
-
-// pub fn sys_lseek(fd: usize, offset: isize, whence: u32) -> isize {
-//     // whence is not valid
-//     let whence = match SeekWhence::from_bits(whence) {
-//         Some(whence) => whence,
-//         None => {
-//             warn!("[sys_lseek] unknown flags");
-//             return EINVAL;
-//         }
-//     };
-//     info!(
-//         "[sys_lseek] fd: {}, offset: {}, whence: {:?}",
-//         fd, offset, whence,
-//     );
-//     let task = current_task().unwrap();
-//     let fd_table = task.files.lock();
-//     let file_descriptor = match fd_table.get_ref(fd) {
-//         Ok(file_descriptor) => file_descriptor,
-//         Err(errno) => return errno,
-//     };
-//     match file_descriptor.lseek(offset, whence) {
-//         Ok(pos) => pos as isize,
-//         Err(errno) => errno,
-//     }
-// }
+pub fn sys_getpwd(buf: *mut u8, size: usize) -> isize {
+    let process = current_process();
+    let token = current_user_token();
+    if size == 0  {//&& buf != 0
+        // The size argument is zero and buf is not a NULL pointer.
+        return EINVAL;
+    }
+    let working_dir = process.inner_exclusive_access().work_path.working_inode.get_cwd().unwrap();
+    if working_dir.len() >= size {
+        // The size argument is less than the length of the absolute pathname of the working directory,
+        // including the terminating null byte.
+        return ERANGE;
+    }
+    let mut userbuf = UserBuffer::new(translated_byte_buffer(token, buf, size));
+    let ret = userbuf.write(working_dir.as_bytes());
+    if ret == 0 {
+        0
+    } else {
+        buf as isize
+    }
+}
 
 pub fn sys_read(fd: usize, buf: *const u8, len: usize) -> isize {
     let token = current_user_token();
