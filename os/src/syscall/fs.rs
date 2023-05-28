@@ -91,29 +91,23 @@ pub const AT_FDCWD: usize = 100usize.wrapping_neg();
 //     }
 // }
 
-// pub fn sys_read(fd: usize, buf: usize, count: usize) -> isize {
-//     let task = current_task().unwrap();
-//     let fd_table = task.files.lock();
-//     let file_descriptor = match fd_table.get_ref(fd) {
-//         Ok(file_descriptor) => file_descriptor,
-//         Err(errno) => return errno,
-//     };
-//     // fd is not open for reading
-//     if !file_descriptor.readable() {
-//         return EBADF;
-//     }
-//     let token = task.get_user_token();
-//     file_descriptor.read_user(
-//         None,
-//         UserBuffer::new({
-//             // Error!
-//             match Ok(translated_byte_buffer(token, buf as *const u8, count)) {
-//                 Ok(buffer) => buffer,
-//                 Err(errno) => return errno,
-//             }
-//         }),
-//     ) as isize
-// }
+pub fn sys_read(fd: usize, buf: *const u8, len: usize) -> isize {
+    let token = current_user_token();
+    let process = current_process();
+    let inner = process.inner_exclusive_access();
+    let fd_table = inner.fd_table.lock();
+    let file_descriptor = match fd_table.get_ref(fd) {
+        Ok(file_descriptor) => file_descriptor,
+        Err(errno) => return errno,
+    };
+    if !file_descriptor.readable() {
+        return EBADF;
+    }
+    file_descriptor.read_user(
+        None,
+        UserBuffer::new(translated_byte_buffer(token, buf, len)),
+    ) as isize
+}
 
 pub fn sys_write(fd: usize, buf: *const u8, len: usize) -> isize {
     let token = current_user_token();
@@ -132,7 +126,6 @@ pub fn sys_write(fd: usize, buf: *const u8, len: usize) -> isize {
         UserBuffer::new(translated_byte_buffer(token, buf, len)),
     ) as isize
 }
-
 
 // pub fn sys_pread(fd: usize, buf: usize, count: usize, offset: usize) -> isize {
 //     let task = current_task().unwrap();
