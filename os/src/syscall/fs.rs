@@ -93,15 +93,59 @@ pub fn sys_write(fd: usize, buf: *const u8, len: usize) -> isize {
     ) as isize
 }
 
-#[repr(C)]
-#[derive(Clone, Copy)]
-struct IOVec {
-    iov_base: *const u8, /* Starting address */
-    iov_len: usize,      /* Number of bytes to transfer */
+pub fn sys_dup(oldfd: usize) -> isize{
+    let process = current_process();
+    let inner = process.inner_exclusive_access();
+    let mut fd_table = inner.fd_table.lock();
+    let old_file_descriptor = match fd_table.get_ref(oldfd) {
+        Ok(file_descriptor) => file_descriptor.clone(),
+        Err(errno) => return errno,
+    };
+    let newfd = match fd_table.insert(old_file_descriptor) {
+        Ok(fd) => fd,
+        Err(errno) => return errno,
+    };
+    info!("[sys_dup] oldfd: {}, newfd: {}", oldfd, newfd);
+    newfd as isize
 }
 
-pub fn sys_dup(oldfd: usize) -> isize{
-    1
+pub fn sys_dup3(oldfd: usize, newfd: usize, flags: u32) -> isize {
+    info!(
+        "[sys_dup3] oldfd: {}, newfd: {}, flags: {:?}",
+        oldfd,
+        newfd,
+        OpenFlags::from_bits(flags)
+    );
+    if oldfd == newfd {
+        return EINVAL;
+    }
+    let is_cloexec = match OpenFlags::from_bits(flags) {
+        Some(OpenFlags::O_CLOEXEC) => true,
+        // `O_RDONLY == 0`, so it means *NO* cloexec in fact
+        Some(OpenFlags::O_RDONLY) => false,
+        // flags contain an invalid value
+        Some(flags) => {
+            warn!("[sys_dup3] invalid flags: {:?}", flags);
+            return EINVAL;
+        }
+        None => {
+            warn!("[sys_dup3] unknown flags");
+            return EINVAL;
+        }
+    };
+    let process = current_process();
+    let inner = process.inner_exclusive_access();
+    let mut fd_table = inner.fd_table.lock();
+
+    let mut file_descriptor = match fd_table.get_ref(oldfd) {
+        Ok(file_descriptor) => file_descriptor.clone(),
+        Err(errno) => return errno,
+    };
+    file_descriptor.set_cloexec(is_cloexec);
+    match fd_table.insert_at(file_descriptor, newfd) {
+        Ok(fd) => fd as isize,
+        Err(errno) => errno,
+    }
 }
 
 bitflags! {

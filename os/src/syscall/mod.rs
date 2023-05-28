@@ -1,7 +1,8 @@
 #![allow(unused)]
 
 const SYSCALL_GETPWD: usize = 14;
-const SYSCALL_DUP: usize = 24;
+const SYSCALL_DUP: usize = 23;
+const SYSCALL_DUP3: usize = 24;
 const SYSCALL_OPENAT: usize = 56;
 const SYSCALL_CLOSE: usize = 57;
 const SYSCALL_PIPE: usize = 59;
@@ -34,7 +35,7 @@ const SYSCALL_CONDVAR_SIGNAL: usize = 1031;
 const SYSCALL_CONDVAR_WAIT: usize = 1032;
 
 // Not standard POSIX sys_call
-const SYSCALL_SHUTDOWN: usize = 23;
+const SYSCALL_SHUTDOWN: usize = 2000;
 const SYSCALL_OPEN: usize = 506;
 
 pub mod errno;
@@ -55,6 +56,7 @@ pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
     let ret = match syscall_id {
         SYSCALL_GETPWD => sys_getpwd(args[0] as *mut u8, args[1]),
         SYSCALL_DUP => sys_dup(args[0]),
+        SYSCALL_DUP3 => sys_dup3(args[0], args[1], args[2] as u32),
         SYSCALL_OPEN => sys_openat(
             AT_FDCWD, 
             args[0] as *const u8, 

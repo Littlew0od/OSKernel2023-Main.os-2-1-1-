@@ -1,6 +1,6 @@
 use core::arch::asm;
 
-const SYSCALL_DUP: usize = 24;
+const SYSCALL_DUP: usize = 23;
 const SYSCALL_OPEN: usize = 56;
 const SYSCALL_CLOSE: usize = 57;
 const SYSCALL_PIPE: usize = 59;
@@ -29,7 +29,7 @@ const SYSCALL_CONDVAR_SIGNAL: usize = 1031;
 const SYSCALL_CONDVAR_WAIT: usize = 1032;
 
 //temporary syscall
-const SYSCALL_SHUTDOWN: usize = 23;
+const SYSCALL_SHUTDOWN: usize = 2000;
 
 fn syscall(id: usize, args: [usize; 3]) -> isize {
     let mut ret: isize;
