@@ -67,7 +67,7 @@ pub fn sys_getppid() -> isize {
         .getpid() as isize
 }
 
-pub fn sys_fork(
+pub fn sys_clone(
     flags: u32,
     stack: *const u8,
     ptid: *const u32,
@@ -87,7 +87,7 @@ pub fn sys_fork(
     new_pid as isize
 }
 
-pub fn sys_exec(path: *const u8, mut args: *const usize) -> isize {
+pub fn sys_execve(path: *const u8, mut args: *const usize) -> isize {
     let token = current_user_token();
     let path = translated_str(token, path);
     let mut args_vec: Vec<String> = Vec::new();

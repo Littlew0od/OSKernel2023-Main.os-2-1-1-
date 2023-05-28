@@ -2,7 +2,7 @@
 
 const SYSCALL_GETPWD: usize = 14;
 const SYSCALL_DUP: usize = 24;
-const SYSCALL_OPEN: usize = 56;
+const SYSCALL_OPENAT: usize = 56;
 const SYSCALL_CLOSE: usize = 57;
 const SYSCALL_PIPE: usize = 59;
 const SYSCALL_READ: usize = 63;
@@ -17,8 +17,8 @@ const SYSCALL_GET_TIME: usize = 169;
 const SYSCALL_GETPID: usize = 172;
 const SYSCALL_GETPPID: usize = 173;
 const SYSCALL_BRK: usize = 214;
-const SYSCALL_FORK: usize = 220;
-const SYSCALL_EXEC: usize = 221;
+const SYSCALL_CLONE: usize = 220;
+const SYSCALL_EXECVE: usize = 221;
 const SYSCALL_WAITPID: usize = 260;
 const SYSCALL_THREAD_CREATE: usize = 1000;
 const SYSCALL_GETTID: usize = 1001;
@@ -33,33 +33,39 @@ const SYSCALL_CONDVAR_CREATE: usize = 1030;
 const SYSCALL_CONDVAR_SIGNAL: usize = 1031;
 const SYSCALL_CONDVAR_WAIT: usize = 1032;
 
-//temporary syscall
+// Not standard POSIX sys_call
 const SYSCALL_SHUTDOWN: usize = 23;
+const SYSCALL_OPEN: usize = 506;
 
 pub mod errno;
 mod fs;
 mod process;
 mod sync;
-mod thread;
 mod system;
+mod thread;
 
 use fs::*;
+use log::{debug, error, info, trace, warn};
 use process::*;
 use sync::*;
-use thread::*;
 use system::*;
-use log::{debug, error, info, trace, warn};
+use thread::*;
 
 pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
     let ret = match syscall_id {
         SYSCALL_GETPWD => sys_getpwd(args[0] as *mut u8, args[1]),
-        // SYSCALL_DUP => sys_dup(args[0]),
-        // SYSCALL_OPEN => sys_openat(
-        //     AT_FDCWD, 
-        //     args[0] as *const u8, 
-        //     args[1] as u32,
-        //     0o777u32
-        // ),
+        SYSCALL_DUP => sys_dup(args[0]),
+        SYSCALL_OPEN => sys_openat(
+            AT_FDCWD, 
+            args[0] as *const u8, 
+            args[1] as u32, 
+            0o777u32),
+        SYSCALL_OPENAT => sys_openat(
+            args[0],
+            args[1] as *const u8,
+            args[2] as u32,
+            args[3] as u32,
+        ),
         // SYSCALL_CLOSE => sys_close(args[0]),
         // SYSCALL_PIPE => sys_pipe2(args[0], args[1] as u32),
         SYSCALL_READ => sys_read(args[0], args[1] as *const u8, args[2]),
@@ -72,16 +78,16 @@ pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
         // SYSCALL_UNAME => sys_uname(args[0]),
         SYSCALL_GET_TIME => sys_get_time(args[0] as *mut u64),
         SYSCALL_GETPID => sys_getpid(),
-        SYSCALL_GETPPID=> sys_getppid(),
-        SYSCALL_BRK=> sys_brk(args[0]),
-        SYSCALL_FORK => sys_fork(
+        SYSCALL_GETPPID => sys_getppid(),
+        SYSCALL_BRK => sys_brk(args[0]),
+        SYSCALL_CLONE => sys_clone(
             args[0] as u32,
             args[1] as *const u8,
             args[2] as *const u32,
             args[3] as *const usize,
             args[4] as *const u32,
         ),
-        SYSCALL_EXEC => sys_exec(args[0] as *const u8, args[1] as *const usize),
+        SYSCALL_EXECVE => sys_execve(args[0] as *const u8, args[1] as *const usize),
         SYSCALL_WAITPID => sys_waitpid(args[0] as isize, args[1] as *mut i32),
         SYSCALL_THREAD_CREATE => sys_thread_create(args[0], args[1]),
         SYSCALL_GETTID => sys_gettid(),
