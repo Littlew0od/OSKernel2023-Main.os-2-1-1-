@@ -1,18 +1,18 @@
-use crate::fs::{OpenFlags};//open_file
 use crate::fs::FileDescriptor;
+use crate::fs::OpenFlags; //open_file
 use crate::mm::{translated_ref, translated_refmut, translated_str};
+use crate::sbi::shutdown;
 use crate::task::{
     current_process, current_task, current_user_token, exit_current_and_run_next, pid2process,
     suspend_current_and_run_next, SignalFlags,
 };
-use crate::timer::{get_time_ms, get_time_us, get_time};
-use crate::sbi::shutdown;
+use crate::timer::{get_time, get_time_ms, get_time_us};
 use alloc::string::String;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use log::{debug, error, info, trace, warn};
 
-pub fn sys_shutdown(failure:bool) -> !{
+pub fn sys_shutdown(failure: bool) -> ! {
     shutdown(failure);
 }
 
@@ -27,7 +27,7 @@ pub fn sys_yield() -> isize {
 }
 
 ///fake
-pub fn sys_get_process_time(times: *mut u64) -> isize{
+pub fn sys_get_process_time(times: *mut u64) -> isize {
     let token = current_user_token();
     let usec = get_time_us() as u64;
 
@@ -91,18 +91,24 @@ pub fn sys_execve(path: *const u8, mut args: *const usize) -> isize {
     let token = current_user_token();
     let path = translated_str(token, path);
     let mut args_vec: Vec<String> = Vec::new();
-    loop {
-        let arg_str_ptr = *translated_ref(token, args);
-        if arg_str_ptr == 0 {
-            break;
-        }
-        args_vec.push(translated_str(token, arg_str_ptr as *const u8));
-        unsafe {
-            args = args.add(1);
+    if args as usize != 0 {
+        loop {
+            let arg_str_ptr = *translated_ref(token, args);
+            if arg_str_ptr == 0 {
+                break;
+            }
+            args_vec.push(translated_str(token, arg_str_ptr as *const u8));
+            unsafe {
+                args = args.add(1);
+            }
         }
     }
     let process = current_process();
-    let working_inode = process.inner_exclusive_access().work_path.working_inode.clone();
+    let working_inode = process
+        .inner_exclusive_access()
+        .work_path
+        .working_inode
+        .clone();
     match working_inode.open(&path, OpenFlags::O_RDONLY, false) {
         Ok(file) => {
             let all_data = file.read_all();
@@ -111,7 +117,7 @@ pub fn sys_execve(path: *const u8, mut args: *const usize) -> isize {
             // return argc because cx.x[10] will be covered with it later
             argc as isize
         }
-        Err(errno) => -1,
+        Err(errno) => errno,
     }
 }
 

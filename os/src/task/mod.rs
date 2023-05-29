@@ -1,3 +1,4 @@
+#![allow(unused)]
 mod context;
 mod id;
 mod manager;
@@ -142,10 +143,25 @@ pub fn exit_current_and_run_next(exit_code: i32) {
 
 lazy_static! {
     pub static ref INITPROC: Arc<ProcessControlBlock> = {
-        let initproc_fd = ROOT_FD.open("/initproc", OpenFlags::O_RDONLY, true).unwrap();
+        // let initproc_fd = ROOT_FD.open("/initproc", OpenFlags::O_RDONLY, true).unwrap();
+        let initproc_fd = ROOT_FD.open("/initprocfortest", OpenFlags::O_RDONLY, true).unwrap();
         let v = initproc_fd.read_all();
         ProcessControlBlock::new(v.as_slice())
     };
+}
+
+pub fn load_initialproc(){
+    extern "C" {
+        fn app_0_start();
+        fn app_0_end();
+    }
+    let initprocfortest = ROOT_FD.open("initprocfortest", OpenFlags::O_CREAT, false).unwrap();
+    initprocfortest.write(None, unsafe {
+        core::slice::from_raw_parts(
+            app_0_start as *const u8,
+            app_0_end as usize - app_0_start as usize,
+        )
+    });
 }
 
 pub fn add_initproc() {

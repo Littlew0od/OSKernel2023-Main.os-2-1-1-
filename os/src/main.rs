@@ -58,6 +58,7 @@ pub fn rust_main() -> ! {
     fs::directory_tree::init_fs();
     println!("[kernel] Finish init fs! ");
     // fs::list_apps();
+    task::load_initialproc();
     task::add_initproc();
     println!("[kernel] Finish add initproc! ");
     task::run_tasks();

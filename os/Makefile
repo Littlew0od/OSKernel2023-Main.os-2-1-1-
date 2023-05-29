@@ -32,9 +32,12 @@ DISASM ?= -x
 # Run usertests or usershell
 TEST ?=
 
-build: env $(KERNEL_BIN) # fat32 # fs-img 
+build: env apps $(KERNEL_BIN)# fat32
 
-fat32: $(APPS)
+apps:$(APPS)
+	cd ../user && make build TEST=$(TEST)
+
+fat32:
 	@cd ../user && make build TEST=$(TEST)
 	@cd ../os
 	@./buildfs.sh "$(U_FAT32_DIR)/fat32.img"
