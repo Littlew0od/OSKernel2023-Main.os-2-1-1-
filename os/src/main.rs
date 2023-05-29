@@ -30,6 +30,7 @@ mod trap;
 use core::arch::global_asm;
 
 global_asm!(include_str!("entry.asm"));
+global_asm!(include_str!("link_initial_apps.S"));
 
 fn clear_bss() {
     extern "C" {
