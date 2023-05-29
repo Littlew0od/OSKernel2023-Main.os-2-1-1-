@@ -236,9 +236,9 @@ impl DirectoryTreeNode {
         inode.cd_comp(&components)
     }
     fn create(&self, name: &str, file_type: DiskInodeType) -> Result<Arc<dyn File>, isize> {
-        // if name == "" || !self.file.is_dir() {
-        //     debug_assert!(false);
-        // }
+        if name == "" || !self.file.is_dir() {
+            debug_assert!(false);
+        }
         self.file.create(name, file_type)
     }
     pub fn open(
