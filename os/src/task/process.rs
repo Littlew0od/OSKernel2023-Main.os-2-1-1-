@@ -3,8 +3,8 @@ use super::manager::insert_into_pid2process;
 use super::TaskControlBlock;
 use super::{add_task, SignalFlags};
 use super::{pid_alloc, PidHandle};
-use crate::fs::{File, Stdin, Stdout};
 use crate::fs::{FdTable, FileDescriptor, OpenFlags, ROOT_FD};
+use crate::fs::{File, Stdin, Stdout};
 use crate::mm::{translated_refmut, MemorySet, KERNEL_SPACE};
 use crate::sync::{Condvar, Mutex, Semaphore, UPSafeCell};
 use crate::trap::{trap_handler, TrapContext};
@@ -13,7 +13,7 @@ use alloc::sync::{Arc, Weak};
 use alloc::vec;
 use alloc::vec::Vec;
 use core::cell::RefMut;
-use spin::Mutex as MutexSpin; 
+use spin::Mutex as MutexSpin;
 
 pub struct ProcessControlBlock {
     // immutable
@@ -102,11 +102,11 @@ impl ProcessControlBlock {
                     //     // 2 -> stderr
                     //     Some(Arc::new(Stdout)),
                     // ],
-                    fd_table:Arc::new(MutexSpin::new(FdTable::new({
+                    fd_table: Arc::new(MutexSpin::new(FdTable::new({
                         let mut vec = Vec::with_capacity(144);
-                        let stdin = Some(FileDescriptor::new(false,false,Arc::new(Stdin)));
-                        let stdout = Some(FileDescriptor::new(false,false,Arc::new(Stdout)));
-                        let stderr = Some(FileDescriptor::new(false,false,Arc::new(Stdout)));
+                        let stdin = Some(FileDescriptor::new(false, false, Arc::new(Stdin)));
+                        let stdout = Some(FileDescriptor::new(false, false, Arc::new(Stdout)));
+                        let stderr = Some(FileDescriptor::new(false, false, Arc::new(Stdout)));
                         // vec.resize(3, tty);
                         vec.push(stdin);
                         vec.push(stdout);
@@ -220,15 +220,15 @@ impl ProcessControlBlock {
         // alloc a pid
         let pid = pid_alloc();
         // copy fd table
-        // let mut new_fd_table: Vec<Option<Arc<dyn File + Send + Sync>>> = Vec::new();
-        let new_fd_table = parent.fd_table.clone();
-        // for fd in parent.fd_table.iter() {
-        //     if let Some(file) = fd {
-        //         new_fd_table.push(Some(file.clone()));
-        //     } else {
-        //         new_fd_table.push(None);
-        //     }
-        // }
+        let mut new_fd_table_inner: Vec<Option<FileDescriptor>> = Vec::new();
+        for fd in parent.fd_table.lock().iter() {
+            if let Some(file) = fd {
+                new_fd_table_inner.push(Some(file.clone()));
+            } else {
+                new_fd_table_inner.push(None);
+            }
+        }
+        let new_fd_table = Arc::new(MutexSpin::new(FdTable::new(new_fd_table_inner)));
         // create child process pcb
         let child = Arc::new(Self {
             pid,
