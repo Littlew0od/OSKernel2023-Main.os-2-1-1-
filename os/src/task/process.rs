@@ -221,7 +221,7 @@ impl ProcessControlBlock {
         let pid = pid_alloc();
         // copy fd table
         // let mut new_fd_table: Vec<Option<Arc<dyn File + Send + Sync>>> = Vec::new();
-        let mut new_fd_table = parent.fd_table.clone();
+        let new_fd_table = parent.fd_table.clone();
         // for fd in parent.fd_table.iter() {
         //     if let Some(file) = fd {
         //         new_fd_table.push(Some(file.clone()));

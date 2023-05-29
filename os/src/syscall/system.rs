@@ -4,38 +4,38 @@ use core::slice::from_raw_parts;
 use crate::mm::{translated_byte_buffer, UserBuffer};
 use crate::task::current_user_token;
 
-// pub fn sys_uname(buf: *mut u8) -> isize {
-//     let token = current_user_token();
-//     let mut user_buf = UserBuffer::new(translated_byte_buffer(
-//         token,
-//         buf,
-//         core::mem::size_of::<utsname>(),
-//     ));
-//     let write_size = user_buf.write(utsname::new().as_bytes());
-//     match write_size {
-//         0 => -1,
-//         _ => 0,
-//     }
-// }
+pub fn sys_uname(buf: *mut u8) -> isize {
+    let token = current_user_token();
+    let mut user_buf = UserBuffer::new(translated_byte_buffer(
+        token,
+        buf,
+        core::mem::size_of::<Utsname>(),
+    ));
+    let write_size = user_buf.write(Utsname::new().as_bytes());
+    match write_size {
+        0 => -1,
+        _ => 0,
+    }
+}
 
-struct utsname {
-    sysName: [u8; 65],
-    nodeName: [u8; 65],
+struct Utsname {
+    sysname: [u8; 65],
+    nodename: [u8; 65],
     release: [u8; 65],
     version: [u8; 65],
     machine: [u8; 65],
-    domainName: [u8; 65],
+    domainname: [u8; 65],
 }
 
-impl utsname {
+impl Utsname {
     pub fn new() -> Self {
         Self {
-            sysName: utsname::str2array("Linux"),
-            nodeName: utsname::str2array("DESKTOP"),
-            release: utsname::str2array("5.10.0-7-riscv64"),
-            version: utsname::str2array("#1 SMP Debian 5.10.40-1 "),
-            machine: utsname::str2array("riscv"),
-            domainName: utsname::str2array(""),
+            sysname: Utsname::str2array("Linux"),
+            nodename: Utsname::str2array("DESKTOP"),
+            release: Utsname::str2array("5.10.0-7-riscv64"),
+            version: Utsname::str2array("#1 SMP Debian 5.10.40-1 "),
+            machine: Utsname::str2array("riscv"),
+            domainname: Utsname::str2array(""),
         }
     }
     

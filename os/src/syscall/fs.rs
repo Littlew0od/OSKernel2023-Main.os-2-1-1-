@@ -1,8 +1,10 @@
+#![allow(unused)]
 // use crate::fs::poll::{ppoll, pselect, FdSet, PollFd};
 use crate::fs::*;
 use crate::mm::{
     translated_byte_buffer, translated_refmut, translated_str, MapPermission, UserBuffer, VirtAddr,
 };
+use crate::syscall::process;
 // translated_byte_buffer_append_to_existing_vec,copy_from_user, try_get_from_user,
 //copy_from_user_array,copy_to_user, copy_to_user_array, copy_to_user_string,
 use crate::task::{current_process, current_user_token};
@@ -148,6 +150,35 @@ pub fn sys_dup3(oldfd: usize, newfd: usize, flags: u32) -> isize {
     }
 }
 
+pub fn sys_mkdirat(dirfd: usize, path: *const u8, mode: u32) -> isize {
+    // let task = current_task().unwrap();
+    let token = current_user_token();
+    let process = current_process();
+    let inner = process.inner_exclusive_access();
+    let path = translated_str(token, path);
+    info!(
+        "[sys_mkdirat] dirfd: {}, path: {}, mode: {:?}",
+        dirfd as isize,
+        path,
+        StatMode::from_bits(mode)
+    );
+    let file_descriptor = match dirfd {
+        AT_FDCWD => inner.work_path.working_inode.as_ref().clone(),
+        fd => {
+            let fd_table = inner.fd_table.lock();
+            match fd_table.get_ref(fd) {
+                Ok(file_descriptor) => file_descriptor.clone(),
+                Err(errno) => return errno,
+            }
+        }
+    };
+    match file_descriptor.mkdir(&path) {
+        Ok(_) => SUCCESS,
+        Err(errno) => errno,
+    }
+}
+
+
 bitflags! {
     pub struct FstatatFlags: u32 {
         const AT_EMPTY_PATH = 0x1000;
@@ -196,151 +227,155 @@ pub fn sys_openat(dirfd: usize, path: *const u8, flags: u32, mode: u32) -> isize
     new_fd as isize
 }
 
-// pub fn sys_renameat2(
-//     olddirfd: usize,
-//     oldpath: *const u8,
-//     newdirfd: usize,
-//     newpath: *const u8,
-//     flags: u32,
-// ) -> isize {
-//     let task = current_task().unwrap();
-//     let token = task.get_user_token();
-//     let oldpath = match translated_str(token, oldpath) {
-//         Ok(path) => path,
-//         Err(errno) => return errno,
-//     };
-//     let newpath = match translated_str(token, newpath) {
-//         Ok(path) => path,
-//         Err(errno) => return errno,
-//     };
-//     info!(
-//         "[sys_renameat2] olddirfd: {}, oldpath: {}, newdirfd: {}, newpath: {}, flags: {}",
-//         olddirfd as isize, oldpath, newdirfd as isize, newpath, flags
-//     );
+pub fn sys_close(fd: usize) -> isize {
+    info!("[sys_close] fd: {}", fd);
+    let process = current_process();
+    let inner = process.inner_exclusive_access();
+    let mut fd_table = inner.fd_table.lock();
+    match fd_table.remove(fd) {
+        Ok(_) => SUCCESS,
+        Err(errno) => errno,
+    }
+}
 
-//     let old_file_descriptor = match olddirfd {
-//         AT_FDCWD => task.fs.lock().working_inode.as_ref().clone(),
-//         fd => {
-//             let fd_table = task.files.lock();
-//             match fd_table.get_ref(fd) {
-//                 Ok(file_descriptor) => file_descriptor.clone(),
-//                 Err(errno) => return errno,
-//             }
-//         }
-//     };
-//     let new_file_descriptor = match newdirfd {
-//         AT_FDCWD => task.fs.lock().working_inode.as_ref().clone(),
-//         fd => {
-//             let fd_table = task.files.lock();
-//             match fd_table.get_ref(fd) {
-//                 Ok(file_descriptor) => file_descriptor.clone(),
-//                 Err(errno) => return errno,
-//             }
-//         }
-//     };
+pub fn sys_pipe(pipe: *mut usize) -> isize {
+    let process = current_process();
+    let inner = process.inner_exclusive_access();
+    let mut fd_table = inner.fd_table.lock();
+    let token = current_user_token();
+    let (pipe_read, pipe_write) = make_pipe();
+    
+    let read_fd = match fd_table.insert(FileDescriptor::new(
+        false,
+        false,
+        pipe_read,
+    )) {
+        Ok(fd) => fd, 
+        Err(errno) => return errno,
+    };
+    let write_fd = match fd_table.insert(FileDescriptor::new(
+        false,
+        false,
+        pipe_write,
+    )) {
+        Ok(fd) => fd,
+        Err(errno) => return errno,
+    };
+    *translated_refmut(token, pipe) = read_fd;
+    *translated_refmut(token, unsafe { pipe.add(1) }) = write_fd;
+    SUCCESS
+}
 
-//     match FileDescriptor::rename(
-//         &old_file_descriptor,
-//         &oldpath,
-//         &new_file_descriptor,
-//         &newpath,
-//     ) {
-//         Ok(_) => SUCCESS,
-//         Err(errno) => errno,
-//     }
-// }
+pub fn sys_unlinkat(dirfd: usize, path: *const u8, flags: u32) -> isize{
+    let token = current_user_token();
+    let process = current_process();
+    let inner = process.inner_exclusive_access();
+    let mut fd_table = inner.fd_table.lock();
+    let path = translated_str(token, path);
+    let flags = match UnlinkatFlags::from_bits(flags) {
+        Some(flags) => flags,
+        None => {
+            warn!("[sys_unlinkat] unknown flags");
+            return EINVAL;
+        }
+    };
+    info!(
+        "[sys_unlinkat] dirfd: {}, path: {}, flags: {:?}",
+        dirfd as isize, path, flags
+    );
 
-// pub fn sys_ioctl(fd: usize, cmd: u32, arg: usize) -> isize {
-//     let task = current_task().unwrap();
-//     let fd_table = task.files.lock();
-//     let file_descriptor = match fd_table.get_ref(fd) {
-//         Ok(file_descriptor) => file_descriptor,
-//         Err(errno) => return errno,
-//     };
-//     file_descriptor.ioctl(cmd, arg)
-// }
+    let file_descriptor = match dirfd {
+        // AT_FDCWD => task.fs.lock().working_inode.as_ref().clone(),
+        AT_FDCWD => inner.work_path.working_inode.as_ref().clone(),
+        fd => {
+            match fd_table.get_ref(fd) {
+                Ok(file_descriptor) => file_descriptor.clone(),
+                Err(errno) => return errno,
+            }
+        }
+    };
+    match file_descriptor.delete(&path, flags.contains(UnlinkatFlags::AT_REMOVEDIR)) {
+        Ok(_) => SUCCESS,
+        Err(errno) => errno,
+    }
+}
 
-// pub fn sys_ppoll(fds: usize, nfds: usize, tmo_p: usize, sigmask: usize) -> isize {
-//     ppoll(
-//         fds as *mut PollFd,
-//         nfds,
-//         tmo_p as *const TimeSpec,
-//         sigmask as *const crate::task::Signals,
-//     )
-// }
 
-// pub fn sys_mkdirat(dirfd: usize, path: *const u8, mode: u32) -> isize {
-//     let task = current_task().unwrap();
-//     let token = task.get_user_token();
-//     let path = match translated_str(token, path) {
-//         Ok(path) => path,
-//         Err(errno) => return errno,
-//     };
-//     info!(
-//         "[sys_mkdirat] dirfd: {}, path: {}, mode: {:?}",
-//         dirfd as isize,
-//         path,
-//         StatMode::from_bits(mode)
-//     );
-//     let file_descriptor = match dirfd {
-//         AT_FDCWD => task.fs.lock().working_inode.as_ref().clone(),
-//         fd => {
-//             let fd_table = task.files.lock();
-//             match fd_table.get_ref(fd) {
-//                 Ok(file_descriptor) => file_descriptor.clone(),
-//                 Err(errno) => return errno,
-//             }
-//         }
-//     };
-//     match file_descriptor.mkdir(&path) {
-//         Ok(_) => SUCCESS,
-//         Err(errno) => errno,
-//     }
-// }
+pub fn sys_umount2(target: *const u8, flags: u32) -> isize {
+    if target.is_null() {
+        return EINVAL;
+    }
+    let token = current_user_token();
+    let target = translated_str(token, target);
+    let flags = match UmountFlags::from_bits(flags) {
+        Some(flags) => flags,
+        None => return EINVAL,
+    };
+    info!("[sys_umount2] target: {}, flags: {:?}", target, flags);
+    warn!("[sys_umount2] fake implementation!");
+    SUCCESS
+}
+
+pub fn sys_mount(
+    source: *const u8,
+    target: *const u8,
+    filesystemtype: *const u8,
+    mountflags: usize,
+    data: *const u8,
+) -> isize {
+    if source.is_null() || target.is_null() || filesystemtype.is_null() {
+        return EINVAL;
+    }
+    let token = current_user_token();
+    let source = translated_str(token, source);
+    let target = translated_str(token, target);
+    let filesystemtype = translated_str(token, filesystemtype);
+    // infallible
+    let mountflags = MountFlags::from_bits(mountflags).unwrap();
+    info!(
+        "[sys_mount] source: {}, target: {}, filesystemtype: {}, mountflags: {:?}, data: {:?}",
+        source, target, filesystemtype, mountflags, data
+    );
+    warn!("[sys_mount] fake implementation!");
+    SUCCESS
+}
+
+
+pub fn sys_getdents64(fd: usize, buf: *mut u8, len: usize) -> isize {
+    let token = current_user_token();
+    let process = current_process();
+    let inner = process.inner_exclusive_access();
+    let mut fd_table = inner.fd_table.lock();
+    let file_descriptor = match fd {
+        AT_FDCWD => inner.work_path.working_inode.as_ref().clone(),
+        fd => {
+            match fd_table.get_ref(fd) {
+                Ok(file_descriptor) => file_descriptor.clone(),
+                Err(errno) => return errno,
+            }
+        }
+    };
+    let dirent_vec = match file_descriptor.get_dirent(len) {
+        Ok(vec) => vec,
+        Err(errno) => return errno,
+    };
+    // copy_to_user_array(
+    //     token,
+    //     dirent_vec.as_ptr(),
+    //     dirp as *mut Dirent,
+    //     dirent_vec.len(),
+    // );
+    let mut user_buf = UserBuffer::new(translated_byte_buffer(token, buf, len));
+    user_buf.write(dirent_vec[0].as_bytes());
+    info!("[sys_getdents64] fd: {}, count: {}", fd, len);
+    (dirent_vec.len() * size_of::<Dirent>()) as isize
+}
 
 bitflags! {
     pub struct UnlinkatFlags: u32 {
         const AT_REMOVEDIR = 0x200;
     }
 }
-
-/// # Warning
-/// Currently we have no hard-link so this syscall will remove file directly.
-// pub fn sys_unlinkat(dirfd: usize, path: *const u8, flags: u32) -> isize {
-//     let task = current_task().unwrap();
-//     let token = task.get_user_token();
-//     let path = match translated_str(token, path) {
-//         Ok(path) => path,
-//         Err(errno) => return errno,
-//     };
-//     let flags = match UnlinkatFlags::from_bits(flags) {
-//         Some(flags) => flags,
-//         None => {
-//             warn!("[sys_unlinkat] unknown flags");
-//             return EINVAL;
-//         }
-//     };
-//     info!(
-//         "[sys_unlinkat] dirfd: {}, path: {}, flags: {:?}",
-//         dirfd as isize, path, flags
-//     );
-
-//     let file_descriptor = match dirfd {
-//         AT_FDCWD => task.fs.lock().working_inode.as_ref().clone(),
-//         fd => {
-//             let fd_table = task.files.lock();
-//             match fd_table.get_ref(fd) {
-//                 Ok(file_descriptor) => file_descriptor.clone(),
-//                 Err(errno) => return errno,
-//             }
-//         }
-//     };
-//     match file_descriptor.delete(&path, flags.contains(UnlinkatFlags::AT_REMOVEDIR)) {
-//         Ok(_) => SUCCESS,
-//         Err(errno) => errno,
-//     }
-// }
-
 bitflags! {
     pub struct UmountFlags: u32 {
         const MNT_FORCE           =   1;
@@ -349,24 +384,6 @@ bitflags! {
         const UMOUNT_NOFOLLOW     =   8;
     }
 }
-
-// pub fn sys_umount2(target: *const u8, flags: u32) -> isize {
-//     if target.is_null() {
-//         return EINVAL;
-//     }
-//     let token = current_user_token();
-//     let target = match translated_str(token, target) {
-//         Ok(target) => target,
-//         Err(errno) => return errno,
-//     };
-//     let flags = match UmountFlags::from_bits(flags) {
-//         Some(flags) => flags,
-//         None => return EINVAL,
-//     };
-//     info!("[sys_umount2] target: {}, flags: {:?}", target, flags);
-//     warn!("[sys_umount2] fake implementation!");
-//     SUCCESS
-// }
 
 bitflags! {
     pub struct MountFlags: usize {
@@ -402,39 +419,6 @@ bitflags! {
     }
 }
 
-// pub fn sys_mount(
-//     source: *const u8,
-//     target: *const u8,
-//     filesystemtype: *const u8,
-//     mountflags: usize,
-//     data: *const u8,
-// ) -> isize {
-//     if source.is_null() || target.is_null() || filesystemtype.is_null() {
-//         return EINVAL;
-//     }
-//     let token = current_user_token();
-//     let source = match translated_str(token, source) {
-//         Ok(source) => source,
-//         Err(errno) => return errno,
-//     };
-//     let target = match translated_str(token, target) {
-//         Ok(target) => target,
-//         Err(errno) => return errno,
-//     };
-//     let filesystemtype = match translated_str(token, filesystemtype) {
-//         Ok(filesystemtype) => filesystemtype,
-//         Err(errno) => return errno,
-//     };
-//     // infallible
-//     let mountflags = MountFlags::from_bits(mountflags).unwrap();
-//     info!(
-//         "[sys_mount] source: {}, target: {}, filesystemtype: {}, mountflags: {:?}, data: {:?}",
-//         source, target, filesystemtype, mountflags, data
-//     );
-//     warn!("[sys_mount] fake implementation!");
-//     SUCCESS
-// }
-
 bitflags! {
     pub struct UtimensatFlags: u32 {
         const AT_SYMLINK_NOFOLLOW = 0x100;
@@ -442,62 +426,7 @@ bitflags! {
 }
 
 // pub fn sys_utimensat(
-//     dirfd: usize,
-//     pathname: *const u8,
-//     times: *const [TimeSpec; 2],
-//     flags: u32,
-// ) -> isize {
-//     const UTIME_NOW: usize = 0x3fffffff;
-//     const UTIME_OMIT: usize = 0x3ffffffe;
 
-//     let token = current_user_token();
-//     let path = if !pathname.is_null() {
-//         match translated_str(token, pathname) {
-//             Ok(path) => path,
-//             Err(errno) => return errno,
-//         }
-//     } else {
-//         String::new()
-//     };
-//     let flags = match UtimensatFlags::from_bits(flags) {
-//         Some(flags) => flags,
-//         None => {
-//             warn!("[sys_utimensat] unknown flags");
-//             return EINVAL;
-//         }
-//     };
-
-//     info!(
-//         "[sys_utimensat] dirfd: {}, path: {}, times: {:?}, flags: {:?}",
-//         dirfd as isize, path, times, flags
-//     );
-
-//     let inode = match __openat(dirfd, &path) {
-//         Ok(inode) => inode,
-//         Err(errno) => return errno,
-//     };
-
-//     let now = TimeSpec::now();
-//     let timespec = &mut [now; 2];
-//     let mut atime = Some(now.tv_sec);
-//     let mut mtime = Some(now.tv_sec);
-//     if !times.is_null() {
-//         copy_from_user(token, times, timespec);
-//         match timespec[0].tv_nsec {
-//             UTIME_NOW => (),
-//             UTIME_OMIT => atime = None,
-//             _ => atime = Some(timespec[0].tv_sec),
-//         }
-//         match timespec[1].tv_nsec {
-//             UTIME_NOW => (),
-//             UTIME_OMIT => mtime = None,
-//             _ => mtime = Some(timespec[1].tv_sec),
-//         }
-//     }
-
-//     inode.set_timestamp(None, atime, mtime);
-//     SUCCESS
-// }
 
 #[allow(non_camel_case_types)]
 #[derive(Debug, Eq, PartialEq, FromPrimitive)]
@@ -538,129 +467,6 @@ pub enum Fcntl_Command {
     ILLEAGAL,
 }
 
-// pub fn sys_fcntl(fd: usize, cmd: u32, arg: usize) -> isize {
-//     const FD_CLOEXEC: usize = 1;
-
-//     let task = current_task().unwrap();
-//     let mut fd_table = task.files.lock();
-
-//     info!(
-//         "[sys_fcntl] fd: {}, cmd: {:?}, arg: {:X}",
-//         fd,
-//         Fcntl_Command::from_primitive(cmd),
-//         arg
-//     );
-
-//     match Fcntl_Command::from_primitive(cmd) {
-//         Fcntl_Command::DUPFD => {
-//             let new_file_descriptor = match fd_table.get_ref(fd) {
-//                 Ok(file_descriptor) => file_descriptor.clone(),
-//                 Err(errno) => return errno,
-//             };
-//             match fd_table.try_insert_at(new_file_descriptor, arg) {
-//                 Ok(fd) => fd as isize,
-//                 Err(errno) => errno,
-//             }
-//         }
-//         Fcntl_Command::DUPFD_CLOEXEC => {
-//             let mut new_file_descriptor = match fd_table.get_ref(fd) {
-//                 Ok(file_descriptor) => file_descriptor.clone(),
-//                 Err(errno) => return errno,
-//             };
-//             new_file_descriptor.set_cloexec(true);
-//             match fd_table.try_insert_at(new_file_descriptor, arg) {
-//                 Ok(fd) => fd as isize,
-//                 Err(errno) => errno,
-//             }
-//         }
-//         Fcntl_Command::GETFD => {
-//             let file_descriptor = match fd_table.get_ref(fd) {
-//                 Ok(file_descriptor) => file_descriptor,
-//                 Err(errno) => return errno,
-//             };
-//             file_descriptor.get_cloexec() as isize
-//         }
-//         Fcntl_Command::SETFD => {
-//             let file_descriptor = match fd_table.get_refmut(fd) {
-//                 Ok(file_descriptor) => file_descriptor,
-//                 Err(errno) => return errno,
-//             };
-//             file_descriptor.set_cloexec((arg & FD_CLOEXEC) != 0);
-//             if (arg & !FD_CLOEXEC) != 0 {
-//                 warn!("[fcntl] Unsupported flag exists: {:X}", arg);
-//             }
-//             SUCCESS
-//         }
-//         Fcntl_Command::GETFL => {
-//             let file_descriptor = match fd_table.get_ref(fd) {
-//                 Ok(file_descriptor) => file_descriptor,
-//                 Err(errno) => return errno,
-//             };
-//             // Access control is not fully implemented
-//             let mut res = OpenFlags::O_RDWR.bits() as isize;
-//             if file_descriptor.get_nonblock() {
-//                 res |= OpenFlags::O_NONBLOCK.bits() as isize;
-//             }
-//             res
-//         }
-//         command => {
-//             warn!("[fcntl] Unsupported command: {:?}", command);
-//             SUCCESS
-//         } // WARNING!!!
-//     }
-// }
-
-// pub fn sys_pselect(
-//     nfds: usize,
-//     read_fds: *mut FdSet,
-//     write_fds: *mut FdSet,
-//     exception_fds: *mut FdSet,
-//     timeout: *mut TimeSpec,
-//     sigmask: *const crate::task::signal::Signals,
-// ) -> isize {
-//     if (nfds as isize) < 0 {
-//         return EINVAL;
-//     }
-//     let token = current_user_token();
-//     let mut kread_fds = match try_get_from_user(token, read_fds) {
-//         Ok(fds) => fds,
-//         Err(errno) => return errno,
-//     };
-//     let mut kwrite_fds = match try_get_from_user(token, write_fds) {
-//         Ok(fds) => fds,
-//         Err(errno) => return errno,
-//     };
-//     let mut kexception_fds = match try_get_from_user(token, exception_fds) {
-//         Ok(fds) => fds,
-//         Err(errno) => return errno,
-//     };
-//     let ktimeout = match try_get_from_user(token, timeout) {
-//         Ok(timeout) => timeout,
-//         Err(errno) => return errno,
-//     };
-//     let ret = pselect(
-//         nfds,
-//         &mut kread_fds,
-//         &mut kwrite_fds,
-//         &mut kexception_fds,
-//         &ktimeout,
-//         sigmask,
-//     );
-//     if let Some(kread_fds) = &kread_fds {
-//         trace!("[pselect] read_fds: {:?}", kread_fds);
-//         copy_to_user(token, kread_fds, read_fds);
-//     }
-//     if let Some(kwrite_fds) = &kwrite_fds {
-//         trace!("[pselect] write_fds: {:?}", kwrite_fds);
-//         copy_to_user(token, kwrite_fds, write_fds);
-//     }
-//     if let Some(kexception_fds) = &kexception_fds {
-//         trace!("[pselect] exception_fds: {:?}", kexception_fds);
-//         copy_to_user(token, kexception_fds, exception_fds);
-//     }
-//     ret
-// }
-
 /// umask() sets the calling process's file mode creation mask (umask) to
 /// mask & 0777 (i.e., only the file permission bits of mask are used),
 /// and returns the previous value of the mask.
@@ -687,40 +493,6 @@ bitflags! {
     }
 }
 
-// pub fn sys_faccessat2(dirfd: usize, pathname: *const u8, mode: u32, flags: u32) -> isize {
-//     let token = current_user_token();
-//     let pathname = match Ok(translated_str(token, pathname)) {
-//         Ok(path) => path,
-//         Err(errno) => return errno,
-//     };
-//     let mode = match FaccessatMode::from_bits(mode) {
-//         Some(mode) => mode,
-//         None => {
-//             warn!("[sys_faccessat2] unknown mode");
-//             return EINVAL;
-//         }
-//     };
-//     let flags = match FaccessatFlags::from_bits(flags) {
-//         Some(flags) => flags,
-//         None => {
-//             warn!("[sys_faccessat2] unknown flags");
-//             return EINVAL;
-//         }
-//     };
-
-//     info!(
-//         "[sys_faccessat2] dirfd: {}, pathname: {}, mode: {:?}, flags: {:?}",
-//         dirfd as isize, pathname, mode, flags
-//     );
-
-//     // Do not check user's authority, because user group is not implemented yet.
-//     // All existing files can be accessed.
-//     match __openat(dirfd, pathname.as_str()) {
-//         Ok(_) => SUCCESS,
-//         Err(errno) => errno,
-//     }
-// }
-
 bitflags! {
     pub struct MsyncFlags: u32 {
         const MS_ASYNC      =   1;
@@ -728,39 +500,3 @@ bitflags! {
         const MS_SYNC       =   4;
     }
 }
-
-// pub fn sys_msync(addr: usize, length: usize, flags: u32) -> isize {
-//     if !VirtAddr::from(addr).aligned() {
-//         return EINVAL;
-//     }
-//     let flags = match MsyncFlags::from_bits(flags) {
-//         Some(flags) => flags,
-//         None => return EINVAL,
-//     };
-//     let task = current_task().unwrap();
-//     if !task
-//         .vm
-//         .lock()
-//         .contains_valid_buffer(addr, length, MapPermission::empty())
-//     {
-//         return ENOMEM;
-//     }
-//     info!(
-//         "[sys_msync] addr: {:X}, length: {:X}, flags: {:?}",
-//         addr, flags, flags
-//     );
-//     SUCCESS
-// }
-
-// pub fn sys_ftruncate(fd: usize, length: isize) -> isize {
-//     let task = current_task().unwrap();
-//     let fd_table = task.files.lock();
-//     let file_descriptor = match fd_table.get_ref(fd) {
-//         Ok(file_descriptor) => file_descriptor,
-//         Err(errno) => return errno,
-//     };
-//     match file_descriptor.truncate_size(length) {
-//         Ok(()) => SUCCESS,
-//         Err(errno) => errno,
-//     }
-// }

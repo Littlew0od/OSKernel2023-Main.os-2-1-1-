@@ -1,4 +1,5 @@
 pub mod null;
+pub mod pipe;
 pub mod zero;
 pub mod socket;
 pub mod hwclock;
