@@ -45,7 +45,7 @@ fn main() -> i32 {
         "unlink\0",  
         "write\0",  
     ];
-    let mut path = String::from("/bin/riscv-syscalls-testing/");
+    let mut path = String::from("/");// bin/riscv-syscalls-testing/
     let arr: [*const u8; 4] = [
         core::ptr::null::<u8>(),
         core::ptr::null::<u8>(),
