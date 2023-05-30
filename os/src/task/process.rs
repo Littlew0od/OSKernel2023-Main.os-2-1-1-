@@ -34,7 +34,7 @@ pub struct ProcessControlBlockInner {
     pub children: Vec<Arc<ProcessControlBlock>>,
     pub exit_code: i32,
     pub fd_table: Arc<MutexSpin<FdTable>>,
-    pub work_path: Arc<FsStatus>,
+    pub work_path: Arc<MutexSpin<FsStatus>>,
     pub signals: SignalFlags,
     pub tasks: Vec<Option<Arc<TaskControlBlock>>>,
     pub task_res_allocator: RecycleAllocator,
@@ -113,13 +113,13 @@ impl ProcessControlBlock {
                         vec.push(stderr);
                         vec
                     }))),
-                    work_path: Arc::new(FsStatus {
+                    work_path: Arc::new(MutexSpin::new(FsStatus {
                         working_inode: Arc::new(
                             ROOT_FD
                                 .open(".", OpenFlags::O_RDONLY | OpenFlags::O_DIRECTORY, true)
                                 .unwrap(),
                         ),
-                    }),
+                    })),
                     signals: SignalFlags::empty(),
                     tasks: Vec::new(),
                     task_res_allocator: RecycleAllocator::new(),
@@ -240,13 +240,13 @@ impl ProcessControlBlock {
                     children: Vec::new(),
                     exit_code: 0,
                     fd_table: new_fd_table,
-                    work_path: Arc::new(FsStatus {
+                    work_path: Arc::new(MutexSpin::new(FsStatus {
                         working_inode: Arc::new(
                             ROOT_FD
                                 .open(".", OpenFlags::O_RDONLY | OpenFlags::O_DIRECTORY, true)
                                 .unwrap(),
                         ),
-                    }),
+                    })),
                     signals: SignalFlags::empty(),
                     tasks: Vec::new(),
                     task_res_allocator: RecycleAllocator::new(),

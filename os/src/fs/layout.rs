@@ -179,6 +179,10 @@ impl Stat {
             __unused: 0,
         }
     }
+    pub fn as_bytes(&self) -> &[u8] {
+        let size = core::mem::size_of::<Stat>();
+        unsafe { from_raw_parts(self as *const _ as *const u8, size) }
+    }
 }
 
 const NAME_LIMIT: usize = 128;

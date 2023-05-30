@@ -20,23 +20,6 @@ use super::errno::*;
 
 pub const AT_FDCWD: usize = 100usize.wrapping_neg();
 
-/// # Warning
-/// `fs` & `files` is locked in this function
-// fn __openat(dirfd: usize, path: &str) -> Result<FileDescriptor, isize> {
-//     let task = current_task().unwrap();
-//     let file_descriptor = match dirfd {
-//         AT_FDCWD => task.fs.lock().working_inode.as_ref().clone(),
-//         fd => {
-//             let fd_table = task.files.lock();
-//             match fd_table.get_ref(fd) {
-//                 Ok(file_descriptor) => file_descriptor.clone(),
-//                 Err(errno) => return Err(errno),
-//             }
-//         }
-//     };
-//     file_descriptor.open(path, OpenFlags::O_RDONLY, false)
-// }
-
 pub fn sys_getpwd(buf: *mut u8, size: usize) -> isize {
     let process = current_process();
     let token = current_user_token();
@@ -44,7 +27,7 @@ pub fn sys_getpwd(buf: *mut u8, size: usize) -> isize {
         // The size argument is zero and buf is not a NULL pointer.
         return EINVAL;
     }
-    let working_dir = process.inner_exclusive_access().work_path.working_inode.get_cwd().unwrap();
+    let working_dir = process.inner_exclusive_access().work_path.lock().working_inode.get_cwd().unwrap();
     if working_dir.len() >= size {
         // The size argument is less than the length of the absolute pathname of the working directory,
         // including the terminating null byte.
@@ -163,7 +146,7 @@ pub fn sys_mkdirat(dirfd: usize, path: *const u8, mode: u32) -> isize {
         StatMode::from_bits(mode)
     );
     let file_descriptor = match dirfd {
-        AT_FDCWD => inner.work_path.working_inode.as_ref().clone(),
+        AT_FDCWD => inner.work_path.lock().working_inode.as_ref().clone(),
         fd => {
             let fd_table = inner.fd_table.lock();
             match fd_table.get_ref(fd) {
@@ -206,7 +189,7 @@ pub fn sys_openat(dirfd: usize, path: *const u8, flags: u32, mode: u32) -> isize
     let inner = process.inner_exclusive_access();
     let mut fd_table = inner.fd_table.lock();
     let file_descriptor = match dirfd {
-        AT_FDCWD => inner.work_path.working_inode.as_ref().clone(),
+        AT_FDCWD => inner.work_path.lock().working_inode.as_ref().clone(),
         fd => {
             match fd_table.get_ref(fd) {
                 Ok(file_descriptor) => file_descriptor.clone(),
@@ -286,7 +269,7 @@ pub fn sys_unlinkat(dirfd: usize, path: *const u8, flags: u32) -> isize{
 
     let file_descriptor = match dirfd {
         // AT_FDCWD => task.fs.lock().working_inode.as_ref().clone(),
-        AT_FDCWD => inner.work_path.working_inode.as_ref().clone(),
+        AT_FDCWD => inner.work_path.lock().working_inode.as_ref().clone(),
         fd => {
             match fd_table.get_ref(fd) {
                 Ok(file_descriptor) => file_descriptor.clone(),
@@ -300,6 +283,14 @@ pub fn sys_unlinkat(dirfd: usize, path: *const u8, flags: u32) -> isize{
     }
 }
 
+bitflags! {
+    pub struct UmountFlags: u32 {
+        const MNT_FORCE           =   1;
+        const MNT_DETACH          =   2;
+        const MNT_EXPIRE          =   4;
+        const UMOUNT_NOFOLLOW     =   8;
+    }
+}
 
 pub fn sys_umount2(target: *const u8, flags: u32) -> isize {
     if target.is_null() {
@@ -314,75 +305,6 @@ pub fn sys_umount2(target: *const u8, flags: u32) -> isize {
     info!("[sys_umount2] target: {}, flags: {:?}", target, flags);
     warn!("[sys_umount2] fake implementation!");
     SUCCESS
-}
-
-pub fn sys_mount(
-    source: *const u8,
-    target: *const u8,
-    filesystemtype: *const u8,
-    mountflags: usize,
-    data: *const u8,
-) -> isize {
-    if source.is_null() || target.is_null() || filesystemtype.is_null() {
-        return EINVAL;
-    }
-    let token = current_user_token();
-    let source = translated_str(token, source);
-    let target = translated_str(token, target);
-    let filesystemtype = translated_str(token, filesystemtype);
-    // infallible
-    let mountflags = MountFlags::from_bits(mountflags).unwrap();
-    info!(
-        "[sys_mount] source: {}, target: {}, filesystemtype: {}, mountflags: {:?}, data: {:?}",
-        source, target, filesystemtype, mountflags, data
-    );
-    warn!("[sys_mount] fake implementation!");
-    SUCCESS
-}
-
-
-pub fn sys_getdents64(fd: usize, buf: *mut u8, len: usize) -> isize {
-    let token = current_user_token();
-    let process = current_process();
-    let inner = process.inner_exclusive_access();
-    let mut fd_table = inner.fd_table.lock();
-    let file_descriptor = match fd {
-        AT_FDCWD => inner.work_path.working_inode.as_ref().clone(),
-        fd => {
-            match fd_table.get_ref(fd) {
-                Ok(file_descriptor) => file_descriptor.clone(),
-                Err(errno) => return errno,
-            }
-        }
-    };
-    let dirent_vec = match file_descriptor.get_dirent(len) {
-        Ok(vec) => vec,
-        Err(errno) => return errno,
-    };
-    // copy_to_user_array(
-    //     token,
-    //     dirent_vec.as_ptr(),
-    //     dirp as *mut Dirent,
-    //     dirent_vec.len(),
-    // );
-    let mut user_buf = UserBuffer::new(translated_byte_buffer(token, buf, len));
-    user_buf.write(dirent_vec[0].as_bytes());
-    info!("[sys_getdents64] fd: {}, count: {}", fd, len);
-    (dirent_vec.len() * size_of::<Dirent>()) as isize
-}
-
-bitflags! {
-    pub struct UnlinkatFlags: u32 {
-        const AT_REMOVEDIR = 0x200;
-    }
-}
-bitflags! {
-    pub struct UmountFlags: u32 {
-        const MNT_FORCE           =   1;
-        const MNT_DETACH          =   2;
-        const MNT_EXPIRE          =   4;
-        const UMOUNT_NOFOLLOW     =   8;
-    }
 }
 
 bitflags! {
@@ -419,84 +341,88 @@ bitflags! {
     }
 }
 
+pub fn sys_mount(
+    source: *const u8,
+    target: *const u8,
+    filesystemtype: *const u8,
+    mountflags: usize,
+    data: *const u8,
+) -> isize {
+    if source.is_null() || target.is_null() || filesystemtype.is_null() {
+        return EINVAL;
+    }
+    let token = current_user_token();
+    let source = translated_str(token, source);
+    let target = translated_str(token, target);
+    let filesystemtype = translated_str(token, filesystemtype);
+    // infallible
+    let mountflags = MountFlags::from_bits(mountflags).unwrap();
+    warn!("[sys_mount] fake implementation!");
+    SUCCESS
+}
+
+
+pub fn sys_getdents64(fd: usize, buf: *mut u8, len: usize) -> isize {
+    let token = current_user_token();
+    let process = current_process();
+    let inner = process.inner_exclusive_access();
+    let mut fd_table = inner.fd_table.lock();
+    let file_descriptor = match fd {
+        AT_FDCWD => inner.work_path.lock().working_inode.as_ref().clone(),
+        fd => {
+            match fd_table.get_ref(fd) {
+                Ok(file_descriptor) => file_descriptor.clone(),
+                Err(errno) => return errno,
+            }
+        }
+    };
+    let dirent_vec = match file_descriptor.get_dirent(len) {
+        Ok(vec) => vec,
+        Err(errno) => return errno,
+    };
+    let mut user_buf = UserBuffer::new(translated_byte_buffer(token, buf, len));
+    user_buf.write(dirent_vec[0].as_bytes());
+    (dirent_vec.len() * size_of::<Dirent>()) as isize
+}
+
 bitflags! {
-    pub struct UtimensatFlags: u32 {
-        const AT_SYMLINK_NOFOLLOW = 0x100;
+    pub struct UnlinkatFlags: u32 {
+        const AT_REMOVEDIR = 0x200;
     }
 }
 
-// pub fn sys_utimensat(
-
-
-#[allow(non_camel_case_types)]
-#[derive(Debug, Eq, PartialEq, FromPrimitive)]
-#[repr(u32)]
-pub enum Fcntl_Command {
-    DUPFD = 0,
-    GETFD = 1,
-    SETFD = 2,
-    GETFL = 3,
-    SETFL = 4,
-    GETLK = 5,
-    SETLK = 6,
-    SETLKW = 7,
-    SETOWN = 8,
-    GETOWN = 9,
-    SETSIG = 10,
-    GETSIG = 11,
-    SETOWN_EX = 15,
-    GETOWN_EX = 16,
-    GETOWNER_UIDS = 17,
-    OFD_GETLK = 36,
-    OFD_SETLK = 37,
-    OFD_SETLKW = 38,
-    SETLEASE = 1024,
-    GETLEASE = 1025,
-    NOTIFY = 1026,
-    CANCELLK = 1029,
-    DUPFD_CLOEXEC = 1030,
-    SETPIPE_SZ = 1031,
-    GETPIPE_SZ = 1032,
-    ADD_SEALS = 1033,
-    GET_SEALS = 1034,
-    GET_RW_HINT = 1035,
-    SET_RW_HINT = 1036,
-    GET_FILE_RW_HINT = 1037,
-    SET_FILE_RW_HINT = 1038,
-    #[num_enum(default)]
-    ILLEAGAL,
-}
-
-/// umask() sets the calling process's file mode creation mask (umask) to
-/// mask & 0777 (i.e., only the file permission bits of mask are used),
-/// and returns the previous value of the mask.
-/// # WARNING
-/// In current implementation, umask is always 0. This syscall won't do anything.
-pub fn sys_umask(mask: u32) -> isize {
-    info!("[sys_umask] mask: {:o}", mask);
-    warn!(
-        "[sys_umask] In current implementation, umask is always 0. This syscall won't do anything."
-    );
-    0
-}
-
-// bitflags! {
-//     pub struct FaccessatMode: u32 {
-//         const F_OK = 0;
-//         const R_OK = 4;
-//         const W_OK = 2;
-//         const X_OK = 1;
-//     }
-//     pub struct FaccessatFlags: u32 {
-//         const AT_SYMLINK_NOFOLLOW = 0x100;
-//         const AT_EACCESS = 0x200;
-//     }
-// }
-
-bitflags! {
-    pub struct MsyncFlags: u32 {
-        const MS_ASYNC      =   1;
-        const MS_INVALIDATE =   2;
-        const MS_SYNC       =   4;
+pub fn sys_chdir(path: *const u8) -> isize {
+    let token = current_user_token();
+    let process = current_process();
+    let inner = process.inner_exclusive_access();
+    let mut work_path = inner.work_path.lock();
+    let path =translated_str(token, path);
+    match work_path.working_inode.cd(&path) {
+        Ok(new_working_inode) => {
+            work_path.working_inode = new_working_inode;
+            SUCCESS
+        }
+        Err(errno) => errno,
     }
+}
+
+pub fn sys_fstat(fd: usize, buf: *mut u8) -> isize{
+    let token = current_user_token();
+    let process = current_process();
+    let inner = process.inner_exclusive_access();
+
+    let mut fd_table = inner.fd_table.lock();
+    let file_descriptor = match fd {
+        AT_FDCWD => inner.work_path.lock().working_inode.as_ref().clone(),
+        fd => {
+            match fd_table.get_ref(fd) {
+                Ok(file_descriptor) => file_descriptor.clone(),
+                Err(errno) => return errno,
+            }
+        }
+    };
+
+    let mut user_buf = UserBuffer::new(translated_byte_buffer(token, buf, core::mem::size_of::<Stat>()));
+    user_buf.write(file_descriptor.get_stat().as_bytes());
+    SUCCESS
 }

@@ -6,7 +6,7 @@ use crate::task::{
     current_process, current_task, current_user_token, exit_current_and_run_next, pid2process,
     suspend_current_and_run_next, SignalFlags,
 };
-use crate::timer::{get_time, get_time_ms, get_time_us};
+use crate::timer::{get_time_sec, get_time_ns, get_time_us};
 use alloc::string::String;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
@@ -42,8 +42,8 @@ pub fn sys_get_process_time(times: *mut u64) -> isize {
 pub fn sys_get_time(time_return: *mut u64) -> isize {
     let token = current_user_token();
     if time_return as usize != 0 {
-        *translated_refmut(token, time_return) = get_time() as u64;
-        *translated_refmut(token, unsafe { time_return.add(1) }) = 0;
+        *translated_refmut(token, time_return) = get_time_sec() as u64;
+        *translated_refmut(token, unsafe { time_return.add(1) }) = get_time_ns() as u64;
     }
     0
 }
@@ -107,6 +107,7 @@ pub fn sys_execve(path: *const u8, mut args: *const usize) -> isize {
     let working_inode = process
         .inner_exclusive_access()
         .work_path
+        .lock()
         .working_inode
         .clone();
     match working_inode.open(&path, OpenFlags::O_RDONLY, false) {
@@ -123,6 +124,18 @@ pub fn sys_execve(path: *const u8, mut args: *const usize) -> isize {
 
 ///fake
 pub fn sys_brk(addr: usize) -> isize {
+    let process = current_process();
+    let mut inner = process.inner_exclusive_access();
+    // if addr == 0 {
+    //     inner.memory_set.heap_end.0 as isize
+    // } else if addr < inner.memory_set.heap_base.0 {
+    //     -1
+    // } else {
+    //     let mut old_end = inner.memory_set.heap_end.0;
+    //     let align_end = align_up(addr);
+    //     inner.memory_set.heap_end = align_end.into();
+    //     addr as isize
+    // }
     0
 }
 
