@@ -12,5 +12,5 @@ fmt:
 
 all:
 	cd ./os && make build
-	mv -f ./os/target/riscv64gc-unknown-none-elf/release/os.bin ./kernel-qemu
-	mv -f ./bootloader/rustsbi-qemu.bin ./sbi-qemu
+	cp -f ./os/target/riscv64gc-unknown-none-elf/release/os.bin ./kernel-qemu
+	cp -f ./bootloader/rustsbi-qemu.bin ./sbi-qemu
