@@ -8,17 +8,16 @@ edition = "2021"
 
 [dependencies]
 riscv = { path = "../dependency/riscv", features = ["inline-asm"] }
-lazy_static = { version = "1.4.0", features = ["spin_no_std"] }
-buddy_system_allocator = "0.6"
-bitflags = "1.2.1"
-xmas-elf = "0.7.0"
+lazy_static = { path = "../dependency/lazy_static-1.4.0", features = ["spin_no_std"] }
+buddy_system_allocator = { path = "../dependency/buddy_system_allocator-0.6.0"}
+bitflags = { path = "../dependency/bitflags-1.2.1"}
+xmas-elf = { path = "../dependency/xmas-elf-0.7.0"}
 virtio-drivers = { path = "../dependency/virtio-drivers" }
-# easy-fs = { path = "../easy-fs" }
-log = "0.4"
-sbi-rt = { version = "0.0.2", features = ["legacy"] }
-spin = "0.7"
-downcast-rs = { version = "1.2.0", default-features = false }
-num_enum = { version = "0.5", default-features = false }
+log = { path = "../dependency/log-0.4.17"} # maybe some problems
+sbi-rt = { path = "../dependency/sbi-rt-0.0.2", features = ["legacy"] }
+spin = { path = "../dependency/spin-0.7.1"}
+downcast-rs = { path = "../dependency/downcast-rs-1.2.0", default-features = false }
+num_enum = { path = "../dependency/num_enum-0.5.11", default-features = false }
 
 [profile.release]
 debug = true

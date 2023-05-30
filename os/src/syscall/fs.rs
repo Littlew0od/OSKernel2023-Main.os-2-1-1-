@@ -480,18 +480,18 @@ pub fn sys_umask(mask: u32) -> isize {
     0
 }
 
-bitflags! {
-    pub struct FaccessatMode: u32 {
-        const F_OK = 0;
-        const R_OK = 4;
-        const W_OK = 2;
-        const X_OK = 1;
-    }
-    pub struct FaccessatFlags: u32 {
-        const AT_SYMLINK_NOFOLLOW = 0x100;
-        const AT_EACCESS = 0x200;
-    }
-}
+// bitflags! {
+//     pub struct FaccessatMode: u32 {
+//         const F_OK = 0;
+//         const R_OK = 4;
+//         const W_OK = 2;
+//         const X_OK = 1;
+//     }
+//     pub struct FaccessatFlags: u32 {
+//         const AT_SYMLINK_NOFOLLOW = 0x100;
+//         const AT_EACCESS = 0x200;
+//     }
+// }
 
 bitflags! {
     pub struct MsyncFlags: u32 {
