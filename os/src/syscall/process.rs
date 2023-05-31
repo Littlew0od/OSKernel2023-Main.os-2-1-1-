@@ -1,7 +1,11 @@
+use crate::config::MMAP_BASE;
 use crate::config::PAGE_SIZE;
 use crate::fs::FileDescriptor;
-use crate::fs::OpenFlags; //open_file
-use crate::mm::{translated_ref, translated_refmut, translated_str};
+use crate::fs::OpenFlags;
+use crate::mm::MapPermission;
+use crate::mm::VirtAddr;
+//open_file
+use crate::mm::{translated_ref, translated_refmut, translated_str, MapType};
 use crate::sbi::shutdown;
 use crate::task::{
     current_process, current_task, current_user_token, exit_current_and_run_next, pid2process,
@@ -211,13 +215,20 @@ pub fn sys_kill(pid: usize, signal: u32) -> isize {
     }
 }
 
+/// Only one-time mmaps without specifying a start address are supported
 pub fn sys_mmap(
     start: usize,
     len: usize,
     prot: usize,
     flags: usize,
-    fd: isize,
+    fd: usize,
     offset: usize,
 ) -> isize {
-    0
+    if start as isize == -1 {
+        return -1
+    }
+    let process = current_process();
+    let mut inner = process.inner_exclusive_access();
+    inner.mmap(MMAP_BASE, len, offset, fd);
+    MMAP_BASE as isize
 }

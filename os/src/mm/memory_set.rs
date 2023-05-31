@@ -12,6 +12,7 @@ use alloc::vec::Vec;
 use core::arch::asm;
 use core::iter::Map;
 use core::mem;
+use core::task::Context;
 use lazy_static::*;
 use riscv::register::satp;
 
@@ -41,7 +42,7 @@ pub struct MemorySet {
     page_table: PageTable,
     areas: Vec<MapArea>,
     heap_area: BTreeMap<VirtPageNum, FrameTracker>,
-    // mmap_area: MapArea,
+    mmap_area: Vec<MapArea>,
 }
 
 impl MemorySet {
@@ -50,6 +51,7 @@ impl MemorySet {
             page_table: PageTable::new(),
             areas: Vec::new(),
             heap_area: BTreeMap::new(),
+            mmap_area: Vec::new(),
         }
     }
     pub fn token(&self) -> usize {
@@ -271,6 +273,24 @@ impl MemorySet {
             self.heap_area.insert(vpn, frame);
         }
         SUCCESS
+    }
+    pub fn mmap(
+        &mut self,
+        start_addr: usize,
+        len: usize,
+        offset: usize,
+        context: Vec<u8>,
+    ) -> isize {
+        let mmap_end = VirtAddr::from(((start_addr + len) + PAGE_SIZE - 1) & (!(PAGE_SIZE - 1)));
+        let mmap_area = MapArea::new(
+            VirtAddr::from(start_addr),
+            mmap_end,
+            MapType::Framed,
+            MapPermission::R | MapPermission::W | MapPermission::U,
+        );
+        let subcontext = context[offset..(len + offset)].to_vec();
+        self.push(mmap_area, Some(subcontext.as_slice()));
+        0
     }
 }
 

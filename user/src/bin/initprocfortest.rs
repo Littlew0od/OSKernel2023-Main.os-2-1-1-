@@ -32,20 +32,20 @@ fn main() -> i32 {
         // "times\0",      
         // "unlink\0",  
         // "write\0",  
+        // "mmap\0",
+        // "brk\0",
+        // "munmap\0",
 
         // "waitpid\0",
         // "clone\0",  
-        // "dup2\0",   
+        "dup2\0",   
         // "fork\0",  
-        // "mmap\0",   
         // "exit\0",  
         // "wait\0",     
-        // "yield\0",
-        // // "munmap\0",  
+        // "yield\0",  
         // "pipe\0",  
-        "brk\0",
     ];
-    let mut path = String::from("/bin/riscv-syscalls-testing/");// 
+    let mut path = String::from("/bin/riscv-syscalls-testing/"); //
     let arr: [*const u8; 4] = [
         core::ptr::null::<u8>(),
         core::ptr::null::<u8>(),
@@ -55,10 +55,10 @@ fn main() -> i32 {
     let mut exit_code: i32 = 0;
     for path_name in tasks {
         let pid = fork();
-        if pid == 0{
+        if pid == 0 {
             path.push_str(path_name);
-            println!("[initproc] path = {}",path);
-            exec(path.as_str(),&arr[..]);
+            println!("[initproc] path = {}", path);
+            exec(path.as_str(), &arr[..]);
         } else {
             waitpid(pid as usize, &mut exit_code);
         }

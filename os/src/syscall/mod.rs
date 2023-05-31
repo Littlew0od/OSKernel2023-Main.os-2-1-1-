@@ -116,7 +116,7 @@ pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
             args[1],
             args[2],
             args[3],
-            args[4] as isize,
+            args[4],
             args[5],
         ),
         SYSCALL_WAITPID => sys_waitpid(args[0] as isize, args[1] as *mut i32),

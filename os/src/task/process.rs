@@ -60,6 +60,21 @@ impl ProcessControlBlockInner {
     //     }
     // }
 
+    pub fn mmap(
+        &mut self,
+        start_addr: usize,
+        len: usize,
+        offset: usize,
+        fd: usize,
+    ) -> isize {
+        let file_descriptor = match self.fd_table.lock().get_ref(fd) {
+            Ok(file_descriptor) => file_descriptor.clone(),
+            Err(errno) => return errno,
+        };
+        let context = file_descriptor.read_all();
+        self.memory_set.mmap(start_addr, len, offset, context)
+    }
+
     pub fn alloc_tid(&mut self) -> usize {
         self.task_res_allocator.alloc()
     }
