@@ -5,7 +5,7 @@ use super::{add_task, SignalFlags};
 use super::{pid_alloc, PidHandle};
 use crate::fs::{FdTable, FileDescriptor, OpenFlags, ROOT_FD};
 use crate::fs::{File, Stdin, Stdout};
-use crate::mm::{translated_refmut, MemorySet, KERNEL_SPACE};
+use crate::mm::{translated_refmut, MemorySet, KERNEL_SPACE, VirtAddr};
 use crate::sync::{Condvar, Mutex, Semaphore, UPSafeCell};
 use crate::trap::{trap_handler, TrapContext};
 use alloc::string::String;
@@ -41,6 +41,8 @@ pub struct ProcessControlBlockInner {
     pub mutex_list: Vec<Option<Arc<dyn Mutex>>>,
     pub semaphore_list: Vec<Option<Arc<Semaphore>>>,
     pub condvar_list: Vec<Option<Arc<Condvar>>>,
+    pub heap_base: VirtAddr,
+    pub heap_end: VirtAddr,
 }
 
 impl ProcessControlBlockInner {
@@ -82,7 +84,7 @@ impl ProcessControlBlock {
 
     pub fn new(elf_data: &[u8]) -> Arc<Self> {
         // memory_set with elf program headers/trampoline/trap context/user stack
-        let (memory_set, ustack_base, entry_point) = MemorySet::from_elf(elf_data);
+        let (memory_set,uheap_base,  ustack_base, entry_point) = MemorySet::from_elf(elf_data);
         // allocate a pid
         let pid_handle = pid_alloc();
         let process = Arc::new(Self {
@@ -94,20 +96,11 @@ impl ProcessControlBlock {
                     parent: None,
                     children: Vec::new(),
                     exit_code: 0,
-                    // fd_table: vec![
-                    //     // 0 -> stdin
-                    //     Some(Arc::new(Stdin)),
-                    //     // 1 -> stdout
-                    //     Some(Arc::new(Stdout)),
-                    //     // 2 -> stderr
-                    //     Some(Arc::new(Stdout)),
-                    // ],
                     fd_table: Arc::new(MutexSpin::new(FdTable::new({
                         let mut vec = Vec::with_capacity(144);
                         let stdin = Some(FileDescriptor::new(false, false, Arc::new(Stdin)));
                         let stdout = Some(FileDescriptor::new(false, false, Arc::new(Stdout)));
                         let stderr = Some(FileDescriptor::new(false, false, Arc::new(Stdout)));
-                        // vec.resize(3, tty);
                         vec.push(stdin);
                         vec.push(stdout);
                         vec.push(stderr);
@@ -126,6 +119,8 @@ impl ProcessControlBlock {
                     mutex_list: Vec::new(),
                     semaphore_list: Vec::new(),
                     condvar_list: Vec::new(),
+                    heap_base: uheap_base.into(),
+                    heap_end: uheap_base.into(),
                 })
             },
         });
@@ -162,7 +157,7 @@ impl ProcessControlBlock {
     pub fn exec(self: &Arc<Self>, elf_data: &[u8], args: Vec<String>) {
         assert_eq!(self.inner_exclusive_access().thread_count(), 1);
         // memory_set with elf program headers/trampoline/trap context/user stack
-        let (memory_set, ustack_base, entry_point) = MemorySet::from_elf(elf_data);
+        let (memory_set, uheap_base, ustack_base, entry_point) = MemorySet::from_elf(elf_data);
         let new_token = memory_set.token();
         // substitute memory_set
         self.inner_exclusive_access().memory_set = memory_set;
@@ -253,6 +248,8 @@ impl ProcessControlBlock {
                     mutex_list: Vec::new(),
                     semaphore_list: Vec::new(),
                     condvar_list: Vec::new(),
+                    heap_base: parent.heap_base,
+                    heap_end: parent.heap_base,
                 })
             },
         });

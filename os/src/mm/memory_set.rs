@@ -2,13 +2,16 @@ use super::{frame_alloc, FrameTracker};
 use super::{PTEFlags, PageTable, PageTableEntry};
 use super::{PhysAddr, PhysPageNum, VirtAddr, VirtPageNum};
 use super::{StepByOne, VPNRange};
-use crate::config::{MEMORY_END, MMIO, PAGE_SIZE, TRAMPOLINE};
+use crate::config::{MEMORY_END, MMIO, PAGE_SIZE, STACK_BASE, TRAMPOLINE};
+use crate::fs::Null;
 use crate::sync::UPSafeCell;
+use crate::syscall::errno::SUCCESS;
 use alloc::collections::BTreeMap;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use core::arch::asm;
 use core::iter::Map;
+use core::mem;
 use lazy_static::*;
 use riscv::register::satp;
 
@@ -37,7 +40,7 @@ pub fn kernel_token() -> usize {
 pub struct MemorySet {
     page_table: PageTable,
     areas: Vec<MapArea>,
-    // heap_area: MapArea,
+    heap_area: BTreeMap<VirtPageNum, FrameTracker>,
     // mmap_area: MapArea,
 }
 
@@ -46,6 +49,7 @@ impl MemorySet {
         Self {
             page_table: PageTable::new(),
             areas: Vec::new(),
+            heap_area: BTreeMap::new(),
         }
     }
     pub fn token(&self) -> usize {
@@ -168,7 +172,7 @@ impl MemorySet {
     }
     /// Include sections in elf and trampoline,
     /// also returns user_sp_base and entry point.
-    pub fn from_elf(elf_data: &[u8]) -> (Self, usize, usize) {
+    pub fn from_elf(elf_data: &[u8]) -> (Self, usize, usize, usize) {
         let mut memory_set = Self::new_bare();
         // map trampoline
         memory_set.map_trampoline();
@@ -204,11 +208,19 @@ impl MemorySet {
             }
         }
         let max_end_va: VirtAddr = max_end_vpn.into();
-        let mut user_stack_base: usize = max_end_va.into();
-        user_stack_base += PAGE_SIZE;
+        let mut user_heap_base: usize = max_end_va.into();
+        user_heap_base += PAGE_SIZE;
+        // initial heap area
+        // memory_set.heap_area = Some(MapArea::new(
+        //     user_heap_base.into(),
+        //     STACK_BASE.into(),
+        //     MapType::Framed,
+        //     MapPermission::R | MapPermission::W | MapPermission::U,
+        // ));
         (
             memory_set,
-            user_stack_base,
+            user_heap_base,
+            STACK_BASE,
             elf.header.pt2.entry_point() as usize,
         )
     }
@@ -244,6 +256,21 @@ impl MemorySet {
     pub fn recycle_data_pages(&mut self) {
         //*self = Self::new_bare();
         self.areas.clear();
+    }
+    pub fn map_heap(&mut self, mut current_addr: VirtAddr, aim_addr: VirtAddr) -> isize {
+        loop {
+            if current_addr.0 > aim_addr.0 {
+                break;
+            }
+            current_addr = VirtAddr::from(current_addr.0 + PAGE_SIZE);
+            let frame = frame_alloc().unwrap();
+            let ppn = frame.ppn;
+            let vpn: VirtPageNum = current_addr.floor();
+            self.page_table
+                .map(vpn, ppn, PTEFlags::U | PTEFlags::R | PTEFlags::W);
+            self.heap_area.insert(vpn, frame);
+        }
+        SUCCESS
     }
 }
 

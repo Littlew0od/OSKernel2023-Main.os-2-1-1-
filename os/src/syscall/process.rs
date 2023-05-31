@@ -1,3 +1,4 @@
+use crate::config::PAGE_SIZE;
 use crate::fs::FileDescriptor;
 use crate::fs::OpenFlags; //open_file
 use crate::mm::{translated_ref, translated_refmut, translated_str};
@@ -49,7 +50,6 @@ pub fn sys_get_time(time_return: *mut u64) -> isize {
 }
 
 pub fn sys_getpid() -> isize {
-    // current_task().unwrap().process.upgrade().unwrap().getpid() as isize
     current_process().getpid() as isize
 }
 
@@ -131,21 +131,26 @@ pub fn sys_execve(path: *const u8, mut args: *const usize) -> isize {
     }
 }
 
-///fake
 pub fn sys_brk(addr: usize) -> isize {
     let process = current_process();
     let mut inner = process.inner_exclusive_access();
-    // if addr == 0 {
-    //     inner.memory_set.heap_end.0 as isize
-    // } else if addr < inner.memory_set.heap_base.0 {
-    //     -1
-    // } else {
-    //     let mut old_end = inner.memory_set.heap_end.0;
-    //     let align_end = align_up(addr);
-    //     inner.memory_set.heap_end = align_end.into();
-    //     addr as isize
-    // }
-    0
+    if addr == 0 {
+        inner.heap_end.0 as isize
+    } else if addr < inner.heap_base.0 {
+        -1
+    } else {
+        let align_addr = ((addr) + PAGE_SIZE - 1) & (!(PAGE_SIZE - 1));
+        let align_end = ((inner.heap_end.0) + PAGE_SIZE) & (!(PAGE_SIZE - 1));
+        if align_end > addr {
+            inner.heap_end = addr.into();
+            align_addr as isize
+        } else {
+            let heap_end = inner.heap_end;
+            inner.memory_set.map_heap(heap_end, align_addr.into());
+            inner.heap_end = align_end.into();
+            addr as isize
+        }
+    }
 }
 
 bitflags! {
