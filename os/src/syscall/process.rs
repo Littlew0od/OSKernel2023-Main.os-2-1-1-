@@ -210,3 +210,14 @@ pub fn sys_kill(pid: usize, signal: u32) -> isize {
         -1
     }
 }
+
+pub fn sys_mmap(
+    start: usize,
+    len: usize,
+    prot: usize,
+    flags: usize,
+    fd: isize,
+    offset: usize,
+) -> isize {
+    0
+}
