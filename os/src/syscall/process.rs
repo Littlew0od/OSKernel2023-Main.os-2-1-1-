@@ -6,7 +6,7 @@ use crate::task::{
     current_process, current_task, current_user_token, exit_current_and_run_next, pid2process,
     suspend_current_and_run_next, SignalFlags,
 };
-use crate::timer::{get_time_sec, get_time_ns, get_time_us};
+use crate::timer::{get_time_ns, get_time_sec, get_time_us};
 use alloc::string::String;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
@@ -49,15 +49,24 @@ pub fn sys_get_time(time_return: *mut u64) -> isize {
 }
 
 pub fn sys_getpid() -> isize {
-    current_task().unwrap().process.upgrade().unwrap().getpid() as isize
+    // current_task().unwrap().process.upgrade().unwrap().getpid() as isize
+    current_process().getpid() as isize
 }
 
 pub fn sys_getppid() -> isize {
-    current_task()
-        .unwrap()
-        .process
-        .upgrade()
-        .unwrap()
+    // current_task()
+    //     .unwrap()
+    //     .process
+    //     .upgrade()
+    //     .unwrap()
+    //     .inner_exclusive_access()
+    //     .parent
+    //     .as_ref()
+    //     .unwrap()
+    //     .upgrade()
+    //     .unwrap()
+    //     .getpid() as isize
+    current_process()
         .inner_exclusive_access()
         .parent
         .as_ref()

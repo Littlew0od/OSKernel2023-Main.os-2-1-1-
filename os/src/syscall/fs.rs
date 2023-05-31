@@ -20,7 +20,7 @@ use super::errno::*;
 
 pub const AT_FDCWD: usize = 100usize.wrapping_neg();
 
-pub fn sys_getpwd(buf: *mut u8, size: usize) -> isize {
+pub fn sys_getcwd(buf: *mut u8, size: usize) -> isize {
     let process = current_process();
     let token = current_user_token();
     if size == 0  {//&& buf != 0

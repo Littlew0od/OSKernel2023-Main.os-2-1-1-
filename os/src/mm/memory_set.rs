@@ -8,6 +8,7 @@ use alloc::collections::BTreeMap;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use core::arch::asm;
+use core::iter::Map;
 use lazy_static::*;
 use riscv::register::satp;
 
@@ -36,6 +37,8 @@ pub fn kernel_token() -> usize {
 pub struct MemorySet {
     page_table: PageTable,
     areas: Vec<MapArea>,
+    // heap_area: MapArea,
+    // mmap_area: MapArea,
 }
 
 impl MemorySet {
