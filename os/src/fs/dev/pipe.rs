@@ -9,9 +9,9 @@ use crate::{fs::file_trait::File, mm::UserBuffer};
 use alloc::boxed::Box;
 use alloc::sync::{Arc, Weak};
 use alloc::vec::Vec;
+use core::ptr::copy_nonoverlapping;
 use num_enum::FromPrimitive;
 use spin::Mutex;
-use core::ptr::copy_nonoverlapping;
 
 pub struct Pipe {
     readable: bool,
@@ -101,7 +101,11 @@ impl PipeRingBuffer {
             copy_nonoverlapping(self.arr.as_ptr().add(begin), buf.as_mut_ptr(), read_bytes);
         };
         // update head
-        self.head = if begin + read_bytes == RING_DEFAULT_BUFFER_SIZE { 0 } else { begin + read_bytes };
+        self.head = if begin + read_bytes == RING_DEFAULT_BUFFER_SIZE {
+            0
+        } else {
+            begin + read_bytes
+        };
         read_bytes
     }
     #[inline]
@@ -119,7 +123,11 @@ impl PipeRingBuffer {
             copy_nonoverlapping(buf.as_ptr(), self.arr.as_mut_ptr().add(begin), write_bytes);
         };
         // update tail
-        self.tail = if begin + write_bytes == RING_DEFAULT_BUFFER_SIZE { 0 } else { begin + write_bytes };
+        self.tail = if begin + write_bytes == RING_DEFAULT_BUFFER_SIZE {
+            0
+        } else {
+            begin + write_bytes
+        };
         write_bytes
     }
     fn set_write_end(&mut self, write_end: &Arc<Pipe>) {
@@ -167,13 +175,6 @@ impl File for Pipe {
         }
         let mut read_size = 0usize;
         loop {
-            // let task = current_task().unwrap();
-            // let inner = task.acquire_inner_lock();
-            // if !inner.sigpending.difference(inner.sigmask).is_empty() {
-            //     return ERESTART as usize;
-            // }
-            // drop(inner);
-            // drop(task);
             let mut ring = self.buffer.lock();
             if ring.status == RingBufferStatus::EMPTY {
                 if ring.all_write_ends_closed() {
@@ -375,7 +376,9 @@ impl File for Pipe {
         todo!()
     }
 
-    fn open_subfile(&self) -> Result<alloc::vec::Vec<(alloc::string::String, alloc::sync::Arc<dyn File>)>, isize> {
+    fn open_subfile(
+        &self,
+    ) -> Result<alloc::vec::Vec<(alloc::string::String, alloc::sync::Arc<dyn File>)>, isize> {
         Err(ENOTDIR)
     }
 
@@ -414,16 +417,11 @@ impl File for Pipe {
         todo!()
     }
 
-    fn get_single_cache(
-        &self,
-        offset: usize,
-    ) -> Result<Arc<Mutex<crate::fs::PageCache>>, ()> {
+    fn get_single_cache(&self, offset: usize) -> Result<Arc<Mutex<crate::fs::PageCache>>, ()> {
         todo!()
     }
 
-    fn get_all_caches(
-        &self,
-    ) -> Result<alloc::vec::Vec<Arc<Mutex<crate::fs::PageCache>>>, ()> {
+    fn get_all_caches(&self) -> Result<alloc::vec::Vec<Arc<Mutex<crate::fs::PageCache>>>, ()> {
         todo!()
     }
 

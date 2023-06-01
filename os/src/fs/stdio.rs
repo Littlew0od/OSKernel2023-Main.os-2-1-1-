@@ -6,8 +6,10 @@ use crate::{mm::UserBuffer, syscall::errno::ENOTDIR};
 use alloc::sync::{Arc, Weak};
 use alloc::vec::Vec;
 
+#[derive(Copy, Clone)]
 pub struct Stdin;
 
+#[derive(Copy, Clone)]
 pub struct Stdout;
 
 impl File for Stdin {

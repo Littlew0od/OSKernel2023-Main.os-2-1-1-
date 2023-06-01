@@ -95,12 +95,7 @@ pub fn sys_dup(oldfd: usize) -> isize{
 }
 
 pub fn sys_dup3(oldfd: usize, newfd: usize, flags: u32) -> isize {
-    info!(
-        "[sys_dup3] oldfd: {}, newfd: {}, flags: {:?}",
-        oldfd,
-        newfd,
-        OpenFlags::from_bits(flags)
-    );
+
     if oldfd == newfd {
         return EINVAL;
     }
@@ -126,7 +121,7 @@ pub fn sys_dup3(oldfd: usize, newfd: usize, flags: u32) -> isize {
         Ok(file_descriptor) => file_descriptor.clone(),
         Err(errno) => return errno,
     };
-    file_descriptor.set_cloexec(is_cloexec);
+    file_descriptor.set_cloexec(false); //is_cloexec
     match fd_table.insert_at(file_descriptor, newfd) {
         Ok(fd) => fd as isize,
         Err(errno) => errno,
@@ -222,12 +217,12 @@ pub fn sys_close(fd: usize) -> isize {
 }
 
 pub fn sys_pipe(pipe: *mut usize) -> isize {
+    let token = current_user_token();
     let process = current_process();
     let inner = process.inner_exclusive_access();
     let mut fd_table = inner.fd_table.lock();
-    let token = current_user_token();
     let (pipe_read, pipe_write) = make_pipe();
-    
+
     let read_fd = match fd_table.insert(FileDescriptor::new(
         false,
         false,

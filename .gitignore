@@ -21,3 +21,4 @@ pushall.sh
 riscv-syscalls-testing
 sbi-qemu
 kernel-qemu
+os/buildfs.sh
