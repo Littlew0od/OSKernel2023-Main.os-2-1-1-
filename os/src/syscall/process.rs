@@ -80,13 +80,7 @@ pub fn sys_getppid() -> isize {
         .getpid() as isize
 }
 
-pub fn sys_clone(
-    flags: u32,
-    stack: *const u8,
-    ptid: *const u32,
-    tls: *const usize,
-    ctid: *const u32,
-) -> isize {
+pub fn sys_fork() -> isize {
     let current_process = current_process();
     let new_process = current_process.fork();
     let new_pid = new_process.getpid();
@@ -98,6 +92,22 @@ pub fn sys_clone(
     // for child process, fork returns 0
     trap_cx.x[10] = 0;
     new_pid as isize
+}
+
+pub fn sys_clone(flags: usize, stack_ptr: usize, ptid: usize, tls: usize, ctid: usize) -> isize {
+    let pcb = current_process();
+    let child_pcb = pcb.fork();
+    let child_pid = child_pcb.getpid();
+
+    let child_inner = child_pcb.inner_exclusive_access();
+    let child_task = child_inner.tasks[0].as_ref().unwrap();
+    let child_trap_cx = child_task.inner.exclusive_access().get_trap_cx();
+
+    if stack_ptr != 0 {
+        child_trap_cx.x[2] = stack_ptr;
+    }
+    child_trap_cx.x[10] = 0;
+    child_pid as isize
 }
 
 pub fn sys_execve(path: *const u8, mut args: *const usize) -> isize {
@@ -169,35 +179,39 @@ bitflags! {
 /// If there is not a child process whose pid is same as given, return -1.
 /// Else if there is a child process but it is still running, return -2.
 pub fn sys_waitpid(pid: isize, exit_code_ptr: *mut i32) -> isize {
-    let process = current_process();
-    // find a child process
+    loop {
+        let process = current_process();
+        // find a child process
 
-    let mut inner = process.inner_exclusive_access();
-    if !inner
-        .children
-        .iter()
-        .any(|p| pid == -1 || pid as usize == p.getpid())
-    {
-        return -1;
-        // ---- release current PCB
-    }
-    let pair = inner.children.iter().enumerate().find(|(_, p)| {
-        // ++++ temporarily access child PCB exclusively
-        p.inner_exclusive_access().is_zombie && (pid == -1 || pid as usize == p.getpid())
-        // ++++ release child PCB
-    });
-    if let Some((idx, _)) = pair {
-        let child = inner.children.remove(idx);
-        // confirm that child will be deallocated after being removed from children list
-        assert_eq!(Arc::strong_count(&child), 1);
-        let found_pid = child.getpid();
-        // ++++ temporarily access child PCB exclusively
-        let exit_code = child.inner_exclusive_access().exit_code;
-        // ++++ release child PCB
-        *translated_refmut(inner.memory_set.token(), exit_code_ptr) = exit_code;
-        found_pid as isize
-    } else {
-        -2
+        let mut inner = process.inner_exclusive_access();
+        if !inner
+            .children
+            .iter()
+            .any(|p| pid == -1 || pid as usize == p.getpid())
+        {
+            return -1;
+            // ---- release current PCB
+        }
+        let pair = inner.children.iter().enumerate().find(|(_, p)| {
+            // ++++ temporarily access child PCB exclusively
+            p.inner_exclusive_access().is_zombie && (pid == -1 || pid as usize == p.getpid())
+            // ++++ release child PCB
+        });
+        if let Some((idx, _)) = pair {
+            let child = inner.children.remove(idx);
+            // confirm that child will be deallocated after being removed from children list
+            assert_eq!(Arc::strong_count(&child), 1);
+            let found_pid = child.getpid();
+            // ++++ temporarily access child PCB exclusively
+            let exit_code = child.inner_exclusive_access().exit_code;
+            // ++++ release child PCB
+            *translated_refmut(inner.memory_set.token(), exit_code_ptr) = exit_code;
+            return found_pid as isize;
+        } else {
+            drop(inner);
+            drop(process);
+            suspend_current_and_run_next();
+        }
     }
     // ---- release current PCB automatically
 }
@@ -225,7 +239,7 @@ pub fn sys_mmap(
     offset: usize,
 ) -> isize {
     if start as isize == -1 {
-        return -1
+        return -1;
     }
     let process = current_process();
     let mut inner = process.inner_exclusive_access();

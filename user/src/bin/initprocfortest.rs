@@ -36,13 +36,14 @@ fn main() -> i32 {
         // "brk\0",
         // "munmap\0",
         // "dup2\0",
+        // "wait\0",  
 
         // "waitpid\0",
         // "clone\0",     
         // "fork\0",  
         // "exit\0",  
-        // "wait\0",     
-        // "yield\0",  
+           
+        "yield\0",  
         "pipe\0",  
     ];
     let mut path = String::from("/bin/riscv-syscalls-testing/"); //
