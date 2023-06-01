@@ -72,10 +72,11 @@ pub fn sys_write(fd: usize, buf: *const u8, len: usize) -> isize {
     if !file_descriptor.writable() {
         return EBADF;
     }
-    file_descriptor.write_user(
+    let write_size = file_descriptor.write_user(
         None,
         UserBuffer::new(translated_byte_buffer(token, buf, len)),
-    ) as isize
+    );
+    write_size as isize
 }
 
 pub fn sys_dup(oldfd: usize) -> isize{

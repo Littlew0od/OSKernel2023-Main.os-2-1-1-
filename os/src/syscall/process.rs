@@ -80,7 +80,7 @@ pub fn sys_getppid() -> isize {
         .getpid() as isize
 }
 
-pub fn sys_fork() -> isize {
+pub fn sys_fork(flags: usize, stack_ptr: usize, ptid: usize, tls: usize, ctid: usize) -> isize {
     let current_process = current_process();
     let new_process = current_process.fork();
     let new_pid = new_process.getpid();
@@ -90,24 +90,11 @@ pub fn sys_fork() -> isize {
     let trap_cx = task.inner_exclusive_access().get_trap_cx();
     // we do not have to move to next instruction since we have done it before
     // for child process, fork returns 0
+    if stack_ptr != 0 {
+        trap_cx.x[2] = stack_ptr;
+    }
     trap_cx.x[10] = 0;
     new_pid as isize
-}
-
-pub fn sys_clone(flags: usize, stack_ptr: usize, ptid: usize, tls: usize, ctid: usize) -> isize {
-    let pcb = current_process();
-    let child_pcb = pcb.fork();
-    let child_pid = child_pcb.getpid();
-
-    let child_inner = child_pcb.inner_exclusive_access();
-    let child_task = child_inner.tasks[0].as_ref().unwrap();
-    let child_trap_cx = child_task.inner.exclusive_access().get_trap_cx();
-
-    if stack_ptr != 0 {
-        child_trap_cx.x[2] = stack_ptr;
-    }
-    child_trap_cx.x[10] = 0;
-    child_pid as isize
 }
 
 pub fn sys_execve(path: *const u8, mut args: *const usize) -> isize {

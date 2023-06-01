@@ -10,7 +10,7 @@ pub struct TaskControlBlock {
     pub process: Weak<ProcessControlBlock>,
     pub kstack: KernelStack,
     // mutable
-    pub inner: UPSafeCell<TaskControlBlockInner>,
+    inner: UPSafeCell<TaskControlBlockInner>,
 }
 
 impl TaskControlBlock {
