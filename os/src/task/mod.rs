@@ -138,13 +138,14 @@ pub fn exit_current_and_run_next(exit_code: i32) {
     drop(process);
     // we do not have to save task context
     let mut _unused = TaskContext::zero_init();
+    println!("sche");
     schedule(&mut _unused as *mut _);
 }
 
 lazy_static! {
     pub static ref INITPROC: Arc<ProcessControlBlock> = {
-        // let initproc_fd = ROOT_FD.open("/initproc", OpenFlags::O_RDONLY, true).unwrap();
-        let initproc_fd = ROOT_FD.open("/initprocfortest", OpenFlags::O_RDONLY, true).unwrap();
+        let initproc_fd = ROOT_FD.open("/initproc", OpenFlags::O_RDONLY, true).unwrap();
+        // let initproc_fd = ROOT_FD.open("/initprocfortest", OpenFlags::O_RDONLY, true).unwrap();
         let v = initproc_fd.read_all();
         ProcessControlBlock::new(v.as_slice())
     };
@@ -154,12 +155,28 @@ pub fn load_initialproc(){
     extern "C" {
         fn app_0_start();
         fn app_0_end();
+        fn app_1_start();
+        fn app_1_end();
     }
-    let initprocfortest = ROOT_FD.open("initprocfortest", OpenFlags::O_CREAT, false).unwrap();
-    initprocfortest.write(None, unsafe {
+    // let initprocfortest = ROOT_FD.open("initprocfortest", OpenFlags::O_CREAT, false).unwrap();
+    // initprocfortest.write(None, unsafe {
+    //     core::slice::from_raw_parts(
+    //         app_0_start as *const u8,
+    //         app_0_end as usize - app_0_start as usize,
+    //     )
+    // });
+    let initproc = ROOT_FD.open("initproc", OpenFlags::O_CREAT, false).unwrap();
+    initproc.write(None, unsafe {
         core::slice::from_raw_parts(
             app_0_start as *const u8,
             app_0_end as usize - app_0_start as usize,
+        )
+    });
+    let test_shell = ROOT_FD.open("test_shell", OpenFlags::O_CREAT, false).unwrap();
+    test_shell.write(None, unsafe {
+        core::slice::from_raw_parts(
+            app_1_start as *const u8,
+            app_1_end as usize - app_1_start as usize,
         )
     });
 }

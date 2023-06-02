@@ -56,9 +56,9 @@ fn main() -> i32 {
     let mut exit_code: i32 = 0;
     for path_name in tasks {
         let pid = fork();
-        if pid == 1 {
+        if pid == 0 {
             path.push_str(path_name);
-            println!("[test_shell] path = {}", path);
+            println!("[initproc] path = {}", path);
             exec(path.as_str(), &arr[..]);
         } else {
             waitpid(pid as usize, &mut exit_code);
