@@ -128,7 +128,6 @@ impl File for Pipe {
                     return already_read;
                 }
                 drop(ring_buffer);
-                println!("wait w");
                 suspend_current_and_run_next();
                 continue;
             }
@@ -157,7 +156,6 @@ impl File for Pipe {
             let loop_write = ring_buffer.available_write();
             if loop_write == 0 {
                 drop(ring_buffer);
-                println!("wait w");
                 suspend_current_and_run_next();
                 continue;
             }

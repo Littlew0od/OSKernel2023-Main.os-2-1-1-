@@ -108,7 +108,6 @@ pub fn sys_dup(oldfd: usize) -> isize {
         Ok(fd) => fd,
         Err(errno) => return errno,
     };
-    info!("[sys_dup] oldfd: {}, newfd: {}", oldfd, newfd);
     newfd as isize
 }
 
@@ -230,7 +229,7 @@ pub fn sys_close(fd: usize) -> isize {
     }
 }
 
-pub fn sys_pipe(pipe: *mut usize) -> isize {
+pub fn sys_pipe(pipe: *mut u32) -> isize {
     let token = current_user_token();
     let process = current_process();
     let inner = process.inner_exclusive_access();
@@ -246,8 +245,8 @@ pub fn sys_pipe(pipe: *mut usize) -> isize {
         Ok(fd) => fd,
         Err(errno) => return errno,
     };
-    *translated_refmut(token, pipe) = read_fd;
-    *translated_refmut(token, unsafe { pipe.add(1) }) = write_fd;
+    *translated_refmut(token, pipe) = read_fd as u32;
+    *translated_refmut(token, unsafe { pipe.add(1) }) = write_fd as u32;
     SUCCESS
 }
 
