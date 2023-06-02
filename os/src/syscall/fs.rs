@@ -23,11 +23,18 @@ pub const AT_FDCWD: usize = 100usize.wrapping_neg();
 pub fn sys_getcwd(buf: *mut u8, size: usize) -> isize {
     let process = current_process();
     let token = current_user_token();
-    if size == 0  {//&& buf != 0
+    if size == 0 {
+        //&& buf != 0
         // The size argument is zero and buf is not a NULL pointer.
         return EINVAL;
     }
-    let working_dir = process.inner_exclusive_access().work_path.lock().working_inode.get_cwd().unwrap();
+    let working_dir = process
+        .inner_exclusive_access()
+        .work_path
+        .lock()
+        .working_inode
+        .get_cwd()
+        .unwrap();
     if working_dir.len() >= size {
         // The size argument is less than the length of the absolute pathname of the working directory,
         // including the terminating null byte.
@@ -48,12 +55,17 @@ pub fn sys_read(fd: usize, buf: *const u8, len: usize) -> isize {
     let inner = process.inner_exclusive_access();
     let fd_table = inner.fd_table.lock();
     let file_descriptor = match fd_table.get_ref(fd) {
-        Ok(file_descriptor) => file_descriptor,
+        Ok(file_descriptor) => file_descriptor.clone(),
         Err(errno) => return errno,
     };
     if !file_descriptor.readable() {
         return EBADF;
     }
+    // release current task TCB manually to avoid multi-borrow
+    // yield will happend while pipe reading, which will cause multi-borrow
+    drop(fd_table);
+    drop(inner);
+    drop(process);
     file_descriptor.read_user(
         None,
         UserBuffer::new(translated_byte_buffer(token, buf, len)),
@@ -66,12 +78,17 @@ pub fn sys_write(fd: usize, buf: *const u8, len: usize) -> isize {
     let inner = process.inner_exclusive_access();
     let fd_table = inner.fd_table.lock();
     let file_descriptor = match fd_table.get_ref(fd) {
-        Ok(file_descriptor) => file_descriptor,
+        Ok(file_descriptor) => file_descriptor.clone(),
         Err(errno) => return errno,
     };
     if !file_descriptor.writable() {
         return EBADF;
     }
+    // release current task TCB manually to avoid multi-borrow
+    // yield will happend while pipe reading, which will cause multi-borrow
+    drop(fd_table);
+    drop(inner);
+    drop(process);
     let write_size = file_descriptor.write_user(
         None,
         UserBuffer::new(translated_byte_buffer(token, buf, len)),
@@ -79,7 +96,7 @@ pub fn sys_write(fd: usize, buf: *const u8, len: usize) -> isize {
     write_size as isize
 }
 
-pub fn sys_dup(oldfd: usize) -> isize{
+pub fn sys_dup(oldfd: usize) -> isize {
     let process = current_process();
     let inner = process.inner_exclusive_access();
     let mut fd_table = inner.fd_table.lock();
@@ -96,7 +113,6 @@ pub fn sys_dup(oldfd: usize) -> isize{
 }
 
 pub fn sys_dup3(oldfd: usize, newfd: usize, flags: u32) -> isize {
-
     if oldfd == newfd {
         return EINVAL;
     }
@@ -157,7 +173,6 @@ pub fn sys_mkdirat(dirfd: usize, path: *const u8, mode: u32) -> isize {
     }
 }
 
-
 bitflags! {
     pub struct FstatatFlags: u32 {
         const AT_EMPTY_PATH = 0x1000;
@@ -186,12 +201,10 @@ pub fn sys_openat(dirfd: usize, path: *const u8, flags: u32, mode: u32) -> isize
     let mut fd_table = inner.fd_table.lock();
     let file_descriptor = match dirfd {
         AT_FDCWD => inner.work_path.lock().working_inode.as_ref().clone(),
-        fd => {
-            match fd_table.get_ref(fd) {
-                Ok(file_descriptor) => file_descriptor.clone(),
-                Err(errno) => return errno,
-            }
-        }
+        fd => match fd_table.get_ref(fd) {
+            Ok(file_descriptor) => file_descriptor.clone(),
+            Err(errno) => return errno,
+        },
     };
 
     let new_file_descriptor = match file_descriptor.open(&path, flags, false) {
@@ -225,19 +238,11 @@ pub fn sys_pipe(pipe: *mut usize) -> isize {
 
     let (pipe_read, pipe_write) = make_pipe();
 
-    let read_fd = match fd_table.insert(FileDescriptor::new(
-        false,
-        false,
-        pipe_read,
-    )) {
-        Ok(fd) => fd, 
+    let read_fd = match fd_table.insert(FileDescriptor::new(false, false, pipe_read)) {
+        Ok(fd) => fd,
         Err(errno) => return errno,
     };
-    let write_fd = match fd_table.insert(FileDescriptor::new(
-        false,
-        false,
-        pipe_write,
-    )) {
+    let write_fd = match fd_table.insert(FileDescriptor::new(false, false, pipe_write)) {
         Ok(fd) => fd,
         Err(errno) => return errno,
     };
@@ -246,7 +251,7 @@ pub fn sys_pipe(pipe: *mut usize) -> isize {
     SUCCESS
 }
 
-pub fn sys_unlinkat(dirfd: usize, path: *const u8, flags: u32) -> isize{
+pub fn sys_unlinkat(dirfd: usize, path: *const u8, flags: u32) -> isize {
     let token = current_user_token();
     let process = current_process();
     let inner = process.inner_exclusive_access();
@@ -267,12 +272,10 @@ pub fn sys_unlinkat(dirfd: usize, path: *const u8, flags: u32) -> isize{
     let file_descriptor = match dirfd {
         // AT_FDCWD => task.fs.lock().working_inode.as_ref().clone(),
         AT_FDCWD => inner.work_path.lock().working_inode.as_ref().clone(),
-        fd => {
-            match fd_table.get_ref(fd) {
-                Ok(file_descriptor) => file_descriptor.clone(),
-                Err(errno) => return errno,
-            }
-        }
+        fd => match fd_table.get_ref(fd) {
+            Ok(file_descriptor) => file_descriptor.clone(),
+            Err(errno) => return errno,
+        },
     };
     match file_descriptor.delete(&path, flags.contains(UnlinkatFlags::AT_REMOVEDIR)) {
         Ok(_) => SUCCESS,
@@ -358,7 +361,6 @@ pub fn sys_mount(
     SUCCESS
 }
 
-
 pub fn sys_getdents64(fd: usize, buf: *mut u8, len: usize) -> isize {
     let token = current_user_token();
     let process = current_process();
@@ -366,12 +368,10 @@ pub fn sys_getdents64(fd: usize, buf: *mut u8, len: usize) -> isize {
     let mut fd_table = inner.fd_table.lock();
     let file_descriptor = match fd {
         AT_FDCWD => inner.work_path.lock().working_inode.as_ref().clone(),
-        fd => {
-            match fd_table.get_ref(fd) {
-                Ok(file_descriptor) => file_descriptor.clone(),
-                Err(errno) => return errno,
-            }
-        }
+        fd => match fd_table.get_ref(fd) {
+            Ok(file_descriptor) => file_descriptor.clone(),
+            Err(errno) => return errno,
+        },
     };
     let dirent_vec = match file_descriptor.get_dirent(len) {
         Ok(vec) => vec,
@@ -393,7 +393,7 @@ pub fn sys_chdir(path: *const u8) -> isize {
     let process = current_process();
     let inner = process.inner_exclusive_access();
     let mut work_path = inner.work_path.lock();
-    let path =translated_str(token, path);
+    let path = translated_str(token, path);
     match work_path.working_inode.cd(&path) {
         Ok(new_working_inode) => {
             work_path.working_inode = new_working_inode;
@@ -403,7 +403,7 @@ pub fn sys_chdir(path: *const u8) -> isize {
     }
 }
 
-pub fn sys_fstat(fd: usize, buf: *mut u8) -> isize{
+pub fn sys_fstat(fd: usize, buf: *mut u8) -> isize {
     let token = current_user_token();
     let process = current_process();
     let inner = process.inner_exclusive_access();
@@ -411,15 +411,17 @@ pub fn sys_fstat(fd: usize, buf: *mut u8) -> isize{
     let mut fd_table = inner.fd_table.lock();
     let file_descriptor = match fd {
         AT_FDCWD => inner.work_path.lock().working_inode.as_ref().clone(),
-        fd => {
-            match fd_table.get_ref(fd) {
-                Ok(file_descriptor) => file_descriptor.clone(),
-                Err(errno) => return errno,
-            }
-        }
+        fd => match fd_table.get_ref(fd) {
+            Ok(file_descriptor) => file_descriptor.clone(),
+            Err(errno) => return errno,
+        },
     };
 
-    let mut user_buf = UserBuffer::new(translated_byte_buffer(token, buf, core::mem::size_of::<Stat>()));
+    let mut user_buf = UserBuffer::new(translated_byte_buffer(
+        token,
+        buf,
+        core::mem::size_of::<Stat>(),
+    ));
     user_buf.write(file_descriptor.get_stat().as_bytes());
     SUCCESS
 }

@@ -124,13 +124,13 @@ impl File for Pipe {
             let mut ring_buffer = self.buffer.exclusive_access();
             let loop_read = ring_buffer.available_read();
             if loop_read == 0 {
-                return already_read;
-                // if ring_buffer.all_write_ends_closed() {
-                //     return already_read;
-                // }
-                // drop(ring_buffer);
-                // suspend_current_and_run_next();
-                // continue;
+                if ring_buffer.all_write_ends_closed() {
+                    return already_read;
+                }
+                drop(ring_buffer);
+                println!("wait w");
+                suspend_current_and_run_next();
+                continue;
             }
             for _ in 0..loop_read {
                 if let Some(byte_ref) = buf_iter.next() {
@@ -157,6 +157,7 @@ impl File for Pipe {
             let loop_write = ring_buffer.available_write();
             if loop_write == 0 {
                 drop(ring_buffer);
+                println!("wait w");
                 suspend_current_and_run_next();
                 continue;
             }
