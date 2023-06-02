@@ -138,7 +138,6 @@ pub fn exit_current_and_run_next(exit_code: i32) {
     drop(process);
     // we do not have to save task context
     let mut _unused = TaskContext::zero_init();
-    println!("sche");
     schedule(&mut _unused as *mut _);
 }
 
