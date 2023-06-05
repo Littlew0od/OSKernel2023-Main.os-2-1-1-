@@ -34,9 +34,11 @@ TEST ?=
 
 build: env apps $(KERNEL_BIN)# fat32
 
+#make user apps, it should finish before fat32
 apps:$(APPS)
 	cd ../user && make build TEST=$(TEST)
 
+# build fat32 for kernel
 fat32:
 	@cd ../user && make build TEST=$(TEST)
 	@cd ../os

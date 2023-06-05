@@ -151,6 +151,7 @@ lazy_static! {
 }
 
 pub fn load_initialproc(){
+    // These global variables are defined in link_initial_apps.S
     extern "C" {
         fn app_0_start();
         fn app_0_end();

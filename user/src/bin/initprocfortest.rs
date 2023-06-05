@@ -7,7 +7,8 @@ extern crate alloc;
 
 use alloc::string::String;
 use user_lib::{exec, fork, shutdown, waitpid};
-
+// Abandoned
+// we shouldn't use it to run test apps, initproc is just initproc
 #[no_mangle]
 fn main() -> i32 {
     let tasks = [

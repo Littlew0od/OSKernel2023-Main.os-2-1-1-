@@ -17,6 +17,7 @@ lazy_static! {
     static ref QUEUE_FRAMES: UPSafeCell<Vec<FrameTracker>> = unsafe { UPSafeCell::new(Vec::new()) };
 }
 
+/// All disk reads and writes are based on these two functions
 impl BlockDevice for VirtIOBlock {
     fn read_block(&self, mut block_id: usize, buf: &mut [u8]) {
         for buf in buf.chunks_mut(BLOCK_SZ) {

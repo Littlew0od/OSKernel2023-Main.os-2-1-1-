@@ -235,8 +235,10 @@ pub fn sys_pipe(pipe: *mut u32) -> isize {
     let inner = process.inner_exclusive_access();
     let mut fd_table = inner.fd_table.lock();
 
+    // return tuples of pipe
     let (pipe_read, pipe_write) = make_pipe();
 
+    // add pipe into file table
     let read_fd = match fd_table.insert(FileDescriptor::new(false, false, pipe_read)) {
         Ok(fd) => fd,
         Err(errno) => return errno,

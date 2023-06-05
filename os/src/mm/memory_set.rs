@@ -41,7 +41,13 @@ pub fn kernel_token() -> usize {
 pub struct MemorySet {
     page_table: PageTable,
     areas: Vec<MapArea>,
+    // heap_area are often modified, so BTreeMap is better
+    // the address about heap and mmap are saved in ProcessControlBlockInner
     heap_area: BTreeMap<VirtPageNum, FrameTracker>,
+    // The memory area formed by mmap does not need to be modified
+    // we can use MapArea in Vec to hold FramTracker
+    // we set a fixed address as the start address for mmap_area
+    // the virtual memorySet is big enough to use it that doesnt concern address conflicts
     mmap_area: Vec<MapArea>,
 }
 
@@ -264,7 +270,9 @@ impl MemorySet {
             if current_addr.0 > aim_addr.0 {
                 break;
             }
+            // We use BTreeMap to save FrameTracker which makes management quite easy
             current_addr = VirtAddr::from(current_addr.0 + PAGE_SIZE);
+            // alloc a new FrameTracker
             let frame = frame_alloc().unwrap();
             let ppn = frame.ppn;
             let vpn: VirtPageNum = current_addr.floor();

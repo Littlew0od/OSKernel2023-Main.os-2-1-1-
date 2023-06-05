@@ -41,6 +41,7 @@ pub struct ProcessControlBlockInner {
     pub mutex_list: Vec<Option<Arc<dyn Mutex>>>,
     pub semaphore_list: Vec<Option<Arc<Semaphore>>>,
     pub condvar_list: Vec<Option<Arc<Condvar>>>,
+    // Record the usage of heap_area in MemorySet
     pub heap_base: VirtAddr,
     pub heap_end: VirtAddr,
 }
@@ -72,6 +73,9 @@ impl ProcessControlBlockInner {
             Err(errno) => return errno,
         };
         let context = file_descriptor.read_all();
+        // only support one time mmap becasue we doesn't save mmap_area_end
+        // start_addr euqal to MMAP_BASE
+        // todo: add a value called mmap_area_end to support multiple mmap
         self.memory_set.mmap(start_addr, len, offset, context)
     }
 
@@ -111,6 +115,7 @@ impl ProcessControlBlock {
                     parent: None,
                     children: Vec::new(),
                     exit_code: 0,
+                    // initialize the stdio, Use stdout to implement stderr
                     fd_table: Arc::new(MutexSpin::new(FdTable::new({
                         let mut vec = Vec::with_capacity(144);
                         let stdin = Some(FileDescriptor::new(false, false, Arc::new(Stdin)));
@@ -234,6 +239,7 @@ impl ProcessControlBlock {
         let pid = pid_alloc();
         // copy fd table
         let mut new_fd_table_inner: Vec<Option<FileDescriptor>> = Vec::new();
+        // we should to push None to guarantee the right file id for file_descriptor
         for fd in parent.fd_table.lock().iter() {
             if let Some(file) = fd {
                 new_fd_table_inner.push(Some(file.clone()));

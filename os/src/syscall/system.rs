@@ -1,3 +1,4 @@
+#![allow(unused)]
 use core::mem::size_of;
 use core::slice::from_raw_parts;
 
@@ -48,6 +49,7 @@ impl Utsname {
         ret
     }
     
+    // For easier memory writing
     pub fn as_bytes(&self) -> &[u8] {
         let size = core::mem::size_of::<Self>();
         unsafe { core::slice::from_raw_parts(self as *const Self as *const u8, size) }

@@ -46,6 +46,7 @@ fn main() -> i32 {
         "yield\0",  
         "pipe\0",  
     ];
+    // If you want to test locally, add the following commented out paths
     let mut path = String::from("/"); //  bin/riscv-syscalls-testing/
     let arr: [*const u8; 4] = [
         core::ptr::null::<u8>(),
@@ -56,6 +57,7 @@ fn main() -> i32 {
     let mut exit_code: i32 = 0;
     for path_name in tasks {
         let pid = fork();
+        // The program is guaranteed not to execute in parallel
         if pid == 0 {
             path.push_str(path_name);
             println!("[test_shell] path = {}", path);
@@ -64,5 +66,6 @@ fn main() -> i32 {
             waitpid(pid as usize, &mut exit_code);
         }
     }
+    // shutdown after test
     shutdown(false);
 }

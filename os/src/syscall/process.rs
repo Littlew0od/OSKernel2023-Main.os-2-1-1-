@@ -22,6 +22,8 @@ pub fn sys_shutdown(failure: bool) -> ! {
 }
 
 pub fn sys_exit(exit_code: i32) -> ! {
+    // the lower 8 bits of return value is for return in function
+    // the lower 9-16 bits is for the return value in the system
     exit_current_and_run_next((exit_code & 0xff) << 8);
     panic!("Unreachable in sys_exit!");
 }
@@ -58,18 +60,6 @@ pub fn sys_getpid() -> isize {
 }
 
 pub fn sys_getppid() -> isize {
-    // current_task()
-    //     .unwrap()
-    //     .process
-    //     .upgrade()
-    //     .unwrap()
-    //     .inner_exclusive_access()
-    //     .parent
-    //     .as_ref()
-    //     .unwrap()
-    //     .upgrade()
-    //     .unwrap()
-    //     .getpid() as isize
     current_process()
         .inner_exclusive_access()
         .parent
@@ -140,13 +130,17 @@ pub fn sys_brk(addr: usize) -> isize {
     } else if addr < inner.heap_base.0 {
         -1
     } else {
+        // We need to calculate to determine if we need a new page table
+        // current end page address
         let align_addr = ((addr) + PAGE_SIZE - 1) & (!(PAGE_SIZE - 1));
+        // the end of 'addr' value
         let align_end = ((inner.heap_end.0) + PAGE_SIZE) & (!(PAGE_SIZE - 1));
         if align_end > addr {
             inner.heap_end = addr.into();
             align_addr as isize
         } else {
             let heap_end = inner.heap_end;
+            // map heap
             inner.memory_set.map_heap(heap_end, align_addr.into());
             inner.heap_end = align_end.into();
             addr as isize
@@ -165,6 +159,7 @@ bitflags! {
 }
 /// If there is not a child process whose pid is same as given, return -1.
 /// Else if there is a child process but it is still running, return -2.
+/// We use loop to ensure that the corresponding process has ended
 pub fn sys_waitpid(pid: isize, exit_code_ptr: *mut i32) -> isize {
     loop {
         let process = current_process();
@@ -197,6 +192,7 @@ pub fn sys_waitpid(pid: isize, exit_code_ptr: *mut i32) -> isize {
             }
             return found_pid as isize;
         } else {
+            // drop ProcessControlBlock and ProcessControlBlock to avoid mulit-use
             drop(inner);
             drop(process);
             suspend_current_and_run_next();

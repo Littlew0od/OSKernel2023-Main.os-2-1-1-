@@ -1,6 +1,7 @@
 U_FAT32_DIR="../fs-fuse"
 U_FAT32=$1
 
+# Use mount in Linux to build fat32.img
 touch ${U_FAT32}
 sudo dd if=/dev/zero of=${U_FAT32} bs=1M count=200
 sudo mkfs.vfat -F 32 ${U_FAT32}
@@ -24,11 +25,13 @@ sudo mkdir -p ${U_FAT32_DIR}/fs/etc
 sudo mkdir -p ${U_FAT32_DIR}/fs/bin
 sudo mkdir -p ${U_FAT32_DIR}/fs/root
 
+# The apps in user can be added automatically
 for programname in $(ls ../user/src/bin)
 do
     sudo cp -r ../user/target/riscv64gc-unknown-none-elf/release/${programname%.rs} ${U_FAT32_DIR}/fs/${programname%.rs}
 done
 
+# if you want to add some new apps, please put it into riscv-syscalls-testing floder
 sudo cp -r ../riscv-syscalls-testing ${U_FAT32_DIR}/fs/bin/
 
 sudo umount ${U_FAT32_DIR}/fs

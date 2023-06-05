@@ -107,6 +107,7 @@ impl File for OSInode {
         let mut offset = 0;
         loop {
             let len = self.inner.read_at_block_cache(offset, buffer);
+            // If return value is equal to zero, it means the file end
             if len == 0 {
                 break;
             }
