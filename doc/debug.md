@@ -166,6 +166,8 @@ pub fn sys_waitpid(pid: isize, exit_code_ptr: *mut i32) -> isize {
 
 ## 在initproc中直接运行测试程序，由于initproc的fork返回的pid为-1，导致程序中的测试程序获取pid错误。
 
+让initproc运行user_shell，user_shell负责运行具体的程序
+
 **RIGHT**
 
 ```c
@@ -200,7 +202,7 @@ fn main() -> i32 {
 
 ## 启用gdk调试，初试端口被占用
 
-修改制定端口
+修改指定端口
 
 **ERROR**
 
@@ -238,7 +240,7 @@ gdbclient:
 
 ## pipe返回的文件描述符错误
 
-错误的以为返回值为64位，使得在写入返回值时错误，只能返回一个，另一个始终为0
+错误的以为返回值大小为64位，使得在写入返回值时错误，只能返回一个，另一个始终为0
 
 **ERROR**
 
