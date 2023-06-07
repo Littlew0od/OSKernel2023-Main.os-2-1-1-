@@ -41,3 +41,10 @@ Main.os 是一个在RISC-V架构上运行的简单内核，基于rCore与npucore
 - os 源代码
 - riscv-syscalls-testing 初赛测试程序
 - user 用户态程序
+
+## 详细文档
+
+- [进程管理](./%E8%BF%9B%E7%A8%8B%E7%AE%A1%E7%90%86.md)
+- [内存管理](./%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86.md)
+- [文件系统](./%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F.md)
+- [debug](./debug.md)
