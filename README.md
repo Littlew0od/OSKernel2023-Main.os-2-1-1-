@@ -3,7 +3,11 @@
 Main.os(2)(1)(1)  北京科技大学
 
 ![USTB](./doc/image/USTB.jpg)
+
+markdown文档在[doc](./doc/)文件夹中
+文件系统结构文档在[doc-in-xmind](./doc-in-xmind/)文件夹中
 ## 队伍信息
+
 
 参赛队名： Main.os(2)(1)(1)
 <br>
