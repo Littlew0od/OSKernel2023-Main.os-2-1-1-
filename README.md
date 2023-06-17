@@ -20,7 +20,9 @@ markdown文档在[doc](./doc/)文件夹中
 在根目录中运行`make all`，即可在根目录获得操作系统以及SBI的二进制文件
 
 在os文件夹中，运行`make apps`编译用户态应用
+
 运行`make fat32`构建文件镜像
+
 运行`make run`编译内核程序并使用qemu启动
 
 ## Tips
