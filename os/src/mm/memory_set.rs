@@ -2,7 +2,7 @@ use super::{frame_alloc, FrameTracker};
 use super::{PTEFlags, PageTable, PageTableEntry};
 use super::{PhysAddr, PhysPageNum, VirtAddr, VirtPageNum};
 use super::{StepByOne, VPNRange};
-use crate::config::{MEMORY_END, MMIO, PAGE_SIZE, STACK_BASE, TRAMPOLINE};
+use crate::config::{MEMORY_END, MMAP_BASE, MMIO, PAGE_SIZE, STACK_BASE, TRAMPOLINE};
 use crate::fs::Null;
 use crate::sync::UPSafeCell;
 use crate::syscall::errno::SUCCESS;
@@ -48,10 +48,32 @@ pub struct MemorySet {
     // we can use MapArea in Vec to hold FramTracker
     // we set a fixed address as the start address for mmap_area
     // the virtual memorySet is big enough to use it that doesnt concern address conflicts
-    // every start addr is aligned to PAGE_SIZE
-    mmap_start: VirtAddr,
-    mmap_end: VirtAddr,
-    mmap_area: Vec<MapArea>,
+    mmap_area: BTreeMap<VirtPageNum, FrameTracker>,
+    // mmap_base will never change
+    pub mmap_base: VirtAddr,
+    // always aligh to PAGE_SIZE
+    pub mmap_end: VirtAddr,
+}
+
+bitflags! {
+    pub struct Flags: u32 {
+        const MAP_SHARED = 0x01;
+        const MAP_PRIVATE = 0x02;
+        const MAP_FIXED = 0x10;
+        const MAP_ANONYMOUS = 0x20;
+        const MAP_GROWSDOWN = 0x0100;
+        const MAP_DENYWRITE = 0x0800;
+        const MAP_EXECUTABLE = 0x1000;
+        const MAP_LOCKED = 0x2000;
+        const MAP_NORESERVE = 0x4000;
+        const MAP_POPULATE = 0x8000;
+        const MAP_NONBLOCK = 0x10000;
+        const MAP_STACK = 0x20000;
+        const MAP_HUGETLB = 0x40000;
+        const MAP_SYNC = 0x80000;
+        const MAP_FIXED_NOREPLACE = 0x100000;
+        const MAP_UNINITIALIZED = 0x4000000;
+    }
 }
 
 impl MemorySet {
@@ -60,9 +82,9 @@ impl MemorySet {
             page_table: PageTable::new(),
             areas: Vec::new(),
             heap_area: BTreeMap::new(),
-            mmap_start: 0.into(),
-            mmap_end: 0.into(),
-            mmap_area: Vec::new(),
+            mmap_area: BTreeMap::new(),
+            mmap_base: MMAP_BASE.into(),
+            mmap_end: MMAP_BASE.into(),
         }
     }
     pub fn token(&self) -> usize {
@@ -241,6 +263,7 @@ impl MemorySet {
         let mut memory_set = Self::new_bare();
         // map trampoline
         memory_set.map_trampoline();
+        memory_set.mmap_end = user_space.mmap_end;
         // copy data sections/trap_context/user_stack
         for area in user_space.areas.iter() {
             let new_area = MapArea::from_another(area);
@@ -287,23 +310,92 @@ impl MemorySet {
         }
         SUCCESS
     }
+
+    //let length_aligned = ((length) + PAGE_SIZE - 1) & (!(PAGE_SIZE - 1));
+
     pub fn mmap(
         &mut self,
         start_addr: usize,
         len: usize,
         offset: usize,
         context: Vec<u8>,
+        flags: u32,
     ) -> isize {
-        let mmap_end = VirtAddr::from(((start_addr + len) + PAGE_SIZE - 1) & (!(PAGE_SIZE - 1)));
-        let mmap_area = MapArea::new(
-            VirtAddr::from(start_addr),
-            mmap_end,
-            MapType::Framed,
-            MapPermission::R | MapPermission::W | MapPermission::U,
+        let flags = Flags::from_bits(flags).unwrap();
+        let start_addr_align: usize;
+        let end_addr_align: usize;
+        if flags.contains(Flags::MAP_FIXED) && start_addr != 0 {
+            // MAP_FIXED
+            // alloc page one by one
+            start_addr_align = ((start_addr) + PAGE_SIZE - 1) & (!(PAGE_SIZE - 1));
+            end_addr_align = ((start_addr + len) + PAGE_SIZE - 1) & (!(PAGE_SIZE - 1));
+        } else {
+            start_addr_align = ((self.mmap_end.0) + PAGE_SIZE - 1) & (!(PAGE_SIZE - 1));
+            end_addr_align = ((self.mmap_end.0 + len) + PAGE_SIZE - 1) & (!(PAGE_SIZE - 1));
+        }
+        self.mmap_end = (end_addr_align + PAGE_SIZE).into();
+        let vpn_range = VPNRange::new(
+            VirtAddr::from(start_addr_align).floor(),
+            VirtAddr::from(end_addr_align).floor(),
         );
-        let subcontext = context[offset..(len + offset)].to_vec();
-        self.push(mmap_area, Some(subcontext.as_slice()));
-        0
+        if flags.contains(Flags::MAP_FIXED) && start_addr != 0 {
+            // alloc memory
+            for vpn in vpn_range {
+                // let frame = frame_alloc().unwrap();
+                match self.mmap_area.get(&vpn) {
+                    Some(_) => {
+                        println!("Found page");
+                    }
+                    None => {
+                        let frame = frame_alloc().unwrap();
+                        let ppn = frame.ppn;
+                        self.mmap_area.insert(vpn, frame);
+                        self.page_table
+                            .map(vpn, ppn, PTEFlags::R | PTEFlags::W | PTEFlags::U);
+                    }
+                }
+            }
+        } else {
+            // alloc memory
+            for vpn in vpn_range {
+                let frame = frame_alloc().unwrap();
+                let ppn = frame.ppn;
+                self.mmap_area.insert(vpn, frame);
+                self.page_table
+                    .map(vpn, ppn, PTEFlags::R | PTEFlags::W | PTEFlags::U);
+            }
+        }
+        // write context
+        let mut start: usize = offset;
+        let mut current_vpn = vpn_range.get_start();
+        loop {
+            let src = &context[start..len.min(start + PAGE_SIZE)];
+            let dst = &mut self
+                .page_table
+                .translate(current_vpn)
+                .unwrap()
+                .ppn()
+                .get_bytes_array()[..src.len()];
+            dst.copy_from_slice(src);
+            start += PAGE_SIZE;
+            if start >= len {
+                break;
+            }
+            current_vpn.step();
+        }
+        start_addr_align as isize
+    }
+    pub fn munmap(&mut self, start_addr: usize, len: usize) -> isize {
+        let start_addr_align = ((start_addr) + PAGE_SIZE - 1) & (!(PAGE_SIZE - 1));
+        let end_addr_align = ((start_addr + len) + PAGE_SIZE - 1) & (!(PAGE_SIZE - 1));
+        let vpn_range = VPNRange::new(
+            VirtAddr::from(start_addr_align).floor(),
+            VirtAddr::from(end_addr_align).floor(),
+        );
+        for vpn in vpn_range {
+            self.mmap_area.remove(&vpn);
+        }
+        SUCCESS
     }
 }
 

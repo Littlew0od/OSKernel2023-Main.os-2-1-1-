@@ -1,23 +1,20 @@
 use crate::config::MMAP_BASE;
 use crate::config::PAGE_SIZE;
-use crate::fs::FileDescriptor;
 use crate::fs::OpenFlags;
-use crate::mm::MapPermission;
-use crate::mm::VirtAddr;
 //open_file
-use crate::mm::{translated_ref, translated_refmut, translated_str, MapType};
+use crate::mm::{translated_ref, translated_refmut, translated_str};
 use crate::sbi::shutdown;
 use crate::task::{
-    current_process, current_task, current_user_token, exit_current_and_run_next, pid2process,
+    current_process, current_user_token, exit_current_and_run_next, pid2process,
     suspend_current_and_run_next, SignalFlags,
 };
 use crate::timer::{get_time_ns, get_time_sec, get_time_us};
 use alloc::string::String;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
-use log::{debug, error, info, trace, warn};
 
 use super::errno::EPERM;
+use super::errno::SUCCESS;
 
 pub fn sys_shutdown(failure: bool) -> ! {
     shutdown(failure);
@@ -216,25 +213,6 @@ pub fn sys_kill(pid: usize, signal: u32) -> isize {
     }
 }
 
-bitflags! {
-    pub struct Prot: u32 {
-        const PROT_NONE = 0;
-        const PROT_READ = 1;
-        const PROT_WRITE = 2;
-        const PROT_EXEC = 4;
-    }
-}
-
-bitflags! {
-    pub struct Flags: u32 {
-        const MAP_SHARED = 1;
-        const MAP_PRIVATE = 2;
-        const MAP_FIXED = 16;
-        const MAP_ANONYMOUS = 32;
-        const MAP_LOCKED = 64;
-    }
-}
-
 pub fn sys_mmap(
     start: usize,
     len: usize,
@@ -243,13 +221,16 @@ pub fn sys_mmap(
     fd: usize,
     offset: usize,
 ) -> isize {
-    if start as isize == -1 {
+    if start as isize == -1 || len == 0 {
         return EPERM;
     }
-    let flags = Flags::from_bits(flags);
-    let prot = Prot::from_bits(prot);
     let process = current_process();
     let mut inner = process.inner_exclusive_access();
-    inner.mmap(MMAP_BASE, len, offset, fd);
-    MMAP_BASE as isize
+    inner.mmap(start, len, prot, flags, fd, offset)
+}
+
+pub fn sys_munmap(start: usize, len: usize) -> isize {
+    current_process()
+        .inner_exclusive_access()
+        .munmap(start, len)
 }

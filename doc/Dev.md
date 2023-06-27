@@ -5,8 +5,8 @@ ___
 
 ## 6.26
 
-- [x] 尝试支持多次mmap与ummap
+- [x] 阅读其他队伍源码，准备完善mmap与munmap
 
 ## 6.27
 
-- [ ] 继续尝试mmap与ummap
+- [x] 完成对mmap与mummap完善

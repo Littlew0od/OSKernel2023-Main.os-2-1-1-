@@ -102,7 +102,7 @@ pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
         SYSCALL_GETPID => sys_getpid(),
         SYSCALL_GETPPID => sys_getppid(),
         SYSCALL_BRK => sys_brk(args[0]),
-        SYSCALL_MUNMAP => 0,
+        SYSCALL_MUNMAP => sys_munmap(args[0], args[1]),
         SYSCALL_CLONE => sys_fork(args[0], args[1], args[2], args[3], args[4]),
         SYSCALL_EXECVE => sys_execve(args[0] as *const u8, args[1] as *const usize),
         SYSCALL_MMAP => sys_mmap(

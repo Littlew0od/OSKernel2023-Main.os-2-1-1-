@@ -3,10 +3,12 @@ use super::manager::insert_into_pid2process;
 use super::TaskControlBlock;
 use super::{add_task, SignalFlags};
 use super::{pid_alloc, PidHandle};
+use crate::config::{MMAP_BASE, PAGE_SIZE};
 use crate::fs::{FdTable, FileDescriptor, OpenFlags, ROOT_FD};
 use crate::fs::{File, Stdin, Stdout};
 use crate::mm::{translated_refmut, MemorySet, VirtAddr, KERNEL_SPACE};
 use crate::sync::{Condvar, Mutex, Semaphore, UPSafeCell};
+use crate::syscall::errno::EPERM;
 use crate::trap::{trap_handler, TrapContext};
 use alloc::string::String;
 use alloc::sync::{Arc, Weak};
@@ -61,22 +63,37 @@ impl ProcessControlBlockInner {
     //     }
     // }
 
+    // pub fn align_up(addr: usize) -> usize {
+    //     ((addr) + PAGE_SIZE - 1) & (!(PAGE_SIZE - 1))
+    // }
+
     pub fn mmap(
         &mut self,
         start_addr: usize,
         len: usize,
-        offset: usize,
+        prot: u32,
+        flags: u32,
         fd: usize,
+        offset: usize,
     ) -> isize {
         let file_descriptor = match self.fd_table.lock().get_ref(fd) {
             Ok(file_descriptor) => file_descriptor.clone(),
             Err(errno) => return errno,
         };
         let context = file_descriptor.read_all();
-        // only support one time mmap becasue we doesn't save mmap_area_end
-        // start_addr euqal to MMAP_BASE
-        // todo: add a value called mmap_area_end to support multiple mmap
-        self.memory_set.mmap(start_addr, len, offset, context)
+        let mut file_len = context.len();
+        let mut length = len;
+        if file_len <= offset {
+            return EPERM;
+        } else if file_len > len + offset {
+            length = file_len - offset;
+        };
+        self.memory_set
+            .mmap(start_addr, length, offset, context, flags)
+    }
+
+    pub fn munmap(&mut self, start_addr: usize, len: usize) -> isize {
+        self.memory_set.munmap(start_addr, len)
     }
 
     pub fn alloc_tid(&mut self) -> usize {
