@@ -33,9 +33,9 @@ fn main() -> i32 {
         // "times\0",      
         // "unlink\0",  
         // "write\0",  
-        // "mmap\0",
+        "mmap\0",
         // "brk\0",
-        // "munmap\0",
+        "munmap\0",
         // "dup2\0",
         // "wait\0",  
 

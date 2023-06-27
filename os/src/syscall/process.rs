@@ -17,6 +17,8 @@ use alloc::sync::Arc;
 use alloc::vec::Vec;
 use log::{debug, error, info, trace, warn};
 
+use super::errno::EPERM;
+
 pub fn sys_shutdown(failure: bool) -> ! {
     shutdown(failure);
 }
@@ -187,7 +189,7 @@ pub fn sys_waitpid(pid: isize, exit_code_ptr: *mut i32) -> isize {
             // ++++ temporarily access child PCB exclusively
             let exit_code = child.inner_exclusive_access().exit_code;
             // ++++ release child PCB
-            if !exit_code_ptr.is_null(){
+            if !exit_code_ptr.is_null() {
                 *translated_refmut(inner.memory_set.token(), exit_code_ptr) = exit_code;
             }
             return found_pid as isize;
@@ -214,18 +216,38 @@ pub fn sys_kill(pid: usize, signal: u32) -> isize {
     }
 }
 
-/// Only one-time mmaps without specifying a start address are supported
+bitflags! {
+    pub struct Prot: u32 {
+        const PROT_NONE = 0;
+        const PROT_READ = 1;
+        const PROT_WRITE = 2;
+        const PROT_EXEC = 4;
+    }
+}
+
+bitflags! {
+    pub struct Flags: u32 {
+        const MAP_SHARED = 1;
+        const MAP_PRIVATE = 2;
+        const MAP_FIXED = 16;
+        const MAP_ANONYMOUS = 32;
+        const MAP_LOCKED = 64;
+    }
+}
+
 pub fn sys_mmap(
     start: usize,
     len: usize,
-    prot: usize,
-    flags: usize,
+    prot: u32,
+    flags: u32,
     fd: usize,
     offset: usize,
 ) -> isize {
     if start as isize == -1 {
-        return -1;
+        return EPERM;
     }
+    let flags = Flags::from_bits(flags);
+    let prot = Prot::from_bits(prot);
     let process = current_process();
     let mut inner = process.inner_exclusive_access();
     inner.mmap(MMAP_BASE, len, offset, fd);

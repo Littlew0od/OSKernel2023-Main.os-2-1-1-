@@ -48,6 +48,9 @@ pub struct MemorySet {
     // we can use MapArea in Vec to hold FramTracker
     // we set a fixed address as the start address for mmap_area
     // the virtual memorySet is big enough to use it that doesnt concern address conflicts
+    // every start addr is aligned to PAGE_SIZE
+    mmap_start: VirtAddr,
+    mmap_end: VirtAddr,
     mmap_area: Vec<MapArea>,
 }
 
@@ -57,6 +60,8 @@ impl MemorySet {
             page_table: PageTable::new(),
             areas: Vec::new(),
             heap_area: BTreeMap::new(),
+            mmap_start: 0.into(),
+            mmap_end: 0.into(),
             mmap_area: Vec::new(),
         }
     }
