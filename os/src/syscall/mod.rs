@@ -20,6 +20,9 @@ const SYSCALL_EXIT: usize = 93;
 const SYSCALL_SLEEP: usize = 101;
 const SYSCALL_YIELD: usize = 124;
 const SYSCALL_KILL: usize = 129;
+const SYSCALL_SIGACTION: usize = 134;
+const SYSCALL_SIGPROMASK: usize = 135;
+const SYSCALL_SIGRETURN: usize = 139;
 const SYSCALL_TIMES: usize = 153;
 const SYSCALL_UNAME: usize = 160;
 const SYSCALL_GET_TIME: usize = 169;
@@ -61,6 +64,7 @@ use process::*;
 use sync::*;
 use system::*;
 use thread::*;
+use crate::task::SignalAction;
 
 pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
     let ret = match syscall_id {
@@ -96,6 +100,13 @@ pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
         SYSCALL_SLEEP => sys_sleep(args[0] as *const u64, args[1] as *mut u64),
         SYSCALL_YIELD => sys_yield(),
         SYSCALL_KILL => sys_kill(args[0], args[1] as u32),
+        SYSCALL_SIGACTION => sys_sigaction(
+            args[0],
+            args[1] as *const SignalAction,
+            args[2] as *mut SignalAction,
+        ),
+        SYSCALL_SIGPROMASK => sys_sigprocmask(args[0], args[1] as *mut u32, args[2] as *mut u32),
+        SYSCALL_SIGRETURN => sys_sigreturn(),
         SYSCALL_TIMES => sys_get_process_time(args[0] as *mut u64),
         SYSCALL_UNAME => sys_uname(args[0] as *mut u8),
         SYSCALL_GET_TIME => sys_get_time(args[0] as *mut u64),
@@ -106,12 +117,12 @@ pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
         SYSCALL_CLONE => sys_fork(args[0], args[1], args[2], args[3], args[4]),
         SYSCALL_EXECVE => sys_execve(args[0] as *const u8, args[1] as *const usize),
         SYSCALL_MMAP => sys_mmap(
-            args[0], 
-            args[1], 
-            args[2] as u32, 
-            args[3] as u32, 
-            args[4], 
-            args[5]
+            args[0],
+            args[1],
+            args[2] as u32,
+            args[3] as u32,
+            args[4],
+            args[5],
         ),
         SYSCALL_WAITPID => sys_waitpid(args[0] as isize, args[1] as *mut i32),
         SYSCALL_THREAD_CREATE => sys_thread_create(args[0], args[1]),

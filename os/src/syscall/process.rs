@@ -4,13 +4,16 @@ use crate::fs::OpenFlags;
 //open_file
 use crate::mm::{translated_ref, translated_refmut, translated_str};
 use crate::sbi::shutdown;
+use crate::task::current_task;
 use crate::task::{
     current_process, current_user_token, exit_current_and_run_next, pid2process,
-    suspend_current_and_run_next, SignalFlags,
+    suspend_current_and_run_next, SignalAction, SignalFlags, MAX_SIG, SIG_BLOCK, SIG_SETMASK,
+    SIG_UNBLOCK,
 };
 use crate::timer::{get_time_ns, get_time_sec, get_time_us};
 use alloc::string::String;
 use alloc::sync::Arc;
+use alloc::task;
 use alloc::vec::Vec;
 
 use super::errno::EPERM;
@@ -233,4 +236,83 @@ pub fn sys_munmap(start: usize, len: usize) -> isize {
     current_process()
         .inner_exclusive_access()
         .munmap(start, len)
+}
+
+pub fn sys_sigprocmask(how: usize, set: *mut u32, old_set: *mut u32) -> isize {
+    let task = current_task().unwrap();
+    let mut inner = task.inner_exclusive_access();
+    let mut mask = inner.signal_mask;
+
+    let token = current_user_token();
+
+    if old_set as usize != 0 {
+        *translated_refmut(token, old_set) = mask.bits();
+    }
+    if set as usize != 0 {
+        let set = *translated_ref(token, set);
+        let set_flags = SignalFlags::from_bits(set).unwrap();
+        match how {
+            // SIG_BLOCK The set of blocked signals is the union of the current set and the set argument.
+            SIG_BLOCK => mask |= set_flags,
+            // SIG_UNBLOCK The signals in set are removed from the current set of blocked signals.
+            SIG_UNBLOCK => mask &= !set_flags,
+            // SIG_SETMASK The set of blocked signals is set to the argument set.
+            SIG_SETMASK => mask = set_flags,
+            _ => return EPERM,
+        }
+        inner.signal_mask = mask;
+    }
+    SUCCESS
+}
+
+pub fn sys_sigreturn() -> isize {
+    let task = current_task().unwrap();
+    let mut inner = task.inner_exclusive_access();
+    inner.handling_sig = -1;
+    // restore the trap context
+    let trap_ctx = inner.get_trap_cx();
+    *trap_ctx = inner.trap_ctx_backup.unwrap();
+    SUCCESS
+}
+
+fn check_sigaction_error(signal: SignalFlags, action: usize) -> bool {
+    if action == 0 || signal == SignalFlags::SIGKILL || signal == SignalFlags::SIGSTOP {
+        true
+    } else {
+        false
+    }
+}
+
+pub fn sys_sigaction(
+    signum: usize,
+    action: *const SignalAction,
+    old_action: *mut SignalAction,
+) -> isize {
+    let token = current_user_token();
+    let process = current_process();
+    let mut inner_process = process.inner_exclusive_access();
+    if signum > MAX_SIG {
+        return EPERM;
+    }
+    if old_action as usize != 0 {
+        *translated_refmut(token, old_action) = inner_process.signal_actions.table[signum].clone();
+    }
+    if let Some(flag) = SignalFlags::from_bits(1 << signum) {
+        if check_sigaction_error(flag, action as usize) {
+            return EPERM;
+        }
+        let old_kernel_action = inner_process.signal_actions.table[signum];
+        if old_kernel_action.mask != SignalFlags::from_bits(40).unwrap() {
+            *translated_refmut(token, old_action) = old_kernel_action;
+        } else {
+            let mut ref_old_action = *translated_refmut(token, old_action);
+            ref_old_action.sa_handler = old_kernel_action.sa_handler;
+        }
+        let ref_action = translated_ref(token, action);
+        inner_process.signal_actions.table[signum as usize] = *ref_action;
+        return SUCCESS;
+    } else {
+        println!("Undefined SignalFlags");
+        return EPERM;
+    }
 }

@@ -1,6 +1,6 @@
 use super::id::RecycleAllocator;
 use super::manager::insert_into_pid2process;
-use super::TaskControlBlock;
+use super::{TaskControlBlock, SignalActions};
 use super::{add_task, SignalFlags};
 use super::{pid_alloc, PidHandle};
 use crate::config::{MMAP_BASE, PAGE_SIZE};
@@ -46,6 +46,8 @@ pub struct ProcessControlBlockInner {
     // Record the usage of heap_area in MemorySet
     pub heap_base: VirtAddr,
     pub heap_end: VirtAddr,
+    // Signal actions
+    pub signal_actions: SignalActions,
 }
 
 impl ProcessControlBlockInner {
@@ -158,6 +160,7 @@ impl ProcessControlBlock {
                     condvar_list: Vec::new(),
                     heap_base: uheap_base.into(),
                     heap_end: uheap_base.into(),
+                    signal_actions: SignalActions::default(),
                 })
             },
         });
@@ -291,6 +294,7 @@ impl ProcessControlBlock {
                     condvar_list: Vec::new(),
                     heap_base: parent.heap_base,
                     heap_end: parent.heap_base,
+                    signal_actions: SignalActions::default(),
                 })
             },
         });

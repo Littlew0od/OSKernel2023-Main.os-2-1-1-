@@ -4,7 +4,7 @@ use crate::config::TRAMPOLINE;
 use crate::syscall::syscall;
 use crate::task::{
     check_signals_of_current, current_add_signal, current_trap_cx, current_trap_cx_user_va,
-    current_user_token, exit_current_and_run_next, suspend_current_and_run_next, SignalFlags,
+    current_user_token, exit_current_and_run_next, suspend_current_and_run_next, SignalFlags, handle_signals,
 };
 use crate::timer::{check_timer, set_next_trigger};
 use core::arch::{asm, global_asm};
@@ -86,6 +86,9 @@ pub fn trap_handler() -> ! {
             );
         }
     }
+    // handle signals (handle the sent signal)
+    handle_signals();
+
     // check signals
     if let Some((errno, msg)) = check_signals_of_current() {
         println!("[kernel] {}", msg);
