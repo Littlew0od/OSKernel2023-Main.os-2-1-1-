@@ -1,0 +1,12 @@
+/home/wood/OSKernel-X/oskernel2023-x/os/target/riscv64gc-unknown-none-elf/debug/deps/spin-530098872edd7d14.rmeta: /home/wood/.cargo/registry/src/mirrors.ustc.edu.cn-61ef6e0cd06fb9b8/spin-0.7.1/src/lib.rs /home/wood/.cargo/registry/src/mirrors.ustc.edu.cn-61ef6e0cd06fb9b8/spin-0.7.1/src/barrier.rs /home/wood/.cargo/registry/src/mirrors.ustc.edu.cn-61ef6e0cd06fb9b8/spin-0.7.1/src/lazy.rs /home/wood/.cargo/registry/src/mirrors.ustc.edu.cn-61ef6e0cd06fb9b8/spin-0.7.1/src/mutex.rs /home/wood/.cargo/registry/src/mirrors.ustc.edu.cn-61ef6e0cd06fb9b8/spin-0.7.1/src/mutex/spin.rs /home/wood/.cargo/registry/src/mirrors.ustc.edu.cn-61ef6e0cd06fb9b8/spin-0.7.1/src/mutex/ticket.rs /home/wood/.cargo/registry/src/mirrors.ustc.edu.cn-61ef6e0cd06fb9b8/spin-0.7.1/src/once.rs /home/wood/.cargo/registry/src/mirrors.ustc.edu.cn-61ef6e0cd06fb9b8/spin-0.7.1/src/rw_lock.rs
+
+/home/wood/OSKernel-X/oskernel2023-x/os/target/riscv64gc-unknown-none-elf/debug/deps/spin-530098872edd7d14.d: /home/wood/.cargo/registry/src/mirrors.ustc.edu.cn-61ef6e0cd06fb9b8/spin-0.7.1/src/lib.rs /home/wood/.cargo/registry/src/mirrors.ustc.edu.cn-61ef6e0cd06fb9b8/spin-0.7.1/src/barrier.rs /home/wood/.cargo/registry/src/mirrors.ustc.edu.cn-61ef6e0cd06fb9b8/spin-0.7.1/src/lazy.rs /home/wood/.cargo/registry/src/mirrors.ustc.edu.cn-61ef6e0cd06fb9b8/spin-0.7.1/src/mutex.rs /home/wood/.cargo/registry/src/mirrors.ustc.edu.cn-61ef6e0cd06fb9b8/spin-0.7.1/src/mutex/spin.rs /home/wood/.cargo/registry/src/mirrors.ustc.edu.cn-61ef6e0cd06fb9b8/spin-0.7.1/src/mutex/ticket.rs /home/wood/.cargo/registry/src/mirrors.ustc.edu.cn-61ef6e0cd06fb9b8/spin-0.7.1/src/once.rs /home/wood/.cargo/registry/src/mirrors.ustc.edu.cn-61ef6e0cd06fb9b8/spin-0.7.1/src/rw_lock.rs
+
+/home/wood/.cargo/registry/src/mirrors.ustc.edu.cn-61ef6e0cd06fb9b8/spin-0.7.1/src/lib.rs:
+/home/wood/.cargo/registry/src/mirrors.ustc.edu.cn-61ef6e0cd06fb9b8/spin-0.7.1/src/barrier.rs:
+/home/wood/.cargo/registry/src/mirrors.ustc.edu.cn-61ef6e0cd06fb9b8/spin-0.7.1/src/lazy.rs:
+/home/wood/.cargo/registry/src/mirrors.ustc.edu.cn-61ef6e0cd06fb9b8/spin-0.7.1/src/mutex.rs:
+/home/wood/.cargo/registry/src/mirrors.ustc.edu.cn-61ef6e0cd06fb9b8/spin-0.7.1/src/mutex/spin.rs:
+/home/wood/.cargo/registry/src/mirrors.ustc.edu.cn-61ef6e0cd06fb9b8/spin-0.7.1/src/mutex/ticket.rs:
+/home/wood/.cargo/registry/src/mirrors.ustc.edu.cn-61ef6e0cd06fb9b8/spin-0.7.1/src/once.rs:
+/home/wood/.cargo/registry/src/mirrors.ustc.edu.cn-61ef6e0cd06fb9b8/spin-0.7.1/src/rw_lock.rs:

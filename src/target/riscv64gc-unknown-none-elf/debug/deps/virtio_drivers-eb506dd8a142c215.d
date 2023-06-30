@@ -1,0 +1,13 @@
+/home/wood/OSKernel-X/oskernel2023-x/os/target/riscv64gc-unknown-none-elf/debug/deps/virtio_drivers-eb506dd8a142c215.rmeta: /home/wood/OSKernel-X/oskernel2023-x/dependency/virtio-drivers/src/lib.rs /home/wood/OSKernel-X/oskernel2023-x/dependency/virtio-drivers/src/blk.rs /home/wood/OSKernel-X/oskernel2023-x/dependency/virtio-drivers/src/console.rs /home/wood/OSKernel-X/oskernel2023-x/dependency/virtio-drivers/src/gpu.rs /home/wood/OSKernel-X/oskernel2023-x/dependency/virtio-drivers/src/hal.rs /home/wood/OSKernel-X/oskernel2023-x/dependency/virtio-drivers/src/header.rs /home/wood/OSKernel-X/oskernel2023-x/dependency/virtio-drivers/src/input.rs /home/wood/OSKernel-X/oskernel2023-x/dependency/virtio-drivers/src/net.rs /home/wood/OSKernel-X/oskernel2023-x/dependency/virtio-drivers/src/queue.rs
+
+/home/wood/OSKernel-X/oskernel2023-x/os/target/riscv64gc-unknown-none-elf/debug/deps/virtio_drivers-eb506dd8a142c215.d: /home/wood/OSKernel-X/oskernel2023-x/dependency/virtio-drivers/src/lib.rs /home/wood/OSKernel-X/oskernel2023-x/dependency/virtio-drivers/src/blk.rs /home/wood/OSKernel-X/oskernel2023-x/dependency/virtio-drivers/src/console.rs /home/wood/OSKernel-X/oskernel2023-x/dependency/virtio-drivers/src/gpu.rs /home/wood/OSKernel-X/oskernel2023-x/dependency/virtio-drivers/src/hal.rs /home/wood/OSKernel-X/oskernel2023-x/dependency/virtio-drivers/src/header.rs /home/wood/OSKernel-X/oskernel2023-x/dependency/virtio-drivers/src/input.rs /home/wood/OSKernel-X/oskernel2023-x/dependency/virtio-drivers/src/net.rs /home/wood/OSKernel-X/oskernel2023-x/dependency/virtio-drivers/src/queue.rs
+
+/home/wood/OSKernel-X/oskernel2023-x/dependency/virtio-drivers/src/lib.rs:
+/home/wood/OSKernel-X/oskernel2023-x/dependency/virtio-drivers/src/blk.rs:
+/home/wood/OSKernel-X/oskernel2023-x/dependency/virtio-drivers/src/console.rs:
+/home/wood/OSKernel-X/oskernel2023-x/dependency/virtio-drivers/src/gpu.rs:
+/home/wood/OSKernel-X/oskernel2023-x/dependency/virtio-drivers/src/hal.rs:
+/home/wood/OSKernel-X/oskernel2023-x/dependency/virtio-drivers/src/header.rs:
+/home/wood/OSKernel-X/oskernel2023-x/dependency/virtio-drivers/src/input.rs:
+/home/wood/OSKernel-X/oskernel2023-x/dependency/virtio-drivers/src/net.rs:
+/home/wood/OSKernel-X/oskernel2023-x/dependency/virtio-drivers/src/queue.rs:
