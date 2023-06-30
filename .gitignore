@@ -2,12 +2,12 @@
 !.github/*
 !.vscode/settings.json
 .idea/*
-os/target/*
-os/.idea/*
-os/src/linker.ld
-os/last-*
-os/Cargo.lock
-os/.gdb_history
+src/target/*
+src/.idea/*
+src/src/linker.ld
+src/last-*
+src/Cargo.lock
+src/.gdb_history
 user/target/*
 user/.idea/*
 user/Cargo.lock
@@ -21,4 +21,4 @@ pushall.sh
 riscv-syscalls-testing
 sbi-qemu
 kernel-qemu
-os/buildfs.sh
+src/buildfs.sh

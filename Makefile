@@ -8,9 +8,9 @@ build_docker:
 	docker build -t ${DOCKER_NAME} .
 
 fmt:
-	cd easy-fs; cargo fmt; cd ../easy-fs-fuse cargo fmt; cd ../os ; cargo fmt; cd ../user; cargo fmt; cd ..
+	cd easy-fs; cargo fmt; cd ../easy-fs-fuse cargo fmt; cd ../src ; cargo fmt; cd ../user; cargo fmt; cd ..
 
 all:
-	cd ./os && make build
-	cp -f ./os/target/riscv64gc-unknown-none-elf/release/os.bin ./kernel-qemu
+	cd ./src && make build
+	cp -f ./src/target/riscv64gc-unknown-none-elf/release/os.bin ./kernel-qemu
 	cp -f ./bootloader/rustsbi-qemu.bin ./sbi-qemu
