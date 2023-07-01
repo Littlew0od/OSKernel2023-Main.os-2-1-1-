@@ -10,9 +10,10 @@ U_FAT32_DIR := ../fs-fuse
 U_FAT32 := ${U_FAT32_DIR}/fat32.img
 
 # BOARD
-BOARD := qemu
+BOARD ?= qemu
 SBI ?= rustsbi
 BOOTLOADER := ../bootloader/$(SBI)-$(BOARD).bin
+K210_BOOTLOADER_SIZE := 131072
 
 # Building mode argument
 ifeq ($(MODE), release)
@@ -20,7 +21,15 @@ ifeq ($(MODE), release)
 endif
 
 # KERNEL ENTRY
-KERNEL_ENTRY_PA := 0x80200000
+ifeq ($(BOARD), qemu)
+	KERNEL_ENTRY_PA := 0x80200000
+else ifeq ($(BOARD), k210)
+	KERNEL_ENTRY_PA := 0x80020000
+endif
+
+# Run K210
+K210-SERIALPORT	= /dev/ttyUSB0
+K210-BURNER	= ../tools/kflash.py
 
 # Binutils
 OBJDUMP := rust-objdump --arch-name=riscv64
@@ -33,6 +42,13 @@ DISASM ?= -x
 TEST ?=
 
 build: env apps $(KERNEL_BIN)# fat32
+
+switch-check:
+ifeq ($(BOARD), qemu)
+	(which last-qemu) || (rm -f last-k210 && touch last-qemu && make clean)
+else ifeq ($(BOARD), k210)
+	(which last-k210) || (rm -f last-qemu && touch last-k210 && make clean)
+endif
 
 #make user apps, it should finish before fat32
 apps:$(APPS)
@@ -49,6 +65,11 @@ env:
 	# cargo install cargo-binutils
 	rustup component add rust-src
 	rustup component add llvm-tools-preview
+
+sdcard: fs-img
+	@echo "Are you sure write to $(SDCARD) ? [y/N] " && read ans && [ $${ans:-N} = y ]
+	@sudo dd if=/dev/zero of=$(SDCARD) bs=1048576 count=32
+	@sudo dd if=$(FS_IMG) of=$(SDCARD)
 
 $(KERNEL_BIN): kernel
 	@$(OBJCOPY) $(KERNEL_ELF) --strip-all -O binary $@
@@ -80,6 +101,7 @@ disasm-vim: kernel
 run: run-inner
 
 run-inner: build
+ifeq ($(BOARD),qemu)
 	@qemu-system-riscv64 \
 		-machine virt \
 		-nographic \
@@ -88,6 +110,15 @@ run-inner: build
 		-drive file=$(U_FAT32),if=none,format=raw,id=x0 \
         -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0 \
 		# -gdb tcp::1122 -S
+else
+	(which $(K210-BURNER)) || (cd .. && git clone https://github.com/sipeed/kflash.py.git && mv kflash.py tools)
+	@cp $(BOOTLOADER) $(BOOTLOADER).copy
+	@dd if=$(KERNEL_BIN) of=$(BOOTLOADER).copy bs=$(K210_BOOTLOADER_SIZE) seek=1
+	@mv $(BOOTLOADER).copy $(KERNEL_BIN)
+	@sudo chmod 777 $(K210-SERIALPORT)
+	python3 $(K210-BURNER) -p $(K210-SERIALPORT) -b 1500000 $(KERNEL_BIN)
+	python3 -m serial.tools.miniterm --eol LF --dtr 0 --rts 0 --filter direct $(K210-SERIALPORT) 115200
+endif
 
 debug: build
 	@tmux new-session -d \
@@ -102,4 +133,4 @@ gdbserver: build
 gdbclient:
 	@riscv64-unknown-elf-gdb -ex 'file $(KERNEL_ELF)' -ex 'set arch riscv:rv64' -ex 'target remote localhost:1122'
 
-.PHONY: build env kernel clean disasm disasm-vim run-inner fs-img gdbserver gdbclient
+.PHONY: build env kernel clean disasm disasm-vim run-inner switch-check fs-img gdbserver gdbclient

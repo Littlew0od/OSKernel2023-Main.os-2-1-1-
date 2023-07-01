@@ -19,6 +19,13 @@ sbi-rt = { version = "0.0.2", features = ["legacy"] }
 spin = "0.7"
 downcast-rs = { version = "1.2.0", default-features = false }
 num_enum = { version = "0.5", default-features = false }
+k210-pac = { git = "https://github.com/wyfcyx/k210-pac" }
+k210-hal = { git = "https://github.com/wyfcyx/k210-hal" }
+k210-soc = { git = "https://github.com/wyfcyx/k210-soc" }
+
+[features]
+board_qemu = []
+board_k210 = []
 
 [profile.release]
 debug = true

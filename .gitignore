@@ -15,7 +15,7 @@ easy-fs/Cargo.lock
 easy-fs/target/*
 easy-fs-fuse/Cargo.lock
 easy-fs-fuse/target/*
-tools/
+# tools/
 pushall.sh
 .vscode/*.log
 tests
