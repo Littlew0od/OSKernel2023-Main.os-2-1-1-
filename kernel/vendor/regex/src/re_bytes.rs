@@ -6,18 +6,18 @@ use std::ops::{Index, Range};
 use std::str::FromStr;
 use std::sync::Arc;
 
-use find_byte::find_byte;
+use crate::find_byte::find_byte;
 
-use error::Error;
-use exec::{Exec, ExecNoSync};
-use expand::expand_bytes;
-use re_builder::bytes::RegexBuilder;
-use re_trait::{self, RegularExpression, SubCapturesPosIter};
+use crate::error::Error;
+use crate::exec::{Exec, ExecNoSync};
+use crate::expand::expand_bytes;
+use crate::re_builder::bytes::RegexBuilder;
+use crate::re_trait::{self, RegularExpression, SubCapturesPosIter};
 
 /// Match represents a single match of a regex in a haystack.
 ///
 /// The lifetime parameter `'t` refers to the lifetime of the matched text.
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub struct Match<'t> {
     text: &'t [u8],
     start: usize,
@@ -37,6 +37,18 @@ impl<'t> Match<'t> {
         self.end
     }
 
+    /// Returns true if and only if this match has a length of zero.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.start == self.end
+    }
+
+    /// Returns the length, in bytes, of this match.
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.end - self.start
+    }
+
     /// Returns the range over the starting and ending byte offsets of the
     /// match in the haystack.
     #[inline]
@@ -53,7 +65,25 @@ impl<'t> Match<'t> {
     /// Creates a new match from the given haystack and byte offsets.
     #[inline]
     fn new(haystack: &'t [u8], start: usize, end: usize) -> Match<'t> {
-        Match { text: haystack, start: start, end: end }
+        Match { text: haystack, start, end }
+    }
+}
+
+impl<'t> std::fmt::Debug for Match<'t> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let mut fmt = f.debug_struct("Match");
+        fmt.field("start", &self.start).field("end", &self.end);
+        if let Ok(s) = std::str::from_utf8(self.as_bytes()) {
+            fmt.field("bytes", &s);
+        } else {
+            // FIXME: It would be nice if this could be printed as a string
+            // with invalid UTF-8 replaced with hex escapes. A alloc would
+            // probably okay if that makes it easier, but regex-automata does
+            // (at time of writing) have internal routines that do this. So
+            // maybe we should expose them.
+            fmt.field("bytes", &self.as_bytes());
+        }
+        fmt.finish()
     }
 }
 
@@ -79,14 +109,14 @@ pub struct Regex(Exec);
 
 impl fmt::Display for Regex {
     /// Shows the original regular expression.
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.as_str())
     }
 }
 
 impl fmt::Debug for Regex {
     /// Shows the original regular expression.
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Display::fmt(self, f)
     }
 }
@@ -133,7 +163,7 @@ impl Regex {
     /// bytes:
     ///
     /// ```rust
-    /// # extern crate regex; use regex::bytes::Regex;
+    /// # use regex::bytes::Regex;
     /// # fn main() {
     /// let text = b"I categorically deny having triskaidekaphobia.";
     /// assert!(Regex::new(r"\b\w{13}\b").unwrap().is_match(text));
@@ -156,7 +186,7 @@ impl Regex {
     /// ASCII word bytes:
     ///
     /// ```rust
-    /// # extern crate regex; use regex::bytes::Regex;
+    /// # use regex::bytes::Regex;
     /// # fn main() {
     /// let text = b"I categorically deny having triskaidekaphobia.";
     /// let mat = Regex::new(r"\b\w{13}\b").unwrap().find(text).unwrap();
@@ -177,7 +207,7 @@ impl Regex {
     /// word bytes:
     ///
     /// ```rust
-    /// # extern crate regex; use regex::bytes::Regex;
+    /// # use regex::bytes::Regex;
     /// # fn main() {
     /// let text = b"Retroactively relinquishing remunerations is reprehensible.";
     /// for mat in Regex::new(r"\b\w{13}\b").unwrap().find_iter(text) {
@@ -205,7 +235,7 @@ impl Regex {
     /// year separately.
     ///
     /// ```rust
-    /// # extern crate regex; use regex::bytes::Regex;
+    /// # use regex::bytes::Regex;
     /// # fn main() {
     /// let re = Regex::new(r"'([^']+)'\s+\((\d{4})\)").unwrap();
     /// let text = b"Not my favorite movie: 'Citizen Kane' (1941).";
@@ -227,7 +257,7 @@ impl Regex {
     /// We can make this example a bit clearer by using *named* capture groups:
     ///
     /// ```rust
-    /// # extern crate regex; use regex::bytes::Regex;
+    /// # use regex::bytes::Regex;
     /// # fn main() {
     /// let re = Regex::new(r"'(?P<title>[^']+)'\s+\((?P<year>\d{4})\)")
     ///                .unwrap();
@@ -253,12 +283,7 @@ impl Regex {
     /// The `0`th capture group is always unnamed, so it must always be
     /// accessed with `get(0)` or `[0]`.
     pub fn captures<'t>(&self, text: &'t [u8]) -> Option<Captures<'t>> {
-        let mut locs = self.capture_locations();
-        self.captures_read_at(&mut locs, text, 0).map(move |_| Captures {
-            text: text,
-            locs: locs.0,
-            named_groups: self.0.capture_name_idx().clone(),
-        })
+        self.captures_at(text, 0)
     }
 
     /// Returns an iterator over all the non-overlapping capture groups matched
@@ -271,7 +296,7 @@ impl Regex {
     /// some text, where the movie is formatted like "'Title' (xxxx)":
     ///
     /// ```rust
-    /// # extern crate regex; use std::str; use regex::bytes::Regex;
+    /// # use std::str; use regex::bytes::Regex;
     /// # fn main() {
     /// let re = Regex::new(r"'(?P<title>[^']+)'\s+\((?P<year>\d{4})\)")
     ///                .unwrap();
@@ -305,7 +330,7 @@ impl Regex {
     /// To split a string delimited by arbitrary amounts of spaces or tabs:
     ///
     /// ```rust
-    /// # extern crate regex; use regex::bytes::Regex;
+    /// # use regex::bytes::Regex;
     /// # fn main() {
     /// let re = Regex::new(r"[ \t]+").unwrap();
     /// let fields: Vec<&[u8]> = re.split(b"a b \t  c\td    e").collect();
@@ -331,7 +356,7 @@ impl Regex {
     /// Get the first two words in some text:
     ///
     /// ```rust
-    /// # extern crate regex; use regex::bytes::Regex;
+    /// # use regex::bytes::Regex;
     /// # fn main() {
     /// let re = Regex::new(r"\W+").unwrap();
     /// let fields: Vec<&[u8]> = re.splitn(b"Hey! How are you?", 3).collect();
@@ -379,7 +404,7 @@ impl Regex {
     /// In typical usage, this can just be a normal byte string:
     ///
     /// ```rust
-    /// # extern crate regex; use regex::bytes::Regex;
+    /// # use regex::bytes::Regex;
     /// # fn main() {
     /// let re = Regex::new("[^01]+").unwrap();
     /// assert_eq!(re.replace(b"1078910", &b""[..]), &b"1010"[..]);
@@ -392,7 +417,7 @@ impl Regex {
     /// group matches easily:
     ///
     /// ```rust
-    /// # extern crate regex; use regex::bytes::Regex;
+    /// # use regex::bytes::Regex;
     /// # use regex::bytes::Captures; fn main() {
     /// let re = Regex::new(r"([^,\s]+),\s+(\S+)").unwrap();
     /// let result = re.replace(b"Springsteen, Bruce", |caps: &Captures| {
@@ -411,7 +436,7 @@ impl Regex {
     /// with named capture groups:
     ///
     /// ```rust
-    /// # extern crate regex; use regex::bytes::Regex;
+    /// # use regex::bytes::Regex;
     /// # fn main() {
     /// let re = Regex::new(r"(?P<last>[^,\s]+),\s+(?P<first>\S+)").unwrap();
     /// let result = re.replace(b"Springsteen, Bruce", &b"$first $last"[..]);
@@ -428,7 +453,7 @@ impl Regex {
     /// underscore:
     ///
     /// ```rust
-    /// # extern crate regex; use regex::bytes::Regex;
+    /// # use regex::bytes::Regex;
     /// # fn main() {
     /// let re = Regex::new(r"(?P<first>\w+)\s+(?P<second>\w+)").unwrap();
     /// let result = re.replace(b"deep fried", &b"${first}_$second"[..]);
@@ -445,7 +470,7 @@ impl Regex {
     /// byte string with `NoExpand`:
     ///
     /// ```rust
-    /// # extern crate regex; use regex::bytes::Regex;
+    /// # use regex::bytes::Regex;
     /// # fn main() {
     /// use regex::bytes::NoExpand;
     ///
@@ -496,12 +521,12 @@ impl Regex {
             let mut new = Vec::with_capacity(text.len());
             let mut last_match = 0;
             for (i, m) in it {
-                if limit > 0 && i >= limit {
-                    break;
-                }
                 new.extend_from_slice(&text[last_match..m.start()]);
                 new.extend_from_slice(&rep);
                 last_match = m.end();
+                if limit > 0 && i >= limit - 1 {
+                    break;
+                }
             }
             new.extend_from_slice(&text[last_match..]);
             return Cow::Owned(new);
@@ -516,14 +541,14 @@ impl Regex {
         let mut new = Vec::with_capacity(text.len());
         let mut last_match = 0;
         for (i, cap) in it {
-            if limit > 0 && i >= limit {
-                break;
-            }
             // unwrap on 0 is OK because captures only reports matches
             let m = cap.get(0).unwrap();
             new.extend_from_slice(&text[last_match..m.start()]);
             rep.replace_append(&cap, &mut new);
             last_match = m.end();
+            if limit > 0 && i >= limit - 1 {
+                break;
+            }
         }
         new.extend_from_slice(&text[last_match..]);
         Cow::Owned(new)
@@ -537,7 +562,14 @@ impl Regex {
     /// This method may have the same performance characteristics as
     /// `is_match`, except it provides an end location for a match. In
     /// particular, the location returned *may be shorter* than the proper end
-    /// of the leftmost-first match.
+    /// of the leftmost-first match that you would find via `Regex::find`.
+    ///
+    /// Note that it is not guaranteed that this routine finds the shortest or
+    /// "earliest" possible match. Instead, the main idea of this API is that
+    /// it returns the offset at the point at which the internal regex engine
+    /// has determined that a match has occurred. This may vary depending on
+    /// which internal regex engine is used, and thus, the offset itself may
+    /// change.
     ///
     /// # Example
     ///
@@ -546,7 +578,7 @@ impl Regex {
     /// `a`.
     ///
     /// ```rust
-    /// # extern crate regex; use regex::bytes::Regex;
+    /// # use regex::bytes::Regex;
     /// # fn main() {
     /// let text = b"aaaaa";
     /// let pos = Regex::new(r"a+").unwrap().shortest_match(text);
@@ -578,7 +610,7 @@ impl Regex {
     /// context into consideration. For example, the `\A` anchor can only
     /// match when `start == 0`.
     pub fn is_match_at(&self, text: &[u8], start: usize) -> bool {
-        self.shortest_match_at(text, start).is_some()
+        self.0.searcher().is_match_at(text, start)
     }
 
     /// Returns the same as find, but starts the search at the given
@@ -596,6 +628,25 @@ impl Regex {
             .searcher()
             .find_at(text, start)
             .map(|(s, e)| Match::new(text, s, e))
+    }
+
+    /// Returns the same as [`Regex::captures`], but starts the search at the
+    /// given offset.
+    ///
+    /// The significance of the starting point is that it takes the surrounding
+    /// context into consideration. For example, the `\A` anchor can only
+    /// match when `start == 0`.
+    pub fn captures_at<'t>(
+        &self,
+        text: &'t [u8],
+        start: usize,
+    ) -> Option<Captures<'t>> {
+        let mut locs = self.capture_locations();
+        self.captures_read_at(&mut locs, text, start).map(move |_| Captures {
+            text,
+            locs: locs.0,
+            named_groups: self.0.capture_name_idx().clone(),
+        })
     }
 
     /// This is like `captures`, but uses
@@ -658,13 +709,53 @@ impl Regex {
     }
 
     /// Returns an iterator over the capture names.
-    pub fn capture_names(&self) -> CaptureNames {
+    pub fn capture_names(&self) -> CaptureNames<'_> {
         CaptureNames(self.0.capture_names().iter())
     }
 
     /// Returns the number of captures.
     pub fn captures_len(&self) -> usize {
         self.0.capture_names().len()
+    }
+
+    /// Returns the total number of capturing groups that appear in every
+    /// possible match.
+    ///
+    /// If the number of capture groups can vary depending on the match, then
+    /// this returns `None`. That is, a value is only returned when the number
+    /// of matching groups is invariant or "static."
+    ///
+    /// Note that like [`Regex::captures_len`], this **does** include the
+    /// implicit capturing group corresponding to the entire match. Therefore,
+    /// when a non-None value is returned, it is guaranteed to be at least `1`.
+    /// Stated differently, a return value of `Some(0)` is impossible.
+    ///
+    /// # Example
+    ///
+    /// This shows a few cases where a static number of capture groups is
+    /// available and a few cases where it is not.
+    ///
+    /// ```
+    /// use regex::bytes::Regex;
+    ///
+    /// let len = |pattern| {
+    ///     Regex::new(pattern).map(|re| re.static_captures_len())
+    /// };
+    ///
+    /// assert_eq!(Some(1), len("a")?);
+    /// assert_eq!(Some(2), len("(a)")?);
+    /// assert_eq!(Some(2), len("(a)|(b)")?);
+    /// assert_eq!(Some(3), len("(a)(b)|(c)(d)")?);
+    /// assert_eq!(None, len("(a)|b")?);
+    /// assert_eq!(None, len("a|(b)")?);
+    /// assert_eq!(None, len("(b)*")?);
+    /// assert_eq!(Some(2), len("(b)+")?);
+    ///
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    #[inline]
+    pub fn static_captures_len(&self) -> Option<usize> {
+        self.0.static_captures_len().map(|len| len.saturating_add(1))
     }
 
     /// Returns an empty set of capture locations that can be reused in
@@ -723,7 +814,7 @@ impl<'r, 't> Iterator for CaptureMatches<'r, 't> {
     fn next(&mut self) -> Option<Captures<'t>> {
         self.0.next().map(|locs| Captures {
             text: self.0.text(),
-            locs: locs,
+            locs,
             named_groups: self.0.regex().capture_name_idx().clone(),
         })
     }
@@ -856,6 +947,27 @@ impl<'r> FusedIterator for CaptureNames<'r> {}
 /// In order to build a value of this type, you'll need to call the
 /// `capture_locations` method on the `Regex` being used to execute the search.
 /// The value returned can then be reused in subsequent searches.
+///
+/// # Example
+///
+/// This example shows how to create and use `CaptureLocations` in a search.
+///
+/// ```
+/// use regex::bytes::Regex;
+///
+/// let re = Regex::new(r"(?<first>\w+)\s+(?<last>\w+)").unwrap();
+/// let mut locs = re.capture_locations();
+/// let m = re.captures_read(&mut locs, b"Bruce Springsteen").unwrap();
+/// assert_eq!(0..17, m.range());
+/// assert_eq!(Some((0, 17)), locs.get(0));
+/// assert_eq!(Some((0, 5)), locs.get(1));
+/// assert_eq!(Some((6, 17)), locs.get(2));
+///
+/// // Asking for an invalid capture group always returns None.
+/// assert_eq!(None, locs.get(3));
+/// assert_eq!(None, locs.get(34973498648));
+/// assert_eq!(None, locs.get(9944060567225171988));
+/// ```
 #[derive(Clone, Debug)]
 pub struct CaptureLocations(re_trait::Locations);
 
@@ -877,7 +989,7 @@ impl CaptureLocations {
         self.0.pos(i)
     }
 
-    /// Returns the total number of capturing groups.
+    /// Returns the total number of capture groups (even if they didn't match).
     ///
     /// This is always at least `1` since every regex has at least `1`
     /// capturing group that corresponds to the entire match.
@@ -979,7 +1091,7 @@ impl<'t> Captures<'t> {
         expand_bytes(self, replacement, dst)
     }
 
-    /// Returns the number of captured groups.
+    /// Returns the total number of capture groups (even if they didn't match).
     ///
     /// This is always at least `1`, since every regex has at least one capture
     /// group that corresponds to the full match.
@@ -990,15 +1102,15 @@ impl<'t> Captures<'t> {
 }
 
 impl<'t> fmt::Debug for Captures<'t> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("Captures").field(&CapturesDebug(self)).finish()
     }
 }
 
-struct CapturesDebug<'c, 't: 'c>(&'c Captures<'t>);
+struct CapturesDebug<'c, 't>(&'c Captures<'t>);
 
 impl<'c, 't> fmt::Debug for CapturesDebug<'c, 't> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fn escape_bytes(bytes: &[u8]) -> String {
             let mut s = String::new();
             for &b in bytes {
@@ -1084,7 +1196,7 @@ impl<'t, 'i> Index<&'i str> for Captures<'t> {
 /// The lifetime `'c` corresponds to the lifetime of the `Captures` value, and
 /// the lifetime `'t` corresponds to the originally matched text.
 #[derive(Clone, Debug)]
-pub struct SubCaptureMatches<'c, 't: 'c> {
+pub struct SubCaptureMatches<'c, 't> {
     caps: &'c Captures<'t>,
     it: SubCapturesPosIter<'c>,
 }
@@ -1116,7 +1228,7 @@ pub trait Replacer {
     ///
     /// For example, a no-op replacement would be
     /// `dst.extend(&caps[0])`.
-    fn replace_append(&mut self, caps: &Captures, dst: &mut Vec<u8>);
+    fn replace_append(&mut self, caps: &Captures<'_>, dst: &mut Vec<u8>);
 
     /// Return a fixed unchanging replacement byte string.
     ///
@@ -1159,10 +1271,10 @@ pub trait Replacer {
 ///
 /// Returned by [`Replacer::by_ref`](trait.Replacer.html#method.by_ref).
 #[derive(Debug)]
-pub struct ReplacerRef<'a, R: ?Sized + 'a>(&'a mut R);
+pub struct ReplacerRef<'a, R: ?Sized>(&'a mut R);
 
 impl<'a, R: Replacer + ?Sized + 'a> Replacer for ReplacerRef<'a, R> {
-    fn replace_append(&mut self, caps: &Captures, dst: &mut Vec<u8>) {
+    fn replace_append(&mut self, caps: &Captures<'_>, dst: &mut Vec<u8>) {
         self.0.replace_append(caps, dst)
     }
     fn no_expansion<'r>(&'r mut self) -> Option<Cow<'r, [u8]>> {
@@ -1171,56 +1283,56 @@ impl<'a, R: Replacer + ?Sized + 'a> Replacer for ReplacerRef<'a, R> {
 }
 
 impl<'a> Replacer for &'a [u8] {
-    fn replace_append(&mut self, caps: &Captures, dst: &mut Vec<u8>) {
+    fn replace_append(&mut self, caps: &Captures<'_>, dst: &mut Vec<u8>) {
         caps.expand(*self, dst);
     }
 
-    fn no_expansion(&mut self) -> Option<Cow<[u8]>> {
+    fn no_expansion(&mut self) -> Option<Cow<'_, [u8]>> {
         no_expansion(self)
     }
 }
 
 impl<'a> Replacer for &'a Vec<u8> {
-    fn replace_append(&mut self, caps: &Captures, dst: &mut Vec<u8>) {
+    fn replace_append(&mut self, caps: &Captures<'_>, dst: &mut Vec<u8>) {
         caps.expand(*self, dst);
     }
 
-    fn no_expansion(&mut self) -> Option<Cow<[u8]>> {
+    fn no_expansion(&mut self) -> Option<Cow<'_, [u8]>> {
         no_expansion(self)
     }
 }
 
 impl Replacer for Vec<u8> {
-    fn replace_append(&mut self, caps: &Captures, dst: &mut Vec<u8>) {
+    fn replace_append(&mut self, caps: &Captures<'_>, dst: &mut Vec<u8>) {
         caps.expand(self, dst);
     }
 
-    fn no_expansion(&mut self) -> Option<Cow<[u8]>> {
+    fn no_expansion(&mut self) -> Option<Cow<'_, [u8]>> {
         no_expansion(self)
     }
 }
 
 impl<'a> Replacer for Cow<'a, [u8]> {
-    fn replace_append(&mut self, caps: &Captures, dst: &mut Vec<u8>) {
+    fn replace_append(&mut self, caps: &Captures<'_>, dst: &mut Vec<u8>) {
         caps.expand(self.as_ref(), dst);
     }
 
-    fn no_expansion(&mut self) -> Option<Cow<[u8]>> {
+    fn no_expansion(&mut self) -> Option<Cow<'_, [u8]>> {
         no_expansion(self)
     }
 }
 
 impl<'a> Replacer for &'a Cow<'a, [u8]> {
-    fn replace_append(&mut self, caps: &Captures, dst: &mut Vec<u8>) {
+    fn replace_append(&mut self, caps: &Captures<'_>, dst: &mut Vec<u8>) {
         caps.expand(self.as_ref(), dst);
     }
 
-    fn no_expansion(&mut self) -> Option<Cow<[u8]>> {
+    fn no_expansion(&mut self) -> Option<Cow<'_, [u8]>> {
         no_expansion(self)
     }
 }
 
-fn no_expansion<T: AsRef<[u8]>>(t: &T) -> Option<Cow<[u8]>> {
+fn no_expansion<T: AsRef<[u8]>>(t: &T) -> Option<Cow<'_, [u8]>> {
     let s = t.as_ref();
     match find_byte(b'$', s) {
         Some(_) => None,
@@ -1230,10 +1342,10 @@ fn no_expansion<T: AsRef<[u8]>>(t: &T) -> Option<Cow<[u8]>> {
 
 impl<F, T> Replacer for F
 where
-    F: FnMut(&Captures) -> T,
+    F: FnMut(&Captures<'_>) -> T,
     T: AsRef<[u8]>,
 {
-    fn replace_append(&mut self, caps: &Captures, dst: &mut Vec<u8>) {
+    fn replace_append(&mut self, caps: &Captures<'_>, dst: &mut Vec<u8>) {
         dst.extend_from_slice((*self)(caps).as_ref());
     }
 }
@@ -1250,11 +1362,11 @@ where
 pub struct NoExpand<'t>(pub &'t [u8]);
 
 impl<'t> Replacer for NoExpand<'t> {
-    fn replace_append(&mut self, _: &Captures, dst: &mut Vec<u8>) {
+    fn replace_append(&mut self, _: &Captures<'_>, dst: &mut Vec<u8>) {
         dst.extend_from_slice(self.0);
     }
 
-    fn no_expansion(&mut self) -> Option<Cow<[u8]>> {
+    fn no_expansion(&mut self) -> Option<Cow<'_, [u8]>> {
         Some(Cow::Borrowed(self.0))
     }
 }

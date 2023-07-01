@@ -13,15 +13,15 @@ buddy_system_allocator = "0.6"
 bitflags = "1.2.1"
 xmas-elf = "0.7.0"
 virtio-drivers = { path = "../dependency/virtio-drivers" }
-# easy-fs = { path = "../easy-fs" }
+
 log = "0.4"
 sbi-rt = { version = "0.0.2", features = ["legacy"] }
 spin = "0.7"
 downcast-rs = { version = "1.2.0", default-features = false }
 num_enum = { version = "0.5", default-features = false }
-k210-pac = { git = "https://github.com/wyfcyx/k210-pac" }
-k210-hal = { git = "https://github.com/wyfcyx/k210-hal" }
-k210-soc = { git = "https://github.com/wyfcyx/k210-soc" }
+k210-pac = { path = "../dependency/k210-pac" }
+k210-hal = { path = "../dependency/k210-hal" }
+k210-soc = { path = "../dependency/k210-soc" }
 
 [features]
 board_qemu = []

@@ -22,12 +22,6 @@ used by adding `regex` to your dependencies in your project's `Cargo.toml`.
 regex = "1"
 ```
 
-If you're using Rust 2015, then you'll also need to add it to your crate root:
-
-```rust
-extern crate regex;
-```
-
 # Example: find a date
 
 General use of regular expressions in this package involves compiling an
@@ -68,9 +62,7 @@ regular expressions are compiled exactly once.
 For example:
 
 ```rust
-#[macro_use] extern crate lazy_static;
-extern crate regex;
-
+use lazy_static::lazy_static;
 use regex::Regex;
 
 fn some_helper_function(text: &str) -> bool {
@@ -94,7 +86,7 @@ matches. For example, to find all dates in a string and be able to access
 them by their component pieces:
 
 ```rust
-# extern crate regex; use regex::Regex;
+# use regex::Regex;
 # fn main() {
 let re = Regex::new(r"(\d{4})-(\d{2})-(\d{2})").unwrap();
 let text = "2012-03-14, 2013-01-01 and 2014-07-05";
@@ -119,7 +111,7 @@ clearer, we can *name*  our capture groups and use those names as variables
 in our replacement text:
 
 ```rust
-# extern crate regex; use regex::Regex;
+# use regex::Regex;
 # fn main() {
 let re = Regex::new(r"(?P<y>\d{4})-(?P<m>\d{2})-(?P<d>\d{2})").unwrap();
 let before = "2012-03-14, 2013-01-01 and 2014-07-05";
@@ -136,7 +128,7 @@ Note that if your regex gets complicated, you can use the `x` flag to
 enable insignificant whitespace mode, which also lets you write comments:
 
 ```rust
-# extern crate regex; use regex::Regex;
+# use regex::Regex;
 # fn main() {
 let re = Regex::new(r"(?x)
   (?P<y>\d{4}) # the year
@@ -207,6 +199,8 @@ instead.)
 This implementation executes regular expressions **only** on valid UTF-8
 while exposing match locations as byte indices into the search string. (To
 relax this restriction, use the [`bytes`](bytes/index.html) sub-module.)
+Conceptually, the regex engine works by matching a haystack as if it were a
+sequence of Unicode scalar values.
 
 Only simple case folding is supported. Namely, when matching
 case-insensitively, the characters are first mapped using the "simple" case
@@ -217,7 +211,7 @@ Unicode scalar values. This means you can use Unicode characters directly
 in your expression:
 
 ```rust
-# extern crate regex; use regex::Regex;
+# use regex::Regex;
 # fn main() {
 let re = Regex::new(r"(?i)Δ+").unwrap();
 let mat = re.find("ΔδΔ").unwrap();
@@ -244,7 +238,7 @@ of boolean properties are available as character classes. For example, you can
 match a sequence of numerals, Greek or Cherokee letters:
 
 ```rust
-# extern crate regex; use regex::Regex;
+# use regex::Regex;
 # fn main() {
 let re = Regex::new(r"[\pN\p{Greek}\p{Cherokee}]+").unwrap();
 let mat = re.find("abcΔᎠβⅠᏴγδⅡxyz").unwrap();
@@ -293,9 +287,9 @@ a separate crate, [`regex-syntax`](https://docs.rs/regex-syntax).
 .             any character except new line (includes new line with s flag)
 \d            digit (\p{Nd})
 \D            not digit
-\pN           One-letter name Unicode character class
+\pX           Unicode character class identified by a one-letter name
 \p{Greek}     Unicode character class (general category or script)
-\PN           Negated one-letter name Unicode character class
+\PX           Negated Unicode character class identified by a one-letter name
 \P{Greek}     negated Unicode character class (general category or script)
 </pre>
 
@@ -333,6 +327,25 @@ xy    concatenation (x followed by y)
 x|y   alternation (x or y, prefer x)
 </pre>
 
+This example shows how an alternation works, and what it means to prefer a
+branch in the alternation over subsequent branches.
+
+```
+use regex::Regex;
+
+let haystack = "samwise";
+// If 'samwise' comes first in our alternation, then it is
+// preferred as a match, even if the regex engine could
+// technically detect that 'sam' led to a match earlier.
+let re = Regex::new(r"samwise|sam").unwrap();
+assert_eq!("samwise", re.find(haystack).unwrap().as_str());
+// But if 'sam' comes first, then it will match instead.
+// In this case, it is impossible for 'samwise' to match
+// because 'sam' is a prefix of it.
+let re = Regex::new(r"sam|samwise").unwrap();
+assert_eq!("sam", re.find(haystack).unwrap().as_str());
+```
+
 ## Repetitions
 
 <pre class="rust">
@@ -361,15 +374,25 @@ $     the end of text (or end-of-line with multi-line mode)
 \B    not a Unicode word boundary
 </pre>
 
+The empty regex is valid and matches the empty string. For example, the empty
+regex matches `abc` at positions `0`, `1`, `2` and `3`.
+
 ## Grouping and flags
 
 <pre class="rust">
 (exp)          numbered capture group (indexed by opening parenthesis)
-(?P&lt;name&gt;exp)  named (also numbered) capture group (allowed chars: [_0-9a-zA-Z.\[\]])
+(?P&lt;name&gt;exp)  named (also numbered) capture group (names must be alpha-numeric)
+(?&lt;name&gt;exp)   named (also numbered) capture group (names must be alpha-numeric)
 (?:exp)        non-capturing group
 (?flags)       set flags within current group
 (?flags:exp)   set flags for exp (non-capturing)
 </pre>
+
+Capture group names must be any sequence of alpha-numeric Unicode codepoints,
+in addition to `.`, `_`, `[` and `]`. Names must start with either an `_` or
+an alphabetic codepoint. Alphabetic codepoints correspond to the `Alphabetic`
+Unicode property, while numeric codepoints correspond to the union of the
+`Decimal_Number`, `Letter_Number` and `Other_Number` general categories.
 
 Flags are each a single character. For example, `(?x)` sets the flag `x`
 and `(?-x)` clears the flag `x`. Multiple flags can be set or cleared at
@@ -384,14 +407,18 @@ m     multi-line mode: ^ and $ match begin/end of line
 s     allow . to match \n
 U     swap the meaning of x* and x*?
 u     Unicode support (enabled by default)
-x     ignore whitespace and allow line comments (starting with `#`)
+x     verbose mode, ignores whitespace and allow line comments (starting with `#`)
 </pre>
+
+Note that in verbose mode, whitespace is ignored everywhere, including within
+character classes. To insert whitespace, use its escaped form or a hex literal.
+For example, `\ ` or `\x20` for an ASCII space.
 
 Flags can be toggled within a pattern. Here's an example that matches
 case-insensitively for the first part but case-sensitively for the second part:
 
 ```rust
-# extern crate regex; use regex::Regex;
+# use regex::Regex;
 # fn main() {
 let re = Regex::new(r"(?i)a+(?-i)b+").unwrap();
 let cap = re.captures("AaAaAbbBBBb").unwrap();
@@ -425,7 +452,7 @@ Here is an example that uses an ASCII word boundary instead of a Unicode
 word boundary:
 
 ```rust
-# extern crate regex; use regex::Regex;
+# use regex::Regex;
 # fn main() {
 let re = Regex::new(r"(?-u:\b).+(?-u:\b)").unwrap();
 let cap = re.captures("$$abc$$").unwrap();
@@ -614,38 +641,29 @@ another matching engine with fixed memory requirements.
 */
 
 #![deny(missing_docs)]
-#![cfg_attr(test, deny(warnings))]
 #![cfg_attr(feature = "pattern", feature(pattern))]
 #![warn(missing_debug_implementations)]
 
 #[cfg(not(feature = "std"))]
 compile_error!("`std` feature is currently required to build this crate");
 
-#[cfg(feature = "perf-literal")]
-extern crate aho_corasick;
-// #[cfg(doctest)]
-// extern crate doc_comment;
-#[cfg(feature = "perf-literal")]
-extern crate memchr;
-#[cfg(test)]
-#[cfg_attr(feature = "perf-literal", macro_use)]
-extern crate quickcheck;
-extern crate regex_syntax as syntax;
-
+// To check README's example
+// TODO: Re-enable this once the MSRV is 1.43 or greater.
+// See: https://github.com/rust-lang/regex/issues/684
+// See: https://github.com/rust-lang/regex/issues/685
 // #[cfg(doctest)]
 // doc_comment::doctest!("../README.md");
 
 #[cfg(feature = "std")]
-pub use error::Error;
+pub use crate::error::Error;
 #[cfg(feature = "std")]
-pub use re_builder::set_unicode::*;
+pub use crate::re_builder::set_unicode::*;
 #[cfg(feature = "std")]
-pub use re_builder::unicode::*;
+pub use crate::re_builder::unicode::*;
 #[cfg(feature = "std")]
-pub use re_set::unicode::*;
+pub use crate::re_set::unicode::*;
 #[cfg(feature = "std")]
-#[cfg(feature = "std")]
-pub use re_unicode::{
+pub use crate::re_unicode::{
     escape, CaptureLocations, CaptureMatches, CaptureNames, Captures,
     Locations, Match, Matches, NoExpand, Regex, Replacer, ReplacerRef, Split,
     SplitN, SubCaptureMatches,
@@ -740,10 +758,10 @@ performance on `&str`.
 */
 #[cfg(feature = "std")]
 pub mod bytes {
-    pub use re_builder::bytes::*;
-    pub use re_builder::set_bytes::*;
-    pub use re_bytes::*;
-    pub use re_set::bytes::*;
+    pub use crate::re_builder::bytes::*;
+    pub use crate::re_builder::set_bytes::*;
+    pub use crate::re_bytes::*;
+    pub use crate::re_set::bytes::*;
 }
 
 mod backtrack;
@@ -754,8 +772,6 @@ mod error;
 mod exec;
 mod expand;
 mod find_byte;
-#[cfg(feature = "perf-literal")]
-mod freqs;
 mod input;
 mod literal;
 #[cfg(feature = "pattern")]
@@ -777,9 +793,9 @@ mod utf8;
 #[doc(hidden)]
 #[cfg(feature = "std")]
 pub mod internal {
-    pub use compile::Compiler;
-    pub use exec::{Exec, ExecBuilder};
-    pub use input::{Char, CharInput, Input, InputAt};
-    pub use literal::LiteralSearcher;
-    pub use prog::{EmptyLook, Inst, InstRanges, Program};
+    pub use crate::compile::Compiler;
+    pub use crate::exec::{Exec, ExecBuilder};
+    pub use crate::input::{Char, CharInput, Input, InputAt};
+    pub use crate::literal::LiteralSearcher;
+    pub use crate::prog::{EmptyLook, Inst, InstRanges, Program};
 }

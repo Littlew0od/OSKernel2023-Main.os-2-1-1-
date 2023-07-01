@@ -1,12 +1,12 @@
 use std::str;
 
-use find_byte::find_byte;
+use crate::find_byte::find_byte;
 
-use re_bytes;
-use re_unicode;
+use crate::re_bytes;
+use crate::re_unicode;
 
 pub fn expand_str(
-    caps: &re_unicode::Captures,
+    caps: &re_unicode::Captures<'_>,
     mut replacement: &str,
     dst: &mut String,
 ) {
@@ -48,7 +48,7 @@ pub fn expand_str(
 }
 
 pub fn expand_bytes(
-    caps: &re_bytes::Captures,
+    caps: &re_bytes::Captures<'_>,
     mut replacement: &[u8],
     dst: &mut Vec<u8>,
 ) {
@@ -125,9 +125,9 @@ impl From<usize> for Ref<'static> {
 /// starting at the beginning of `replacement`.
 ///
 /// If no such valid reference could be found, None is returned.
-fn find_cap_ref(replacement: &[u8]) -> Option<CaptureRef> {
+fn find_cap_ref(replacement: &[u8]) -> Option<CaptureRef<'_>> {
     let mut i = 0;
-    let rep: &[u8] = replacement.as_ref();
+    let rep: &[u8] = replacement;
     if rep.len() <= 1 || rep[0] != b'$' {
         return None;
     }
@@ -136,7 +136,7 @@ fn find_cap_ref(replacement: &[u8]) -> Option<CaptureRef> {
         return find_cap_ref_braced(rep, i + 1);
     }
     let mut cap_end = i;
-    while rep.get(cap_end).map_or(false, is_valid_cap_letter) {
+    while rep.get(cap_end).copied().map_or(false, is_valid_cap_letter) {
         cap_end += 1;
     }
     if cap_end == i {
@@ -157,7 +157,7 @@ fn find_cap_ref(replacement: &[u8]) -> Option<CaptureRef> {
     })
 }
 
-fn find_cap_ref_braced(rep: &[u8], mut i: usize) -> Option<CaptureRef> {
+fn find_cap_ref_braced(rep: &[u8], mut i: usize) -> Option<CaptureRef<'_>> {
     let start = i;
     while rep.get(i).map_or(false, |&b| b != b'}') {
         i += 1;
@@ -182,9 +182,10 @@ fn find_cap_ref_braced(rep: &[u8], mut i: usize) -> Option<CaptureRef> {
     })
 }
 
-/// Returns true if and only if the given byte is allowed in a capture name.
-fn is_valid_cap_letter(b: &u8) -> bool {
-    match *b {
+/// Returns true if and only if the given byte is allowed in a capture name
+/// written in non-brace form.
+fn is_valid_cap_letter(b: u8) -> bool {
+    match b {
         b'0'..=b'9' | b'a'..=b'z' | b'A'..=b'Z' | b'_' => true,
         _ => false,
     }
@@ -236,4 +237,11 @@ mod tests {
     find!(find_cap_ref17, "$x_$y", c!("x_", 3));
     find!(find_cap_ref18, "${#}", c!("#", 4));
     find!(find_cap_ref19, "${Z[}", c!("Z[", 5));
+    find!(find_cap_ref20, "${¾}", c!("¾", 5));
+    find!(find_cap_ref21, "${¾a}", c!("¾a", 6));
+    find!(find_cap_ref22, "${a¾}", c!("a¾", 6));
+    find!(find_cap_ref23, "${☃}", c!("☃", 6));
+    find!(find_cap_ref24, "${a☃}", c!("a☃", 7));
+    find!(find_cap_ref25, "${☃a}", c!("☃a", 7));
+    find!(find_cap_ref26, "${名字}", c!("名字", 9));
 }

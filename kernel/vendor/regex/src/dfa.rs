@@ -31,7 +31,7 @@ considerably more complex than one might expect out of a DFA. A number of
 tricks are employed to make it fast. Tread carefully.
 
 N.B. While this implementation is heavily commented, Russ Cox's series of
-articles on regexes is strongly recommended: https://swtch.com/~rsc/regexp/
+articles on regexes is strongly recommended: <https://swtch.com/~rsc/regexp/>
 (As is the DFA implementation in RE2, which heavily influenced this
 implementation.)
 */
@@ -42,9 +42,9 @@ use std::iter::repeat;
 use std::mem;
 use std::sync::Arc;
 
-use exec::ProgramCache;
-use prog::{Inst, Program};
-use sparse::SparseSet;
+use crate::exec::ProgramCache;
+use crate::prog::{Inst, Program};
+use crate::sparse::SparseSet;
 
 /// Return true if and only if the given program can be executed by a DFA.
 ///
@@ -55,7 +55,7 @@ use sparse::SparseSet;
 /// This function will also return false if the given program has any Unicode
 /// instructions (Char or Ranges) since the DFA operates on bytes only.
 pub fn can_exec(insts: &Program) -> bool {
-    use prog::Inst::*;
+    use crate::prog::Inst::*;
     // If for some reason we manage to allocate a regex program with more
     // than i32::MAX instructions, then we can't execute the DFA because we
     // use 32 bit instruction pointer deltas for memory savings.
@@ -306,7 +306,7 @@ impl State {
         StateFlags(self.data[0])
     }
 
-    fn inst_ptrs(&self) -> InstPtrs {
+    fn inst_ptrs(&self) -> InstPtrs<'_> {
         InstPtrs { base: 0, data: &self.data[1..] }
     }
 }
@@ -454,10 +454,10 @@ impl<'a> Fsm<'a> {
         let mut cache = cache.borrow_mut();
         let cache = &mut cache.dfa;
         let mut dfa = Fsm {
-            prog: prog,
+            prog,
             start: 0, // filled in below
-            at: at,
-            quit_after_match: quit_after_match,
+            at,
+            quit_after_match,
             last_match_si: STATE_UNKNOWN,
             last_cache_flush: at,
             cache: &mut cache.inner,
@@ -484,10 +484,10 @@ impl<'a> Fsm<'a> {
         let mut cache = cache.borrow_mut();
         let cache = &mut cache.dfa_reverse;
         let mut dfa = Fsm {
-            prog: prog,
+            prog,
             start: 0, // filled in below
-            at: at,
-            quit_after_match: quit_after_match,
+            at,
+            quit_after_match,
             last_match_si: STATE_UNKNOWN,
             last_cache_flush: at,
             cache: &mut cache.inner,
@@ -515,9 +515,9 @@ impl<'a> Fsm<'a> {
         let mut cache = cache.borrow_mut();
         let cache = &mut cache.dfa;
         let mut dfa = Fsm {
-            prog: prog,
+            prog,
             start: 0, // filled in below
-            at: at,
+            at,
             quit_after_match: false,
             last_match_si: STATE_UNKNOWN,
             last_cache_flush: at,
@@ -894,7 +894,7 @@ impl<'a> Fsm<'a> {
         mut si: StatePtr,
         b: Byte,
     ) -> Option<StatePtr> {
-        use prog::Inst::*;
+        use crate::prog::Inst::*;
 
         // Initialize a queue with the current DFA state's NFA states.
         qcur.clear();
@@ -1056,8 +1056,8 @@ impl<'a> Fsm<'a> {
         q: &mut SparseSet,
         flags: EmptyFlags,
     ) {
-        use prog::EmptyLook::*;
-        use prog::Inst::*;
+        use crate::prog::EmptyLook::*;
+        use crate::prog::Inst::*;
 
         // We need to traverse the NFA to follow epsilon transitions, so avoid
         // recursion with an explicit stack.
@@ -1190,7 +1190,7 @@ impl<'a> Fsm<'a> {
         q: &SparseSet,
         state_flags: &mut StateFlags,
     ) -> Option<State> {
-        use prog::Inst::*;
+        use crate::prog::Inst::*;
 
         // We need to build up enough information to recognize pre-built states
         // in the DFA. Generally speaking, this includes every instruction
@@ -1353,7 +1353,6 @@ impl<'a> Fsm<'a> {
         match self.cache.trans.next(si, self.byte_class(b)) {
             STATE_UNKNOWN => self.exec_byte(qcur, qnext, si, b),
             STATE_QUIT => None,
-            STATE_DEAD => Some(STATE_DEAD),
             nsi => Some(nsi),
         }
     }
@@ -1387,7 +1386,6 @@ impl<'a> Fsm<'a> {
         };
         match self.cache.start_states[flagi] {
             STATE_UNKNOWN => {}
-            STATE_DEAD => return Some(STATE_DEAD),
             si => return Some(si),
         }
         q.clear();
@@ -1578,7 +1576,7 @@ impl<'a> Fsm<'a> {
     /// inputs, a new state could be created for every byte of input. (This is
     /// bad for memory use, so we bound it with a cache.)
     fn approximate_size(&self) -> usize {
-        self.cache.size + self.prog.approximate_size()
+        self.cache.size
     }
 }
 
@@ -1608,11 +1606,7 @@ struct StateMap {
 
 impl StateMap {
     fn new(num_byte_classes: usize) -> StateMap {
-        StateMap {
-            map: HashMap::new(),
-            states: vec![],
-            num_byte_classes: num_byte_classes,
-        }
+        StateMap { map: HashMap::new(), states: vec![], num_byte_classes }
     }
 
     fn len(&self) -> usize {
@@ -1648,7 +1642,7 @@ impl Transitions {
     /// The number of byte classes corresponds to the stride. Every state will
     /// have `num_byte_classes` slots for transitions.
     fn new(num_byte_classes: usize) -> Transitions {
-        Transitions { table: vec![], num_byte_classes: num_byte_classes }
+        Transitions { table: vec![], num_byte_classes }
     }
 
     /// Returns the total number of states currently in this table.
@@ -1698,27 +1692,27 @@ impl Transitions {
 
 impl StateFlags {
     fn is_match(&self) -> bool {
-        self.0 & 0b0000000_1 > 0
+        self.0 & 0b0000_0001 > 0
     }
 
     fn set_match(&mut self) {
-        self.0 |= 0b0000000_1;
+        self.0 |= 0b0000_0001;
     }
 
     fn is_word(&self) -> bool {
-        self.0 & 0b000000_1_0 > 0
+        self.0 & 0b0000_0010 > 0
     }
 
     fn set_word(&mut self) {
-        self.0 |= 0b000000_1_0;
+        self.0 |= 0b0000_0010;
     }
 
     fn has_empty(&self) -> bool {
-        self.0 & 0b00000_1_00 > 0
+        self.0 & 0b0000_0100 > 0
     }
 
     fn set_empty(&mut self) {
-        self.0 |= 0b00000_1_00;
+        self.0 |= 0b0000_0100;
     }
 }
 
@@ -1754,7 +1748,7 @@ impl Byte {
 }
 
 impl fmt::Debug for State {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let ips: Vec<usize> = self.inst_ptrs().collect();
         f.debug_struct("State")
             .field("flags", &self.flags())
@@ -1764,7 +1758,7 @@ impl fmt::Debug for State {
 }
 
 impl fmt::Debug for Transitions {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut fmtd = f.debug_map();
         for si in 0..self.num_states() {
             let s = si * self.num_byte_classes;
@@ -1778,7 +1772,7 @@ impl fmt::Debug for Transitions {
 struct TransitionsRow<'a>(&'a [StatePtr]);
 
 impl<'a> fmt::Debug for TransitionsRow<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut fmtd = f.debug_map();
         for (b, si) in self.0.iter().enumerate() {
             match *si {
@@ -1796,7 +1790,7 @@ impl<'a> fmt::Debug for TransitionsRow<'a> {
 }
 
 impl fmt::Debug for StateFlags {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("StateFlags")
             .field("is_match", &self.is_match())
             .field("is_word", &self.is_word())
@@ -1889,7 +1883,6 @@ fn read_varu32(data: &[u8]) -> (u32, usize) {
 
 #[cfg(test)]
 mod tests {
-    extern crate rand;
 
     use super::{
         push_inst_ptr, read_vari32, read_varu32, write_vari32, write_varu32,

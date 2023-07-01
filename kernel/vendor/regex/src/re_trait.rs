@@ -20,7 +20,7 @@ impl Locations {
     /// not match anything. The positions returned are *always* byte indices
     /// with respect to the original string matched.
     pub fn pos(&self, i: usize) -> Option<(usize, usize)> {
-        let (s, e) = (i * 2, i * 2 + 1);
+        let (s, e) = (i.checked_mul(2)?, i.checked_mul(2)?.checked_add(1)?);
         match (self.0.get(s), self.0.get(e)) {
             (Some(&Some(s)), Some(&Some(e))) => Some((s, e)),
             _ => None,
@@ -30,7 +30,7 @@ impl Locations {
     /// Creates an iterator of all the capture group positions in order of
     /// appearance in the regular expression. Positions are byte indices
     /// in terms of the original string matched.
-    pub fn iter(&self) -> SubCapturesPosIter {
+    pub fn iter(&self) -> SubCapturesPosIter<'_> {
         SubCapturesPosIter { idx: 0, locs: self }
     }
 
@@ -74,7 +74,18 @@ impl<'c> Iterator for SubCapturesPosIter<'c> {
         self.idx += 1;
         x
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let len = self.locs.len() - self.idx;
+        (len, Some(len))
+    }
+
+    fn count(self) -> usize {
+        self.len()
+    }
 }
+
+impl<'c> ExactSizeIterator for SubCapturesPosIter<'c> {}
 
 impl<'c> FusedIterator for SubCapturesPosIter<'c> {}
 
@@ -138,13 +149,13 @@ pub trait RegularExpression: Sized + fmt::Debug {
 
     /// Returns an iterator over all non-overlapping successive leftmost-first
     /// matches.
-    fn find_iter(self, text: &Self::Text) -> Matches<Self> {
-        Matches { re: self, text: text, last_end: 0, last_match: None }
+    fn find_iter(self, text: &Self::Text) -> Matches<'_, Self> {
+        Matches { re: self, text, last_end: 0, last_match: None }
     }
 
     /// Returns an iterator over all non-overlapping successive leftmost-first
     /// matches with captures.
-    fn captures_iter(self, text: &Self::Text) -> CaptureMatches<Self> {
+    fn captures_iter(self, text: &Self::Text) -> CaptureMatches<'_, Self> {
         CaptureMatches(self.find_iter(text))
     }
 }

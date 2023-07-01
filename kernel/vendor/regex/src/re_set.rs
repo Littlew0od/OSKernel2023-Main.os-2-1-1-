@@ -7,10 +7,10 @@ macro_rules! define_set {
             use std::slice;
             use std::vec;
 
-            use error::Error;
-            use exec::Exec;
-            use re_builder::$builder_mod::RegexSetBuilder;
-            use re_trait::RegularExpression;
+            use crate::error::Error;
+            use crate::exec::Exec;
+            use crate::re_builder::$builder_mod::RegexSetBuilder;
+            use crate::re_trait::RegularExpression;
 
 /// Match multiple (possibly overlapping) regular expressions in a single scan.
 ///
@@ -59,13 +59,45 @@ $(#[$doc_regexset_example])*
 /// 1. Does any regex in the set match?
 /// 2. If so, which regexes in the set match?
 ///
-/// As with the main `Regex` type, it is cheaper to ask (1) instead of (2)
-/// since the matching engines can stop after the first match is found.
+/// As with the main [`Regex`][crate::Regex] type, it is cheaper to ask (1)
+/// instead of (2) since the matching engines can stop after the first match
+/// is found.
 ///
-/// Other features like finding the location of successive matches or their
-/// sub-captures aren't supported. If you need this functionality, the
-/// recommended approach is to compile each regex in the set independently and
-/// selectively match them based on which regexes in the set matched.
+/// You cannot directly extract [`Match`][crate::Match] or
+/// [`Captures`][crate::Captures] objects from a regex set. If you need these
+/// operations, the recommended approach is to compile each pattern in the set
+/// independently and scan the exact same input a second time with those
+/// independently compiled patterns:
+///
+/// ```rust
+/// use regex::{Regex, RegexSet};
+///
+/// let patterns = ["foo", "bar"];
+/// // Both patterns will match different ranges of this string.
+/// let text = "barfoo";
+///
+/// // Compile a set matching any of our patterns.
+/// let set = RegexSet::new(&patterns).unwrap();
+/// // Compile each pattern independently.
+/// let regexes: Vec<_> = set.patterns().iter()
+///     .map(|pat| Regex::new(pat).unwrap())
+///     .collect();
+///
+/// // Match against the whole set first and identify the individual
+/// // matching patterns.
+/// let matches: Vec<&str> = set.matches(text).into_iter()
+///     // Dereference the match index to get the corresponding
+///     // compiled pattern.
+///     .map(|match_idx| &regexes[match_idx])
+///     // To get match locations or any other info, we then have to search
+///     // the exact same text again, using our separately-compiled pattern.
+///     .map(|pat| pat.find(text).unwrap().as_str())
+///     .collect();
+///
+/// // Matches arrive in the order the constituent patterns were declared,
+/// // not the order they appear in the input.
+/// assert_eq!(vec!["foo", "bar"], matches);
+/// ```
 ///
 /// # Performance
 ///
@@ -257,6 +289,12 @@ impl RegexSet {
     }
 }
 
+impl Default for RegexSet {
+    fn default() -> Self {
+        RegexSet::empty()
+    }
+}
+
 /// A set of matches returned by a regex set.
 #[derive(Clone, Debug)]
 pub struct SetMatches {
@@ -283,6 +321,11 @@ impl SetMatches {
     }
 
     /// The total number of regexes in the set that created these matches.
+    ///
+    /// **WARNING:** This always returns the same value as [`RegexSet::len`].
+    /// In particular, it does *not* return the number of elements yielded by
+    /// [`SetMatches::iter`]. The only way to determine the total number of
+    /// matched regexes is to iterate over them.
     pub fn len(&self) -> usize {
         self.matches.len()
     }
@@ -292,7 +335,7 @@ impl SetMatches {
     /// This will always produces matches in ascending order of index, where
     /// the index corresponds to the index of the regex that matched with
     /// respect to its position when initially building the set.
-    pub fn iter(&self) -> SetMatchesIter {
+    pub fn iter(&self) -> SetMatchesIter<'_> {
         SetMatchesIter((&*self.matches).into_iter().enumerate())
     }
 }
@@ -405,7 +448,7 @@ impl From<Exec> for RegexSet {
 }
 
 impl fmt::Debug for RegexSet {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "RegexSet({:?})", self.0.regex_strings())
     }
 }
