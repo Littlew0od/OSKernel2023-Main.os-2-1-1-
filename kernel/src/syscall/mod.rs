@@ -1,4 +1,4 @@
-// #![allow(unused)]
+#![allow(unused)]
 
 const SYSCALL_GETCWD: usize = 17;
 const SYSCALL_DUP: usize = 23;
@@ -15,8 +15,12 @@ const SYSCALL_PIPE: usize = 59;
 const SYSCALL_GENDENTS64: usize = 61;
 const SYSCALL_READ: usize = 63;
 const SYSCALL_WRITE: usize = 64;
+// TODO
+const SYSCALL_NEW_FSTATAT: usize = 79;
 const SYSCALL_FSTAT: usize = 80;
 const SYSCALL_EXIT: usize = 93;
+// TODO
+const SYSCALL_SET_TID_ADDRESS: usize = 96;
 const SYSCALL_SLEEP: usize = 101;
 const SYSCALL_YIELD: usize = 124;
 const SYSCALL_KILL: usize = 129;
@@ -28,11 +32,15 @@ const SYSCALL_UNAME: usize = 160;
 const SYSCALL_GET_TIME: usize = 169;
 const SYSCALL_GETPID: usize = 172;
 const SYSCALL_GETPPID: usize = 173;
+// TODO
+const SYSCALL_GET_UID: usize = 174;
 const SYSCALL_BRK: usize = 214;
 const SYSCALL_MUNMAP: usize = 215;
 const SYSCALL_CLONE: usize = 220;
 const SYSCALL_EXECVE: usize = 221;
 const SYSCALL_MMAP: usize = 222;
+// TODO
+const SYSCALL_MPROTECT: usize = 226;
 const SYSCALL_WAITPID: usize = 260;
 const SYSCALL_THREAD_CREATE: usize = 1000;
 const SYSCALL_GETTID: usize = 1001;

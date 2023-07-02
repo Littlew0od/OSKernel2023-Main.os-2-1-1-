@@ -26,8 +26,7 @@ markdown文档在[doc](./doc/)文件夹中
 运行`make run`编译内核程序并使用qemu启动
 
 ## Tips
-如何添加本地依赖
-[how to add cargo vendor](https://fuchsia.googlesource.com/third_party/cargo-vendor/#:~:text=Simply%20run%20cargo%20vendor%20inside%20of%20any%20Cargo,which%20contains%20the%20source%20of%20all%20crates.io%20dependencies.)
-
 wsl 访问USB
 [how to connect usb in wsl](https://learn.microsoft.com/zh-cn/windows/wsl/connect-usb)
+
+syscall[表](https://jborza.com/post/2021-05-11-riscv-linux-syscalls/)
