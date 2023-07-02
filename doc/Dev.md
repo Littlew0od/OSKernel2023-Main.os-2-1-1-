@@ -21,4 +21,12 @@ ___
 
 ## 7.1
 
-- [ ] 支持k210
+- [x] 支持k210
+
+## 7.2
+
+- [x] relax
+- [x] relax
+- [x] relax
+- [x] relax
+- [x] relax
