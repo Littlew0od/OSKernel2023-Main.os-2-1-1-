@@ -84,7 +84,7 @@ $(APPS):
 kernel:
 	@echo Platform: $(BOARD)
 	@cp src/linker-$(BOARD).ld src/linker.ld
-	@cargo build --release
+	@cargo build --release --features "board_$(BOARD)"
 	@rm src/linker.ld
 
 clean:
@@ -111,7 +111,8 @@ ifeq ($(BOARD),qemu)
         -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0 \
 		# -gdb tcp::1122 -S
 else
-	(which $(K210-BURNER)) || (cd .. && git clone https://github.com/sipeed/kflash.py.git && mv kflash.py tools)
+# || (cd .. && git clone https://github.com/sipeed/kflash.py.git && mv kflash.py tools)
+	which $(K210-BURNER) 
 	@cp $(BOOTLOADER) $(BOOTLOADER).copy
 	@dd if=$(KERNEL_BIN) of=$(BOOTLOADER).copy bs=$(K210_BOOTLOADER_SIZE) seek=1
 	@mv $(BOOTLOADER).copy $(KERNEL_BIN)
