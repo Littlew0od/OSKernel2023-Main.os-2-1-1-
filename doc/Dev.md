@@ -34,3 +34,6 @@ ___
 ## 7.3
 
 - [x] SYSCALL_GET_TID 
+- [x] SYSCALL_GET_UID
+- [x] SYSCALL_GET_EUID
+- [x] SYSCALL_GET_TID

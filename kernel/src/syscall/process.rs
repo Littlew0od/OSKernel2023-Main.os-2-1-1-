@@ -72,6 +72,16 @@ pub fn sys_getppid() -> isize {
         .getpid() as isize
 }
 
+// MainOS does not support multi-user
+pub fn sys_getuid() -> isize {
+    0
+}
+
+// MainOS does not support multi-user
+pub fn sys_geteuid() -> isize {
+    0
+}
+
 pub fn sys_fork(flags: usize, stack_ptr: usize, ptid: usize, tls: usize, ctid: usize) -> isize {
     let current_process = current_process();
     let new_process = current_process.fork();
@@ -318,7 +328,8 @@ pub fn sys_sigaction(
 }
 
 pub fn sys_set_tid_address(tid_ptr: usize) -> isize {
-    let mut task_inner = current_task().unwrap().inner_exclusive_access();
+    let task = current_task().unwrap();
+    let mut task_inner = task.inner_exclusive_access();
     task_inner.clear_child_tid = tid_ptr;
     task_inner.gettid() as isize
 }
