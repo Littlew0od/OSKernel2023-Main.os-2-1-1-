@@ -1,5 +1,6 @@
 use super::id::TaskUserRes;
 use super::{kstack_alloc, KernelStack, ProcessControlBlock, TaskContext, SignalFlags, SignalActions};
+use crate::fs::Null;
 use crate::trap::TrapContext;
 use crate::{mm::PhysPageNum, sync::UPSafeCell};
 use alloc::sync::{Arc, Weak};
@@ -40,7 +41,8 @@ pub struct TaskControlBlockInner {
     pub killed: bool,
     // if the task is frozen by a signal
     pub frozen: bool,
-    pub trap_ctx_backup: Option<TrapContext>
+    pub trap_ctx_backup: Option<TrapContext>,
+    pub clear_child_tid: usize,
 }
 
 impl TaskControlBlockInner {
@@ -51,6 +53,10 @@ impl TaskControlBlockInner {
     #[allow(unused)]
     fn get_status(&self) -> TaskStatus {
         self.task_status
+    }
+
+    pub fn gettid(&self) -> usize {
+        self.res.as_ref().unwrap().tid
     }
 }
 
@@ -79,7 +85,8 @@ impl TaskControlBlock {
                     handling_sig: -1,
                     killed: false,
                     frozen: false,
-                    trap_ctx_backup: None
+                    trap_ctx_backup: None,
+                    clear_child_tid: 0
                 })
             },
         }

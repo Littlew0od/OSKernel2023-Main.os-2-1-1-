@@ -1,6 +1,6 @@
 use super::BlockDevice;
 use crate::config::{PAGE_SIZE, PAGE_SIZE_BITS};
-use crate::mm::{frame_alloc, frame_alloc_arc, FrameTracker, PageTableEntry, KERNEL_SPACE};
+use crate::mm::{frame_alloc_arc, FrameTracker};
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use spin::Mutex;

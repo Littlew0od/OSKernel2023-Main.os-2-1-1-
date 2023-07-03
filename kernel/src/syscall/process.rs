@@ -316,3 +316,9 @@ pub fn sys_sigaction(
         return EPERM;
     }
 }
+
+pub fn sys_set_tid_address(tid_ptr: usize) -> isize {
+    let mut task_inner = current_task().unwrap().inner_exclusive_access();
+    task_inner.clear_child_tid = tid_ptr;
+    task_inner.gettid() as isize
+}

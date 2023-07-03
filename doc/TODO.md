@@ -25,3 +25,9 @@
 ## 文件系统
 
 - [ ] 文件系统重构
+
+## syscall
+
+- SYSCALL_SET_TID_ADDRESS
+  - [ ] futex(clear_child_tid, FUTEX_WAKE, 1, NULL, NULL, 0);
+  - [ ] support for CLONE_CHILD_CLEARTID flag

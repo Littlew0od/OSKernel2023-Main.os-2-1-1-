@@ -30,3 +30,7 @@ ___
 - [x] relax
 - [x] relax
 - [x] relax
+
+## 7.3
+
+- [x] SYSCALL_GET_TID 
