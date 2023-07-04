@@ -41,3 +41,4 @@ ___
 ## 7.4
 
 - [x] SYSCALL_MPROTECT
+- [x] SYSCALL_FSTATAT

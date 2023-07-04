@@ -15,8 +15,7 @@ const SYSCALL_PIPE: usize = 59;
 const SYSCALL_GENDENTS64: usize = 61;
 const SYSCALL_READ: usize = 63;
 const SYSCALL_WRITE: usize = 64;
-// TODO
-const SYSCALL_NEW_FSTATAT: usize = 79;
+const SYSCALL_FSTATAT: usize = 79;
 const SYSCALL_FSTAT: usize = 80;
 const SYSCALL_EXIT: usize = 93;
 const SYSCALL_SET_TID_ADDRESS: usize = 96;
@@ -102,6 +101,12 @@ pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
         SYSCALL_GENDENTS64 => sys_getdents64(args[0], args[1] as *mut u8, args[2]),
         SYSCALL_READ => sys_read(args[0], args[1] as *const u8, args[2]),
         SYSCALL_WRITE => sys_write(args[0], args[1] as *const u8, args[2]),
+        SYSCALL_FSTATAT => sys_fstatat(
+            args[0],
+            args[1] as *const u8,
+            args[2] as *mut u8,
+            args[3] as u32,
+        ),
         SYSCALL_FSTAT => sys_fstat(args[0], args[1] as *mut u8),
         SYSCALL_EXIT => sys_exit(args[0] as i32),
         SYSCALL_SET_TID_ADDRESS => sys_set_tid_address(args[0]),

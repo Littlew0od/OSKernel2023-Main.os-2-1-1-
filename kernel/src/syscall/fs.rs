@@ -172,14 +172,6 @@ pub fn sys_mkdirat(dirfd: usize, path: *const u8, mode: u32) -> isize {
     }
 }
 
-bitflags! {
-    pub struct FstatatFlags: u32 {
-        const AT_EMPTY_PATH = 0x1000;
-        const AT_NO_AUTOMOUNT = 0x800;
-        const AT_SYMLINK_NOFOLLOW = 0x100;
-    }
-}
-
 pub fn sys_openat(dirfd: usize, path: *const u8, flags: u32, mode: u32) -> isize {
     let process = current_process();
     let token = current_user_token();
@@ -425,4 +417,51 @@ pub fn sys_fstat(fd: usize, buf: *mut u8) -> isize {
     ));
     user_buf.write(file_descriptor.get_stat().as_bytes());
     SUCCESS
+}
+
+bitflags! {
+    pub struct FstatatFlags: u32 {
+        const AT_EMPTY_PATH = 0x1000;
+        const AT_NO_AUTOMOUNT = 0x800;
+        const AT_SYMLINK_NOFOLLOW = 0x100;
+    }
+}
+
+pub fn sys_fstatat(dirfd: usize, path: *const u8, buf: *mut u8, flags: u32) -> isize {
+    let token = current_user_token();
+    let path = translated_str(token, path);
+    let flags = match FstatatFlags::from_bits(flags) {
+        Some(flags) => flags,
+        None => {
+            warn!("[sys_fstatat] unknown flags");
+            return EINVAL;
+        }
+    };
+    let process = current_process();
+    let inner = process.inner_exclusive_access();
+    let mut fd_table = inner.fd_table.lock();
+
+    let file_descriptor = match dirfd {
+        AT_FDCWD => inner.work_path.lock().working_inode.as_ref().clone(),
+        fd => {
+            match fd_table.get_ref(fd) {
+                Ok(file_descriptor) => file_descriptor.clone(),
+                Err(errno) => return errno,
+            }
+        }
+    };
+
+    let mut user_buf = UserBuffer::new(translated_byte_buffer(
+        token,
+        buf,
+        core::mem::size_of::<Stat>(),
+    ));
+
+    match file_descriptor.open(&path, OpenFlags::O_RDONLY, false) {
+        Ok(file_descriptor) => {
+            user_buf.write(file_descriptor.get_stat().as_bytes());
+            SUCCESS
+        }
+        Err(errno) => errno,
+    }
 }
