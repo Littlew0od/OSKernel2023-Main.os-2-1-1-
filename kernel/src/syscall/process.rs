@@ -1,6 +1,8 @@
 use crate::config::MMAP_BASE;
 use crate::config::PAGE_SIZE;
 use crate::fs::OpenFlags;
+use crate::mm::VirtAddr;
+use crate::mm::MPROCTECTPROT;
 //open_file
 use crate::mm::{translated_ref, translated_refmut, translated_str};
 use crate::sbi::shutdown;
@@ -16,6 +18,7 @@ use alloc::sync::Arc;
 use alloc::task;
 use alloc::vec::Vec;
 
+use super::errno::EINVAL;
 use super::errno::EPERM;
 use super::errno::SUCCESS;
 
@@ -332,4 +335,19 @@ pub fn sys_set_tid_address(tid_ptr: usize) -> isize {
     let mut task_inner = task.inner_exclusive_access();
     task_inner.clear_child_tid = tid_ptr;
     task_inner.gettid() as isize
+}
+
+pub fn sys_mprotect(addr: usize, len: usize, prot: usize) -> isize {
+    if addr == 0 || addr % PAGE_SIZE != 0 {
+        EINVAL
+    } else {
+        current_process()
+            .inner_exclusive_access()
+            .memory_set
+            .mprotect(
+                VirtAddr(addr),
+                VirtAddr(addr + len),
+                MPROCTECTPROT::from_bits(prot as u32).unwrap().into(),
+            )
+    }
 }

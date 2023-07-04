@@ -37,3 +37,7 @@ ___
 - [x] SYSCALL_GET_UID
 - [x] SYSCALL_GET_EUID
 - [x] SYSCALL_GET_TID
+
+## 7.4
+
+- [x] SYSCALL_MPROTECT

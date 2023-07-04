@@ -5,7 +5,7 @@ use super::{StepByOne, VPNRange};
 use crate::config::{MEMORY_END, MMAP_BASE, MMIO, PAGE_SIZE, STACK_BASE, TRAMPOLINE};
 use crate::fs::Null;
 use crate::sync::UPSafeCell;
-use crate::syscall::errno::SUCCESS;
+use crate::syscall::errno::{EINVAL, EPERM, SUCCESS};
 use alloc::collections::BTreeMap;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
@@ -311,8 +311,6 @@ impl MemorySet {
         SUCCESS
     }
 
-    //let length_aligned = ((length) + PAGE_SIZE - 1) & (!(PAGE_SIZE - 1));
-
     pub fn mmap(
         &mut self,
         start_addr: usize,
@@ -396,6 +394,71 @@ impl MemorySet {
             self.mmap_area.remove(&vpn);
         }
         SUCCESS
+    }
+    /// If MapArea.map_perm is useful. We have to split MapArea.
+    pub fn mprotect(&self, start: VirtAddr, end: VirtAddr, new_flags: PTEFlags) -> isize {
+        let start_vpn = start.floor();
+        let end_vpn = end.ceil();
+        
+        // let result: Vec<usize> = self
+        //     .areas
+        //     .iter()
+        //     .enumerate()
+        //     .filter(|(_, area)| {
+        //         (area.vpn_range.get_start() <= start_vpn && start_vpn < area.vpn_range.get_end())
+        //             || (area.vpn_range.get_start() <= end_vpn && end_vpn < area.vpn_range.get_end())
+        //             || (start_vpn <= area.vpn_range.get_start()
+        //                 && end_vpn >= area.vpn_range.get_end())
+        //     })
+        //     .map(|(idx, _)| idx)
+        //     .collect();
+        // for mut idx in result {
+        //     let area_start_vpn = self.areas[idx].vpn_range.get_start();
+        //     let area_end_vpn = self.areas[idx].vpn_range.get_end();
+        // }
+
+        let vpn_range = VPNRange::new(start_vpn, end_vpn);
+        for vpn in vpn_range {
+            if !self.page_table.set_pte_flags(vpn, new_flags) {
+                return EPERM;
+            }
+        }
+        SUCCESS
+    }
+}
+
+bitflags! {
+    pub struct MPROCTECTPROT: u32 {
+        /// page can not be accessed
+        const PROT_NONE = 0x00;
+        /// page can be read
+        const PROT_READ = 0x01;
+        /// page can be written
+        const PROT_WRITE = 0x02;
+        /// page can be executed
+        const PROT_EXEC = 0x04;
+        /// page may be used for atomic ops
+        const PROT_SEM	= 0x10;
+        /// mprotect flag: extend change to start of growsdown vma
+        const PROT_GROWSDOWN = 0x01000000;
+        /// mprotect flag: extend change to end of growsup vma
+        const PROT_GROWSUP = 0x02000000;
+    }
+}
+
+impl Into<PTEFlags> for MPROCTECTPROT {
+    fn into(self) -> PTEFlags {
+        let mut flag = PTEFlags::U;
+        if self.contains(MPROCTECTPROT::PROT_READ) {
+            flag |= PTEFlags::R;
+        }
+        if self.contains(MPROCTECTPROT::PROT_WRITE) {
+            flag |= PTEFlags::W;
+        }
+        if self.contains(MPROCTECTPROT::PROT_EXEC) {
+            flag |= PTEFlags::X;
+        }
+        flag
     }
 }
 
