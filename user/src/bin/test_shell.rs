@@ -1,71 +1,58 @@
 #![no_std]
 #![no_main]
+#![allow(clippy::println_empty_string)]
+
+extern crate alloc;
 
 #[macro_use]
 extern crate user_lib;
-extern crate alloc;
 
 use alloc::string::String;
-use user_lib::{exec, fork, shutdown, waitpid};
+use alloc::vec::Vec;
+use user_lib::*;
 
 #[no_mangle]
-fn main() -> i32 {
-    let tasks = [
-        // "close\0",
-        // "execve\0",  
-        // "fstat\0",     
-        // "getpid\0",        
-        // "mkdir_\0",  
-        // "umount\0",
-        // "chdir\0",
-        // "dup\0",
-        // "getcwd\0",    
-        // "getppid\0",        
-        // "open\0",    
-        // "read\0",   
-        // "uname\0",     
-        // "getdents\0",  
-        // "gettimeofday\0",  
-        // "mount\0",   
-        // "openat\0",  
-        // "sleep\0",  
-        // "times\0",      
-        // "unlink\0",  
-        // "write\0",  
-        "mmap\0",
-        // "brk\0",
-        "munmap\0",
-        // "dup2\0",
-        // "wait\0",  
+pub fn main() -> i32 {
+    println!("[user_shell] start test!");
+    final2_test();
+    shutdown(false)
+}
 
-        // "waitpid\0",
-        // "clone\0",     
-        // "fork\0",  
-        // "exit\0",  
-           
-        // "yield\0",  
-        // "pipe\0",  
-    ];
-    // If you want to test locally, add the following commented out paths
-    let mut path = String::from("/bin/riscv-syscalls-testing/"); //  
-    let arr: [*const u8; 4] = [
-        core::ptr::null::<u8>(),
-        core::ptr::null::<u8>(),
-        core::ptr::null::<u8>(),
-        core::ptr::null::<u8>(),
-    ];
-    let mut exit_code: i32 = 0;
-    for path_name in tasks {
+pub fn load_final2_test_cmds() -> Vec<String> {
+    let mut cmds = Vec::new();
+    cmds.push(String::from("busybox sh ./busybox_testcode.sh"));
+    cmds
+}
+
+pub fn final2_test() {
+    let cmds = load_final2_test_cmds();
+
+    for cmd in cmds {
+        let (args_copy, args_addr) = str2args(&cmd);
         let pid = fork();
-        // The program is guaranteed not to execute in parallel
         if pid == 0 {
-            path.push_str(path_name);
-            println!("[test_shell] path = {}", path);
-            exec(path.as_str(), &arr[..]);
+            exec(args_copy[0].as_str(), args_addr.as_slice());
         } else {
+            let mut exit_code = 0;
             waitpid(pid as usize, &mut exit_code);
         }
     }
-    // shutdown after test
-    shutdown(false);
+}
+
+
+pub fn str2args(s: &str) -> (Vec<String>, Vec<*const u8>) {
+    let args_copy: Vec<String> = s
+        .split(' ')
+        .map(|s1| {
+            let mut string = String::new();
+            string.push_str(&s1);
+            string.push('\0');
+            string
+        })
+        .collect();
+
+    let mut args_addr: Vec<*const u8> = args_copy.iter().map(|arg| arg.as_ptr()).collect();
+    args_addr.push(core::ptr::null::<u8>());
+
+    (args_copy, args_addr)
 }

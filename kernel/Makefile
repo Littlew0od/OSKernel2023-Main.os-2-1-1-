@@ -8,7 +8,7 @@ DISASM_TMP := target/$(TARGET)/$(MODE)/asm
 APPS := ../user/src/bin/*
 U_FAT32_DIR := ../fs-fuse
 U_FAT32 := ${U_FAT32_DIR}/fat32.img
-
+FINAL_FAT32 := ${U_FAT32_DIR}/sdcard.img
 # BOARD
 BOARD ?= qemu
 SBI ?= rustsbi
@@ -107,7 +107,7 @@ ifeq ($(BOARD),qemu)
 		-nographic \
 		-bios $(BOOTLOADER) \
 		-device loader,file=$(KERNEL_BIN),addr=$(KERNEL_ENTRY_PA) \
-		-drive file=$(U_FAT32),if=none,format=raw,id=x0 \
+		-drive file=$(FINAL_FAT32),if=none,format=raw,id=x0 \
         -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0 \
 		# -gdb tcp::1122 -S
 else
