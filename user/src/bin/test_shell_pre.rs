@@ -32,9 +32,9 @@ fn main() -> i32 {
         // "times\0",      
         // "unlink\0",  
         // "write\0",  
-        "mmap\0",
+        // "mmap\0",
         // "brk\0",
-        "munmap\0",
+        "busybox\0",
         // "dup2\0",
         // "wait\0",  
 
@@ -47,7 +47,7 @@ fn main() -> i32 {
         // "pipe\0",  
     ];
     // If you want to test locally, add the following commented out paths
-    let mut path = String::from("/bin/riscv-syscalls-testing/"); //  
+    let mut path = String::from("/"); //  bin/riscv-syscalls-testing/
     let arr: [*const u8; 4] = [
         core::ptr::null::<u8>(),
         core::ptr::null::<u8>(),

@@ -65,14 +65,58 @@ mod system;
 mod thread;
 
 use fs::*;
-use log::{debug, error, info, trace, warn};
+// use log::{debug, error, info, trace, warn};
 use process::*;
 use sync::*;
 use system::*;
 use thread::*;
 use crate::task::SignalAction;
 
+pub fn syscall_name(id: usize) -> &'static str {
+    match id {
+        SYSCALL_DUP => "dup",
+        SYSCALL_DUP3 => "dup3",
+        SYSCALL_OPEN => "open",
+        SYSCALL_GET_TIME => "get_time",
+        SYSCALL_GETCWD => "getcwd",
+        SYSCALL_MKDIRAT => "mkdirat",
+        SYSCALL_UNLINKAT => "unlinkat",
+        SYSCALL_LINKAT => "linkat",
+        SYSCALL_UMOUNT2 => "umount2",
+        SYSCALL_MOUNT => "mount",
+        SYSCALL_CHDIR => "chdir",
+        SYSCALL_OPENAT => "openat",
+        SYSCALL_CLOSE => "close",
+        SYSCALL_READ => "read",
+        SYSCALL_WRITE => "write",
+        SYSCALL_FSTATAT => "fstatat",
+        SYSCALL_FSTAT => "fstat",
+        SYSCALL_EXIT => "exit",
+        SYSCALL_SET_TID_ADDRESS => "set_tid_address",
+        SYSCALL_YIELD => "yield",
+        SYSCALL_KILL => "kill",
+        SYSCALL_SIGACTION => "sigaction",
+        SYSCALL_SIGRETURN => "sigreturn",
+        SYSCALL_TIMES => "times",
+        SYSCALL_UNAME => "uname",
+        SYSCALL_GETPID => "getpid",
+        SYSCALL_GETPPID => "getppid",
+        SYSCALL_GETTID => "gettid",
+        SYSCALL_BRK => "brk",
+        SYSCALL_MUNMAP => "munmap",
+        SYSCALL_CLONE => "clone",
+        SYSCALL_EXECVE => "execve",
+        SYSCALL_MMAP => "mmap",
+        SYSCALL_MPROTECT => "mprotect",
+        SYSCALL_WAITPID => "waitpid",
+        // non-standard
+        SYSCALL_SHUTDOWN => "shutdown",
+        _ => "unknown",
+    }
+}
+
 pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
+    println!("[kernel] syscall start");
     let ret = match syscall_id {
         SYSCALL_GETCWD => sys_getcwd(args[0] as *mut u8, args[1]),
         SYSCALL_DUP => sys_dup(args[0]),
@@ -157,10 +201,10 @@ pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
         SYSCALL_SHUTDOWN => sys_shutdown(args[0] != 0),
         _ => panic!("Unsupported syscall_id: {}", syscall_id),
     };
-    info!(
-        "[syscall] pid: {}, syscall_id: {} returned {}",
+    log!(
+        "[syscall] pid: {}, syscall_name: {}, syscall_id: {}, returned {}",
         sys_getpid(),
-        // syscall_name(syscall_id),
+        syscall_name(syscall_id),
         syscall_id,
         ret
     );

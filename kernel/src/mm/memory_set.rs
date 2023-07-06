@@ -2,7 +2,7 @@ use super::{frame_alloc, FrameTracker};
 use super::{PTEFlags, PageTable, PageTableEntry};
 use super::{PhysAddr, PhysPageNum, VirtAddr, VirtPageNum};
 use super::{StepByOne, VPNRange};
-use crate::config::{MEMORY_END, MMAP_BASE, MMIO, PAGE_SIZE, STACK_BASE, TRAMPOLINE};
+use crate::config::{MEMORY_END, MMAP_BASE, MMIO, PAGE_SIZE, STACK_TOP, TRAMPOLINE};
 use crate::fs::Null;
 use crate::sync::UPSafeCell;
 use crate::syscall::errno::{EINVAL, EPERM, SUCCESS};
@@ -206,7 +206,7 @@ impl MemorySet {
         memory_set
     }
     /// Include sections in elf and trampoline,
-    /// also returns user_sp_base and entry point.
+    /// also returns user_sp_top and entry point.
     pub fn from_elf(elf_data: &[u8]) -> (Self, usize, usize, usize) {
         let mut memory_set = Self::new_bare();
         // map trampoline
@@ -255,7 +255,7 @@ impl MemorySet {
         (
             memory_set,
             user_heap_base,
-            STACK_BASE,
+            STACK_TOP,
             elf.header.pt2.entry_point() as usize,
         )
     }
@@ -399,7 +399,7 @@ impl MemorySet {
     pub fn mprotect(&self, start: VirtAddr, end: VirtAddr, new_flags: PTEFlags) -> isize {
         let start_vpn = start.floor();
         let end_vpn = end.ceil();
-        
+
         // let result: Vec<usize> = self
         //     .areas
         //     .iter()
@@ -516,6 +516,7 @@ impl MapArea {
     }
     pub fn map(&mut self, page_table: &mut PageTable) {
         for vpn in self.vpn_range {
+            // println!("[memory_set] = {:#x}", vpn.0);
             self.map_one(page_table, vpn);
         }
     }

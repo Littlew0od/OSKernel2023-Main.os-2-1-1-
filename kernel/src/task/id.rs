@@ -112,7 +112,7 @@ impl KernelStack {
 
 pub struct TaskUserRes {
     pub tid: usize,
-    pub ustack_base: usize,
+    pub ustack_top: usize,
     pub process: Weak<ProcessControlBlock>,
 }
 
@@ -124,16 +124,16 @@ fn ustack_bottom_from_tid(ustack_base: usize, tid: usize) -> usize {
     ustack_base + tid * (PAGE_SIZE + USER_STACK_SIZE)
 }
 
+fn ustack_top_from_id(ustack_top: usize, id: usize) -> usize {
+    ustack_top - id * (PAGE_SIZE + USER_STACK_SIZE)
+}
+
 impl TaskUserRes {
-    pub fn new(
-        process: Arc<ProcessControlBlock>,
-        ustack_base: usize,
-        alloc_user_res: bool,
-    ) -> Self {
+    pub fn new(process: Arc<ProcessControlBlock>, ustack_top: usize, alloc_user_res: bool) -> Self {
         let tid = process.inner_exclusive_access().alloc_tid();
         let task_user_res = Self {
             tid,
-            ustack_base,
+            ustack_top,
             process: Arc::downgrade(&process),
         };
         if alloc_user_res {
@@ -146,8 +146,12 @@ impl TaskUserRes {
         let process = self.process.upgrade().unwrap();
         let mut process_inner = process.inner_exclusive_access();
         // alloc user stack
-        let ustack_bottom = ustack_bottom_from_tid(self.ustack_base, self.tid);
-        let ustack_top = ustack_bottom + USER_STACK_SIZE;
+        let ustack_top = ustack_top_from_id(self.ustack_top, self.tid);
+        let ustack_bottom = ustack_top - USER_STACK_SIZE;
+        println!(
+            "[exec] alloc_user_res, ustack_bottom = {:#x}, ustack_top = {:#x}.",
+            ustack_bottom, ustack_top
+        );
         process_inner.memory_set.insert_framed_area(
             ustack_bottom.into(),
             ustack_top.into(),
@@ -168,7 +172,9 @@ impl TaskUserRes {
         let process = self.process.upgrade().unwrap();
         let mut process_inner = process.inner_exclusive_access();
         // dealloc ustack manually
-        let ustack_bottom_va: VirtAddr = ustack_bottom_from_tid(self.ustack_base, self.tid).into();
+        let ustack_top = ustack_top_from_id(self.ustack_top, self.tid);
+        let ustack_bottom_va: VirtAddr = (ustack_top - USER_STACK_SIZE).into();
+        // let ustack_bottom_va: VirtAddr = ustack_bottom_from_tid(self.ustack_base, self.tid).into();
         process_inner
             .memory_set
             .remove_area_with_start_vpn(ustack_bottom_va.into());
@@ -211,10 +217,10 @@ impl TaskUserRes {
     }
 
     pub fn ustack_base(&self) -> usize {
-        self.ustack_base
+        ustack_bottom_from_tid(self.ustack_top, self.tid) - USER_STACK_SIZE
     }
     pub fn ustack_top(&self) -> usize {
-        ustack_bottom_from_tid(self.ustack_base, self.tid) + USER_STACK_SIZE
+        self.ustack_top
     }
 }
 

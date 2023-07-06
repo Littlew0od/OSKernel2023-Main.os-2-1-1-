@@ -1,3 +1,5 @@
+use core::arch::asm;
+
 use crate::config::MMAP_BASE;
 use crate::config::PAGE_SIZE;
 use crate::fs::OpenFlags;
@@ -18,9 +20,7 @@ use alloc::sync::Arc;
 use alloc::task;
 use alloc::vec::Vec;
 
-use super::errno::EINVAL;
-use super::errno::EPERM;
-use super::errno::SUCCESS;
+use super::errno::{EINVAL, EPERM, SUCCESS};
 
 pub fn sys_shutdown(failure: bool) -> ! {
     shutdown(failure);
@@ -138,6 +138,7 @@ pub fn sys_execve(path: *const u8, mut args: *const usize) -> isize {
 }
 
 pub fn sys_brk(addr: usize) -> isize {
+    println!("[sys_brk] addr = {}", addr);
     let process = current_process();
     let mut inner = process.inner_exclusive_access();
     if addr == 0 {

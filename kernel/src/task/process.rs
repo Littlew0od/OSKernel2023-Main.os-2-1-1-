@@ -1,8 +1,8 @@
 use super::id::RecycleAllocator;
 use super::manager::insert_into_pid2process;
-use super::{TaskControlBlock, SignalActions};
 use super::{add_task, SignalFlags};
 use super::{pid_alloc, PidHandle};
+use super::{SignalActions, TaskControlBlock};
 use crate::config::{MMAP_BASE, PAGE_SIZE};
 use crate::fs::{FdTable, FileDescriptor, OpenFlags, ROOT_FD};
 use crate::fs::{File, Stdin, Stdout};
@@ -122,7 +122,7 @@ impl ProcessControlBlock {
 
     pub fn new(elf_data: &[u8]) -> Arc<Self> {
         // memory_set with elf program headers/trampoline/trap context/user stack
-        let (memory_set, uheap_base, ustack_base, entry_point) = MemorySet::from_elf(elf_data);
+        let (memory_set, uheap_base, ustack_top, entry_point) = MemorySet::from_elf(elf_data);
         // allocate a pid
         let pid_handle = pid_alloc();
         let process = Arc::new(Self {
@@ -167,13 +167,13 @@ impl ProcessControlBlock {
         // create a main thread, we should allocate ustack and trap_cx here
         let task = Arc::new(TaskControlBlock::new(
             Arc::clone(&process),
-            ustack_base,
+            ustack_top,
             true,
         ));
         // prepare trap_cx of main thread
         let task_inner = task.inner_exclusive_access();
         let trap_cx = task_inner.get_trap_cx();
-        let ustack_top = task_inner.res.as_ref().unwrap().ustack_top();
+        // let ustack_top = task_inner.res.as_ref().unwrap().ustack_top();
         let kstack_top = task.kstack.get_top();
         drop(task_inner);
         *trap_cx = TrapContext::app_init_context(
@@ -197,7 +197,7 @@ impl ProcessControlBlock {
     pub fn exec(self: &Arc<Self>, elf_data: &[u8], args: Vec<String>) {
         assert_eq!(self.inner_exclusive_access().thread_count(), 1);
         // memory_set with elf program headers/trampoline/trap context/user stack
-        let (memory_set, uheap_base, ustack_base, entry_point) = MemorySet::from_elf(elf_data);
+        let (memory_set, uheap_base, ustack_top, entry_point) = MemorySet::from_elf(elf_data);
         let new_token = memory_set.token();
         // substitute memory_set
         self.inner_exclusive_access().memory_set = memory_set;
@@ -208,11 +208,12 @@ impl ProcessControlBlock {
         // since memory_set has been changed
         let task = self.inner_exclusive_access().get_task(0);
         let mut task_inner = task.inner_exclusive_access();
-        task_inner.res.as_mut().unwrap().ustack_base = ustack_base;
+        task_inner.res.as_mut().unwrap().ustack_top = ustack_top;
+        println!("[exec] alloc user res at ustack_top :{:#x}", ustack_top);
         task_inner.res.as_mut().unwrap().alloc_user_res();
         task_inner.trap_cx_ppn = task_inner.res.as_mut().unwrap().trap_cx_ppn();
         // push arguments on user stack
-        let mut user_sp = task_inner.res.as_mut().unwrap().ustack_top();
+        let mut user_sp = ustack_top;
         user_sp -= (args.len() + 1) * core::mem::size_of::<usize>();
         let argv_base = user_sp;
         let mut argv: Vec<_> = (0..=args.len())
@@ -237,6 +238,7 @@ impl ProcessControlBlock {
         // make the user_sp aligned to 8B for k210 platform
         user_sp -= user_sp % core::mem::size_of::<usize>();
         // initialize trap_cx
+        println!("[exec] user_sp : {:#x}", user_sp);
         let mut trap_cx = TrapContext::app_init_context(
             entry_point,
             user_sp,
@@ -244,7 +246,7 @@ impl ProcessControlBlock {
             task.kstack.get_top(),
             trap_handler as usize,
         );
-        trap_cx.x[10] = args.len();
+        trap_cx.x[10] = 0; // args.len()
         trap_cx.x[11] = argv_base;
         *task_inner.get_trap_cx() = trap_cx;
     }
@@ -309,7 +311,7 @@ impl ProcessControlBlock {
                 .res
                 .as_ref()
                 .unwrap()
-                .ustack_base(),
+                .ustack_top(),
             // here we do not allocate trap_cx or ustack again
             // but mention that we allocate a new kstack here
             false,
