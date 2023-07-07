@@ -29,4 +29,6 @@ markdown文档在[doc](./doc/)文件夹中
 wsl 访问USB
 [how to connect usb in wsl](https://learn.microsoft.com/zh-cn/windows/wsl/connect-usb)
 
-syscall[表](https://jborza.com/post/2021-05-11-riscv-linux-syscalls/)
+syscall [table](https://jborza.com/post/2021-05-11-riscv-linux-syscalls/)
+
+[ELF Auxiliary Vectors](https://articles.manugarg.com/aboutelfauxiliaryvectors)

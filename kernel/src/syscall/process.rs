@@ -102,10 +102,11 @@ pub fn sys_fork(flags: usize, stack_ptr: usize, ptid: usize, tls: usize, ctid: u
     new_pid as isize
 }
 
-pub fn sys_execve(path: *const u8, mut args: *const usize) -> isize {
+pub fn sys_execve(path: *const u8, mut args: *const usize, mut envp: *const usize) -> isize {
     let token = current_user_token();
     let path = translated_str(token, path);
     let mut args_vec: Vec<String> = Vec::new();
+    let mut envp_vec: Vec<String> = Vec::new();
     if args as usize != 0 {
         loop {
             let arg_str_ptr = *translated_ref(token, args);
@@ -118,6 +119,25 @@ pub fn sys_execve(path: *const u8, mut args: *const usize) -> isize {
             }
         }
     }
+    if envp as usize != 0 {
+        loop {
+            let env_str_ptr = *translated_ref(token, envp);
+            if env_str_ptr == 0 {
+                break;
+            }
+            envp_vec.push(translated_str(token, env_str_ptr as *const u8));
+            unsafe {
+                envp = envp.add(1);
+            }
+        }
+    }
+    tip!(
+        "[exec] argv: {:?} /* {} vars */, envp: {:?} /* {} vars */",
+        args_vec,
+        args_vec.len(),
+        envp_vec,
+        envp_vec.len()
+    );
     let process = current_process();
     let working_inode = process
         .inner_exclusive_access()
@@ -129,7 +149,7 @@ pub fn sys_execve(path: *const u8, mut args: *const usize) -> isize {
         Ok(file) => {
             let all_data = file.read_all();
             let argc = args_vec.len();
-            process.exec(all_data.as_slice(), args_vec);
+            process.exec(all_data.as_slice(), args_vec, envp_vec);
             // return argc because cx.x[10] will be covered with it later
             argc as isize
         }

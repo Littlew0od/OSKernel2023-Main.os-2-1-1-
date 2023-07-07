@@ -3,10 +3,10 @@ use super::manager::insert_into_pid2process;
 use super::{add_task, SignalFlags};
 use super::{pid_alloc, PidHandle};
 use super::{SignalActions, TaskControlBlock};
-use crate::config::{MMAP_BASE, PAGE_SIZE};
+use crate::config::{AT_EXECFN, AT_NULL, AT_RANDOM, MMAP_BASE, PAGE_SIZE};
 use crate::fs::{FdTable, FileDescriptor, OpenFlags, ROOT_FD};
 use crate::fs::{File, Stdin, Stdout};
-use crate::mm::{translated_refmut, MemorySet, VirtAddr, KERNEL_SPACE};
+use crate::mm::{translated_refmut, AuxHeader, MemorySet, PageTable, VirtAddr, KERNEL_SPACE};
 use crate::sync::{Condvar, Mutex, Semaphore, UPSafeCell};
 use crate::syscall::errno::EPERM;
 use crate::trap::{trap_handler, TrapContext};
@@ -122,7 +122,7 @@ impl ProcessControlBlock {
 
     pub fn new(elf_data: &[u8]) -> Arc<Self> {
         // memory_set with elf program headers/trampoline/trap context/user stack
-        let (memory_set, uheap_base, ustack_top, entry_point) = MemorySet::from_elf(elf_data);
+        let (memory_set, uheap_base, ustack_top, entry_point, auxv) = MemorySet::from_elf(elf_data);
         // allocate a pid
         let pid_handle = pid_alloc();
         let process = Arc::new(Self {
@@ -194,10 +194,11 @@ impl ProcessControlBlock {
     }
 
     /// Only support processes with a single thread.
-    pub fn exec(self: &Arc<Self>, elf_data: &[u8], args: Vec<String>) {
+    pub fn exec(self: &Arc<Self>, elf_data: &[u8], argv_vec: Vec<String>, envp_vec: Vec<String>) {
         assert_eq!(self.inner_exclusive_access().thread_count(), 1);
         // memory_set with elf program headers/trampoline/trap context/user stack
-        let (memory_set, uheap_base, ustack_top, entry_point) = MemorySet::from_elf(elf_data);
+        let (memory_set, uheap_base, ustack_top, entry_point, mut auxv) =
+            MemorySet::from_elf(elf_data);
         let new_token = memory_set.token();
         // substitute memory_set
         self.inner_exclusive_access().memory_set = memory_set;
@@ -213,30 +214,11 @@ impl ProcessControlBlock {
         task_inner.res.as_mut().unwrap().alloc_user_res();
         task_inner.trap_cx_ppn = task_inner.res.as_mut().unwrap().trap_cx_ppn();
         // push arguments on user stack
-        let mut user_sp = ustack_top;
-        user_sp -= (args.len() + 1) * core::mem::size_of::<usize>();
-        let argv_base = user_sp;
-        let mut argv: Vec<_> = (0..=args.len())
-            .map(|arg| {
-                translated_refmut(
-                    new_token,
-                    (argv_base + arg * core::mem::size_of::<usize>()) as *mut usize,
-                )
-            })
-            .collect();
-        *argv[args.len()] = 0;
-        for i in 0..args.len() {
-            user_sp -= args[i].len() + 1;
-            *argv[i] = user_sp;
-            let mut p = user_sp;
-            for c in args[i].as_bytes() {
-                *translated_refmut(new_token, p as *mut u8) = *c;
-                p += 1;
-            }
-            *translated_refmut(new_token, p as *mut u8) = 0;
-        }
-        // make the user_sp aligned to 8B for k210 platform
-        user_sp -= user_sp % core::mem::size_of::<usize>();
+        // let mut user_sp = ustack_top;
+        let (user_sp, argc, argv_base, envp_base, aux_base) = self
+            .inner_exclusive_access()
+            .memory_set
+            .build_stack(ustack_top, argv_vec, envp_vec, auxv);
         // initialize trap_cx
         println!("[exec] user_sp : {:#x}", user_sp);
         let mut trap_cx = TrapContext::app_init_context(
@@ -246,8 +228,17 @@ impl ProcessControlBlock {
             task.kstack.get_top(),
             trap_handler as usize,
         );
-        trap_cx.x[10] = 0; // args.len()
-        trap_cx.x[11] = argv_base;
+        tip!(
+            "[exec] argv_base: {:#x}, envp_base: {:#x}, aux_base: {:#x}, entry_point: {:#x}",
+            argv_base,
+            envp_base,
+            aux_base,
+            entry_point,
+        );
+        trap_cx.x[10] = argc; //argc
+        trap_cx.x[11] = argv_base; //argv
+        trap_cx.x[12] = envp_base; //envp
+        trap_cx.x[13] = aux_base; //auxv
         *task_inner.get_trap_cx() = trap_cx;
     }
 

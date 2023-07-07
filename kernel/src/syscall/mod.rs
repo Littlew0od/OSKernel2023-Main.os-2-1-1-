@@ -66,11 +66,11 @@ mod thread;
 
 use fs::*;
 // use log::{debug, error, info, trace, warn};
+use crate::task::SignalAction;
 use process::*;
 use sync::*;
 use system::*;
 use thread::*;
-use crate::task::SignalAction;
 
 pub fn syscall_name(id: usize) -> &'static str {
     match id {
@@ -116,7 +116,11 @@ pub fn syscall_name(id: usize) -> &'static str {
 }
 
 pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
-    println!("[kernel] syscall start");
+    println!(
+        "[kernel] syscall start, syscall_name: {}, syscall_id: {}",
+        sys_getpid(),
+        syscall_name(syscall_id)
+    );
     let ret = match syscall_id {
         SYSCALL_GETCWD => sys_getcwd(args[0] as *mut u8, args[1]),
         SYSCALL_DUP => sys_dup(args[0]),
@@ -175,7 +179,11 @@ pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
         SYSCALL_BRK => sys_brk(args[0]),
         SYSCALL_MUNMAP => sys_munmap(args[0], args[1]),
         SYSCALL_CLONE => sys_fork(args[0], args[1], args[2], args[3], args[4]),
-        SYSCALL_EXECVE => sys_execve(args[0] as *const u8, args[1] as *const usize),
+        SYSCALL_EXECVE => sys_execve(
+            args[0] as *const u8,
+            args[1] as *const usize,
+            args[2] as *const usize,
+        ),
         SYSCALL_MMAP => sys_mmap(
             args[0],
             args[1],

@@ -36,3 +36,11 @@ macro_rules! log {
         $crate::console::print(format_args!(concat!("\x1B[31m", $fmt, "\x1B[0m\n") $(, $($arg)+)?))
     }
 }
+
+#[macro_export]
+macro_rules! tip {
+    ($fmt: literal $(, $($arg: tt)+)?) => {
+        $crate::console::print(format_args!(concat!("\x1B[32m", $fmt, "\x1B[0m\n") $(, $($arg)+)?))
+    }
+}
+
