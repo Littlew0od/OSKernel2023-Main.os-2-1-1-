@@ -42,3 +42,7 @@ ___
 
 - [x] SYSCALL_MPROTECT
 - [x] SYSCALL_FSTATAT
+
+# 7.8
+
+- [x] 完成初始用户栈信息 

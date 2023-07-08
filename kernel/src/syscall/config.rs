@@ -33,6 +33,7 @@ pub const SYSCALL_GETPPID: usize = 173;
 pub const SYSCALL_GET_UID: usize = 174;
 pub const SYSCALL_GET_EUID: usize = 175;
 pub const SYSCALL_GET_TID: usize = 178;
+pub const SYSCALL_SBRK: usize = 213;
 pub const SYSCALL_BRK: usize = 214;
 pub const SYSCALL_MUNMAP: usize = 215;
 pub const SYSCALL_CLONE: usize = 220;
@@ -95,6 +96,7 @@ pub fn syscall_name(id: usize) -> &'static str {
         SYSCALL_MPROTECT => "mprotect",
         SYSCALL_WAITPID => "waitpid",
         SYSCALL_GET_UID => "getuid",
+        SYSCALL_SBRK => "maybe sbrk",
         // non-standard
         SYSCALL_SHUTDOWN => "shutdown",
         _ => "unknown",

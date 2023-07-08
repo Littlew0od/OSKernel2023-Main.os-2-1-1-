@@ -154,20 +154,20 @@ pub fn sys_execve(path: *const u8, mut args: *const usize, mut envp: *const usiz
 }
 
 pub fn sys_brk(addr: usize) -> isize {
-    println!("[sys_brk] addr = {}", addr);
+    // println!("[sys_brk] addr = {:#x}", addr);
     let process = current_process();
     let mut inner = process.inner_exclusive_access();
     if addr == 0 {
         inner.heap_end.0 as isize
     } else if addr < inner.heap_base.0 {
-        -1
+        EINVAL
     } else {
         // We need to calculate to determine if we need a new page table
         // current end page address
         let align_addr = ((addr) + PAGE_SIZE - 1) & (!(PAGE_SIZE - 1));
         // the end of 'addr' value
-        let align_end = ((inner.heap_end.0) + PAGE_SIZE) & (!(PAGE_SIZE - 1));
-        if align_end > addr {
+        let align_end = ((inner.heap_end.0) + PAGE_SIZE - 1) & (!(PAGE_SIZE - 1));
+        if align_end >= addr {
             inner.heap_end = addr.into();
             align_addr as isize
         } else {

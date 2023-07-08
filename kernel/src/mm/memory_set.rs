@@ -359,18 +359,19 @@ impl MemorySet {
     }
     pub fn map_heap(&mut self, mut current_addr: VirtAddr, aim_addr: VirtAddr) -> isize {
         loop {
-            if current_addr.0 > aim_addr.0 {
+            if current_addr.0 >= aim_addr.0 {
                 break;
             }
             // We use BTreeMap to save FrameTracker which makes management quite easy
-            current_addr = VirtAddr::from(current_addr.0 + PAGE_SIZE);
             // alloc a new FrameTracker
             let frame = frame_alloc().unwrap();
             let ppn = frame.ppn;
             let vpn: VirtPageNum = current_addr.floor();
+            // log!("[map_heap] map vpn = {:#x}, ppn = {:#x}", vpn.0, ppn.0);
             self.page_table
                 .map(vpn, ppn, PTEFlags::U | PTEFlags::R | PTEFlags::W);
             self.heap_area.insert(vpn, frame);
+            current_addr = VirtAddr::from(current_addr.0 + PAGE_SIZE);
         }
         SUCCESS
     }

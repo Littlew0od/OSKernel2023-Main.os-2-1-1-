@@ -7,7 +7,6 @@ mod thread;
 mod config;
 
 use fs::*;
-// use log::{debug, error, info, trace, warn};
 use crate::task::SignalAction;
 use process::*;
 use sync::*;
