@@ -154,7 +154,7 @@ pub fn sys_execve(path: *const u8, mut args: *const usize, mut envp: *const usiz
 }
 
 pub fn sys_brk(addr: usize) -> isize {
-    // println!("[sys_brk] addr = {:#x}", addr);
+    println!("[sys_brk] addr = {:#x}", addr);
     let process = current_process();
     let mut inner = process.inner_exclusive_access();
     if addr == 0 {
@@ -174,7 +174,7 @@ pub fn sys_brk(addr: usize) -> isize {
             let heap_end = inner.heap_end;
             // map heap
             inner.memory_set.map_heap(heap_end, align_addr.into());
-            inner.heap_end = align_end.into();
+            inner.heap_end = align_addr.into();
             addr as isize
         }
     }

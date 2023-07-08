@@ -358,6 +358,7 @@ impl MemorySet {
         self.areas.clear();
     }
     pub fn map_heap(&mut self, mut current_addr: VirtAddr, aim_addr: VirtAddr) -> isize {
+        log!("[map_heap] start_addr = {:#x}, end_addr = {:#x}", current_addr.0, aim_addr.0);
         loop {
             if current_addr.0 >= aim_addr.0 {
                 break;
