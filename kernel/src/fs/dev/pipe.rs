@@ -1,10 +1,13 @@
 #![allow(unused)]
 use crate::fs::directory_tree::DirectoryTreeNode;
-use crate::fs::{File, Stat, StatMode, DiskInodeType};
+use crate::fs::{DiskInodeType, File, Stat, StatMode};
 use crate::mm::UserBuffer;
 use crate::sync::UPSafeCell;
 use crate::syscall::errno::{ENOTDIR, ESPIPE};
-use alloc::{sync::{Arc, Weak}, vec::Vec};
+use alloc::{
+    sync::{Arc, Weak},
+    vec::Vec,
+};
 use spin::Mutex;
 
 use crate::task::suspend_current_and_run_next;
@@ -32,7 +35,7 @@ impl Pipe {
     }
 }
 
-const RING_BUFFER_SIZE: usize = 32;
+const RING_BUFFER_SIZE: usize = 256;
 
 #[derive(Copy, Clone, PartialEq)]
 enum RingBufferStatus {
@@ -187,7 +190,35 @@ impl File for Pipe {
     }
 
     fn write(&self, offset: Option<&mut usize>, buf: &[u8]) -> usize {
-       todo!()
+        assert!(self.writable());
+        let want_to_write = buf.len();
+        let mut buf_iter = buf.into_iter();
+        let mut already_write = 0usize;
+        loop {
+            // log!("[pipe write] buffer get.");
+            let mut ring_buffer = self.buffer.exclusive_access();
+            // log!("[pipe write] buffer release.");
+            let loop_write = ring_buffer.available_write();
+            if loop_write == 0 {
+                // avoid multi-use
+                drop(ring_buffer);
+                log!("[pipe write] yield.");
+                suspend_current_and_run_next();
+                continue;
+            }
+            // write at most loop_write bytes
+            for _ in 0..loop_write {
+                if let Some(byte_ref) = buf_iter.next() {
+                    ring_buffer.write_byte(unsafe { *byte_ref });
+                    already_write += 1;
+                    if already_write == want_to_write {
+                        return want_to_write;
+                    }
+                } else {
+                    return already_write;
+                }
+            }
+        }
     }
 
     fn r_ready(&self) -> bool {

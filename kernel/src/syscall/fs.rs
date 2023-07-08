@@ -241,6 +241,7 @@ pub fn sys_pipe(pipe: *mut u32) -> isize {
     };
     *translated_refmut(token, pipe) = read_fd as u32;
     *translated_refmut(token, unsafe { pipe.add(1) }) = write_fd as u32;
+    tip!("[sys_pipe] read_fd = {}, write_fd = {}", read_fd, write_fd);
     SUCCESS
 }
 
@@ -443,12 +444,10 @@ pub fn sys_fstatat(dirfd: usize, path: *const u8, buf: *mut u8, flags: u32) -> i
 
     let file_descriptor = match dirfd {
         AT_FDCWD => inner.work_path.lock().working_inode.as_ref().clone(),
-        fd => {
-            match fd_table.get_ref(fd) {
-                Ok(file_descriptor) => file_descriptor.clone(),
-                Err(errno) => return errno,
-            }
-        }
+        fd => match fd_table.get_ref(fd) {
+            Ok(file_descriptor) => file_descriptor.clone(),
+            Err(errno) => return errno,
+        },
     };
 
     let mut user_buf = UserBuffer::new(translated_byte_buffer(
@@ -464,4 +463,181 @@ pub fn sys_fstatat(dirfd: usize, path: *const u8, buf: *mut u8, flags: u32) -> i
         }
         Err(errno) => errno,
     }
+}
+
+#[allow(non_camel_case_types)]
+#[derive(Debug, Eq, PartialEq, FromPrimitive)]
+#[repr(u32)]
+pub enum Fcntl_Command {
+    DUPFD = 0,
+    GETFD = 1,
+    SETFD = 2,
+    GETFL = 3,
+    SETFL = 4,
+    GETLK = 5,
+    SETLK = 6,
+    SETLKW = 7,
+    SETOWN = 8,
+    GETOWN = 9,
+    SETSIG = 10,
+    GETSIG = 11,
+    SETOWN_EX = 15,
+    GETOWN_EX = 16,
+    GETOWNER_UIDS = 17,
+    OFD_GETLK = 36,
+    OFD_SETLK = 37,
+    OFD_SETLKW = 38,
+    SETLEASE = 1024,
+    GETLEASE = 1025,
+    NOTIFY = 1026,
+    CANCELLK = 1029,
+    DUPFD_CLOEXEC = 1030,
+    SETPIPE_SZ = 1031,
+    GETPIPE_SZ = 1032,
+    ADD_SEALS = 1033,
+    GET_SEALS = 1034,
+    GET_RW_HINT = 1035,
+    SET_RW_HINT = 1036,
+    GET_FILE_RW_HINT = 1037,
+    SET_FILE_RW_HINT = 1038,
+    #[num_enum(default)]
+    ILLEAGAL,
+}
+
+pub fn sys_fcntl(fd: usize, cmd: u32, arg: usize) -> isize {
+    const FD_CLOEXEC: usize = 1;
+
+    let process = current_process();
+    let inner = process.inner_exclusive_access();
+    let mut fd_table = inner.fd_table.lock();
+
+    info!(
+        "[sys_fcntl] fd: {}, cmd: {:?}, arg: {:X}",
+        fd,
+        Fcntl_Command::from_primitive(cmd),
+        arg
+    );
+
+    match Fcntl_Command::from_primitive(cmd) {
+        Fcntl_Command::DUPFD => {
+            let new_file_descriptor = match fd_table.get_ref(fd) {
+                Ok(file_descriptor) => file_descriptor.clone(),
+                Err(errno) => return errno,
+            };
+            match fd_table.try_insert_at(new_file_descriptor, arg) {
+                Ok(fd) => fd as isize,
+                Err(errno) => errno,
+            }
+        }
+        Fcntl_Command::DUPFD_CLOEXEC => {
+            let mut new_file_descriptor = match fd_table.get_ref(fd) {
+                Ok(file_descriptor) => file_descriptor.clone(),
+                Err(errno) => return errno,
+            };
+            new_file_descriptor.set_cloexec(true);
+            match fd_table.try_insert_at(new_file_descriptor, arg) {
+                Ok(fd) => fd as isize,
+                Err(errno) => errno,
+            }
+        }
+        Fcntl_Command::GETFD => {
+            let file_descriptor = match fd_table.get_ref(fd) {
+                Ok(file_descriptor) => file_descriptor,
+                Err(errno) => return errno,
+            };
+            file_descriptor.get_cloexec() as isize
+        }
+        Fcntl_Command::SETFD => {
+            let file_descriptor = match fd_table.get_refmut(fd) {
+                Ok(file_descriptor) => file_descriptor,
+                Err(errno) => return errno,
+            };
+            file_descriptor.set_cloexec((arg & FD_CLOEXEC) != 0);
+            if (arg & !FD_CLOEXEC) != 0 {
+                warn!("[fcntl] Unsupported flag exists: {:X}", arg);
+            }
+            SUCCESS
+        }
+        Fcntl_Command::GETFL => {
+            let file_descriptor = match fd_table.get_ref(fd) {
+                Ok(file_descriptor) => file_descriptor,
+                Err(errno) => return errno,
+            };
+            // Access control is not fully implemented
+            let mut res = OpenFlags::O_RDWR.bits() as isize;
+            if file_descriptor.get_nonblock() {
+                res |= OpenFlags::O_NONBLOCK.bits() as isize;
+            }
+            res
+        }
+        command => {
+            warn!("[fcntl] Unsupported command: {:?}", command);
+            SUCCESS
+        } // WARNING!!!
+    }
+}
+
+/// If offset is not NULL, then it points to a variable holding the
+/// file offset from which sendfile() will start reading data from
+/// in_fd.
+///
+/// When sendfile() returns,
+/// this variable will be set to the offset of the byte following
+/// the last byte that was read.
+///
+/// If offset is not NULL, then sendfile() does not modify the file
+/// offset of in_fd; otherwise the file offset is adjusted to reflect
+/// the number of bytes read from in_fd.
+///
+/// If offset is NULL, then data will be read from in_fd starting at
+/// the file offset, and the file offset will be updated by the call.
+pub fn sys_sendfile(out_fd: usize, in_fd: usize, mut offset: *mut usize, count: usize) -> isize {
+    let token = current_user_token();
+    let process = current_process();
+    let inner = process.inner_exclusive_access();
+    let fd_table = inner.fd_table.lock();
+    let in_file = match fd_table.get_ref(in_fd) {
+        Ok(file_descriptor) => file_descriptor.clone(),
+        Err(errno) => return errno,
+    };
+    let out_file = match fd_table.get_ref(out_fd) {
+        Ok(file_descriptor) => file_descriptor.clone(),
+        Err(errno) => return errno,
+    };
+    tip!("[sys_sendfile] out_fd: {}, in_fd: {}", out_fd, in_fd);
+    if !in_file.readable() || !out_file.writable() {
+        return EBADF;
+    }
+
+    // turn a pointer in user space into a pointer in kernel space if it is not null
+    if offset as usize != 0 {
+        offset = translated_refmut(token, offset);
+    }
+
+    // a buffer in kernel
+    const BUFFER_SIZE: usize = 4096;
+    let mut buffer = Vec::<u8>::with_capacity(BUFFER_SIZE);
+
+    let mut left_bytes = count;
+    let mut write_size = 0;
+
+    drop(fd_table);
+    drop(inner);
+    drop(process);
+    loop {
+        unsafe {
+            buffer.set_len(left_bytes.min(BUFFER_SIZE));
+        }
+        let read_size = in_file.read(unsafe { offset.as_mut() }, buffer.as_mut_slice());
+        if read_size == 0 {
+            break;
+        }
+        unsafe {
+            buffer.set_len(read_size);
+        }
+        write_size += out_file.write(None, buffer.as_slice());
+        left_bytes -= read_size;
+    }
+    info!("[sys_sendfile] written bytes: {}", write_size);
+    write_size as isize
 }

@@ -341,6 +341,36 @@ impl MemorySet {
                     .copy_from_slice(src_ppn.get_bytes_array());
             }
         }
+        // copy heap_area
+        for (vpn, src_frame) in user_space.heap_area.iter() {
+            let dst_frame = frame_alloc().unwrap();
+            let dst_ppn = dst_frame.ppn;
+            memory_set
+                .page_table
+                .map(*vpn, dst_ppn, PTEFlags::U | PTEFlags::R | PTEFlags::W);
+            memory_set.heap_area.insert(*vpn, dst_frame);
+
+            let src_ppn = src_frame.ppn;
+            // copy data
+            dst_ppn
+                .get_bytes_array()
+                .copy_from_slice(src_ppn.get_bytes_array());
+        }
+        // copy mmap_area
+        for (vpn, src_frame) in user_space.mmap_area.iter() {
+            let dst_frame = frame_alloc().unwrap();
+            let dst_ppn = dst_frame.ppn;
+            memory_set
+                .page_table
+                .map(*vpn, dst_ppn, PTEFlags::U | PTEFlags::R | PTEFlags::W);
+            memory_set.mmap_area.insert(*vpn, dst_frame);
+
+            let src_ppn = src_frame.ppn;
+            // copy data
+            dst_ppn
+                .get_bytes_array()
+                .copy_from_slice(src_ppn.get_bytes_array());
+        }
         memory_set
     }
     pub fn activate(&self) {
@@ -358,7 +388,7 @@ impl MemorySet {
         self.areas.clear();
     }
     pub fn map_heap(&mut self, mut current_addr: VirtAddr, aim_addr: VirtAddr) -> isize {
-        log!("[map_heap] start_addr = {:#x}, end_addr = {:#x}", current_addr.0, aim_addr.0);
+        // log!("[map_heap] start_addr = {:#x}, end_addr = {:#x}", current_addr.0, aim_addr.0);
         loop {
             if current_addr.0 >= aim_addr.0 {
                 break;

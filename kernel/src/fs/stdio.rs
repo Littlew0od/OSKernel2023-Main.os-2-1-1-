@@ -226,7 +226,8 @@ impl File for Stdout {
     }
 
     fn write(&self, offset: Option<&mut usize>, buf: &[u8]) -> usize {
-        todo!()
+        print!("{}", core::str::from_utf8(buf).unwrap());
+        buf.len()
     }
 
     fn r_ready(&self) -> bool {

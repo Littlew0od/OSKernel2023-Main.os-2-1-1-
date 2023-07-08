@@ -1,30 +1,31 @@
+mod config;
 pub mod errno;
 mod fs;
 mod process;
 mod sync;
 mod system;
 mod thread;
-mod config;
 
-use fs::*;
 use crate::task::SignalAction;
+use config::*;
+use fs::*;
+pub use process::sys_getpid;
 use process::*;
 use sync::*;
 use system::*;
 use thread::*;
-use config::*;
-pub use process::sys_getpid;
 
 pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
-    println!(
-        "[kernel] syscall start, syscall_name: {}, syscall_id: {}",
-        sys_getpid(),
-        syscall_name(syscall_id)
-    );
+    // println!(
+    //     "[kernel] syscall start, syscall_name: {}, syscall_id: {}",
+    //     syscall_name(syscall_id),
+    //     syscall_id,
+    // );
     let ret = match syscall_id {
         SYSCALL_GETCWD => sys_getcwd(args[0] as *mut u8, args[1]),
         SYSCALL_DUP => sys_dup(args[0]),
         SYSCALL_DUP3 => sys_dup3(args[0], args[1], args[2] as u32),
+        SYSCALL_FCNTL64 => sys_fcntl(args[0], args[1] as u32, args[2]),
         SYSCALL_MKDIRAT => sys_mkdirat(args[0], args[1] as *const u8, args[2] as u32),
         SYSCALL_UNLINKAT => sys_unlinkat(args[0], args[1] as *const u8, args[2] as u32),
         SYSCALL_LINKAT => 0,
@@ -49,6 +50,7 @@ pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
         SYSCALL_GENDENTS64 => sys_getdents64(args[0], args[1] as *mut u8, args[2]),
         SYSCALL_READ => sys_read(args[0], args[1] as *const u8, args[2]),
         SYSCALL_WRITE => sys_write(args[0], args[1] as *const u8, args[2]),
+        SYSCALL_SENDFILE => sys_sendfile(args[0], args[1], args[2] as *mut usize, args[3]),
         SYSCALL_FSTATAT => sys_fstatat(
             args[0],
             args[1] as *const u8,
@@ -57,6 +59,7 @@ pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
         ),
         SYSCALL_FSTAT => sys_fstat(args[0], args[1] as *mut u8),
         SYSCALL_EXIT => sys_exit(args[0] as i32),
+        SYSCALL_EXIT_GROUP => sys_exit(args[0] as i32),
         SYSCALL_SET_TID_ADDRESS => sys_set_tid_address(args[0]),
         SYSCALL_SLEEP => sys_sleep(args[0] as *const u64, args[1] as *mut u64),
         SYSCALL_YIELD => sys_yield(),
@@ -109,12 +112,12 @@ pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
         SYSCALL_SHUTDOWN => sys_shutdown(args[0] != 0),
         _ => panic!("Unsupported syscall_id: {}", syscall_id),
     };
-    tip!(
-        "[syscall] pid: {}, syscall_name: {}, syscall_id: {}, returned {:#x}",
-        sys_getpid(),
-        syscall_name(syscall_id),
-        syscall_id,
-        ret
-    );
+    // tip!(
+    //     "[syscall] pid: {}, syscall_name: {}, syscall_id: {}, returned {:#x}",
+    //     sys_getpid(),
+    //     syscall_name(syscall_id),
+    //     syscall_id,
+    //     ret
+    // );
     ret
 }

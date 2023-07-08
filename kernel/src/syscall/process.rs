@@ -154,7 +154,7 @@ pub fn sys_execve(path: *const u8, mut args: *const usize, mut envp: *const usiz
 }
 
 pub fn sys_brk(addr: usize) -> isize {
-    println!("[sys_brk] addr = {:#x}", addr);
+    // println!("[sys_brk] addr = {:#x}", addr);
     let process = current_process();
     let mut inner = process.inner_exclusive_access();
     if addr == 0 {
@@ -318,12 +318,12 @@ pub fn sys_sigaction(
     action: *const SignalAction,
     old_action: *mut SignalAction,
 ) -> isize {
-    tip!(
-        "[sys_sigaction] signum = {:#x}, action = {:#x}, old_action = {:#x}",
-        signum,
-        action as usize,
-        old_action as usize
-    );
+    // tip!(
+    //     "[sys_sigaction] signum = {:#x}, action = {:#x}, old_action = {:#x}",
+    //     signum,
+    //     action as usize,
+    //     old_action as usize
+    // );
     let token = current_user_token();
     let process = current_process();
     let mut inner_process = process.inner_exclusive_access();

@@ -3,6 +3,7 @@
 pub const SYSCALL_GETCWD: usize = 17;
 pub const SYSCALL_DUP: usize = 23;
 pub const SYSCALL_DUP3: usize = 24;
+pub const SYSCALL_FCNTL64: usize = 25;
 pub const SYSCALL_MKDIRAT: usize = 34;
 pub const SYSCALL_UNLINKAT: usize = 35;
 pub const SYSCALL_LINKAT: usize = 37;
@@ -15,9 +16,11 @@ pub const SYSCALL_PIPE: usize = 59;
 pub const SYSCALL_GENDENTS64: usize = 61;
 pub const SYSCALL_READ: usize = 63;
 pub const SYSCALL_WRITE: usize = 64;
+pub const SYSCALL_SENDFILE: usize = 71;
 pub const SYSCALL_FSTATAT: usize = 79;
 pub const SYSCALL_FSTAT: usize = 80;
 pub const SYSCALL_EXIT: usize = 93;
+pub const SYSCALL_EXIT_GROUP: usize = 94;
 pub const SYSCALL_SET_TID_ADDRESS: usize = 96;
 pub const SYSCALL_SLEEP: usize = 101;
 pub const SYSCALL_YIELD: usize = 124;
@@ -98,6 +101,9 @@ pub fn syscall_name(id: usize) -> &'static str {
         SYSCALL_GET_UID => "getuid",
         SYSCALL_SBRK => "maybe sbrk",
         SYSCALL_SIGPROMASK => "sigprocmask",
+        SYSCALL_FCNTL64 => "fcntl64",
+        SYSCALL_GET_TID => "gettid",
+        SYSCALL_EXIT_GROUP => "exitgroup",
         // non-standard
         SYSCALL_SHUTDOWN => "shutdown",
         _ => "unknown",
