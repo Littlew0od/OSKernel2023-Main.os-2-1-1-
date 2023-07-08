@@ -1,0 +1,102 @@
+#![allow(unused)]
+
+pub const SYSCALL_GETCWD: usize = 17;
+pub const SYSCALL_DUP: usize = 23;
+pub const SYSCALL_DUP3: usize = 24;
+pub const SYSCALL_MKDIRAT: usize = 34;
+pub const SYSCALL_UNLINKAT: usize = 35;
+pub const SYSCALL_LINKAT: usize = 37;
+pub const SYSCALL_UMOUNT2: usize = 39;
+pub const SYSCALL_MOUNT: usize = 40;
+pub const SYSCALL_CHDIR: usize = 49;
+pub const SYSCALL_OPENAT: usize = 56;
+pub const SYSCALL_CLOSE: usize = 57;
+pub const SYSCALL_PIPE: usize = 59;
+pub const SYSCALL_GENDENTS64: usize = 61;
+pub const SYSCALL_READ: usize = 63;
+pub const SYSCALL_WRITE: usize = 64;
+pub const SYSCALL_FSTATAT: usize = 79;
+pub const SYSCALL_FSTAT: usize = 80;
+pub const SYSCALL_EXIT: usize = 93;
+pub const SYSCALL_SET_TID_ADDRESS: usize = 96;
+pub const SYSCALL_SLEEP: usize = 101;
+pub const SYSCALL_YIELD: usize = 124;
+pub const SYSCALL_KILL: usize = 129;
+pub const SYSCALL_SIGACTION: usize = 134;
+pub const SYSCALL_SIGPROMASK: usize = 135;
+pub const SYSCALL_SIGRETURN: usize = 139;
+pub const SYSCALL_TIMES: usize = 153;
+pub const SYSCALL_UNAME: usize = 160;
+pub const SYSCALL_GET_TIME: usize = 169;
+pub const SYSCALL_GETPID: usize = 172;
+pub const SYSCALL_GETPPID: usize = 173;
+pub const SYSCALL_GET_UID: usize = 174;
+pub const SYSCALL_GET_EUID: usize = 175;
+pub const SYSCALL_GET_TID: usize = 178;
+pub const SYSCALL_BRK: usize = 214;
+pub const SYSCALL_MUNMAP: usize = 215;
+pub const SYSCALL_CLONE: usize = 220;
+pub const SYSCALL_EXECVE: usize = 221;
+pub const SYSCALL_MMAP: usize = 222;
+pub const SYSCALL_MPROTECT: usize = 226;
+pub const SYSCALL_WAITPID: usize = 260;
+pub const SYSCALL_THREAD_CREATE: usize = 1000;
+pub const SYSCALL_GETTID: usize = 1001;
+pub const SYSCALL_WAITTID: usize = 1002;
+pub const SYSCALL_MUTEX_CREATE: usize = 1010;
+pub const SYSCALL_MUTEX_LOCK: usize = 1011;
+pub const SYSCALL_MUTEX_UNLOCK: usize = 1012;
+pub const SYSCALL_SEMAPHORE_CREATE: usize = 1020;
+pub const SYSCALL_SEMAPHORE_UP: usize = 1021;
+pub const SYSCALL_SEMAPHORE_DOWN: usize = 1022;
+pub const SYSCALL_CONDVAR_CREATE: usize = 1030;
+pub const SYSCALL_CONDVAR_SIGNAL: usize = 1031;
+pub const SYSCALL_CONDVAR_WAIT: usize = 1032;
+
+// Not standard POSIX sys_call
+pub const SYSCALL_SHUTDOWN: usize = 2000;
+pub const SYSCALL_OPEN: usize = 506;
+
+pub fn syscall_name(id: usize) -> &'static str {
+    match id {
+        SYSCALL_DUP => "dup",
+        SYSCALL_DUP3 => "dup3",
+        SYSCALL_OPEN => "open",
+        SYSCALL_GET_TIME => "get_time",
+        SYSCALL_GETCWD => "getcwd",
+        SYSCALL_MKDIRAT => "mkdirat",
+        SYSCALL_UNLINKAT => "unlinkat",
+        SYSCALL_LINKAT => "linkat",
+        SYSCALL_UMOUNT2 => "umount2",
+        SYSCALL_MOUNT => "mount",
+        SYSCALL_CHDIR => "chdir",
+        SYSCALL_OPENAT => "openat",
+        SYSCALL_CLOSE => "close",
+        SYSCALL_READ => "read",
+        SYSCALL_WRITE => "write",
+        SYSCALL_FSTATAT => "fstatat",
+        SYSCALL_FSTAT => "fstat",
+        SYSCALL_EXIT => "exit",
+        SYSCALL_SET_TID_ADDRESS => "set_tid_address",
+        SYSCALL_YIELD => "yield",
+        SYSCALL_KILL => "kill",
+        SYSCALL_SIGACTION => "sigaction",
+        SYSCALL_SIGRETURN => "sigreturn",
+        SYSCALL_TIMES => "times",
+        SYSCALL_UNAME => "uname",
+        SYSCALL_GETPID => "getpid",
+        SYSCALL_GETPPID => "getppid",
+        SYSCALL_GETTID => "gettid",
+        SYSCALL_BRK => "brk",
+        SYSCALL_MUNMAP => "munmap",
+        SYSCALL_CLONE => "clone",
+        SYSCALL_EXECVE => "execve",
+        SYSCALL_MMAP => "mmap",
+        SYSCALL_MPROTECT => "mprotect",
+        SYSCALL_WAITPID => "waitpid",
+        SYSCALL_GET_UID => "getuid",
+        // non-standard
+        SYSCALL_SHUTDOWN => "shutdown",
+        _ => "unknown",
+    }
+}

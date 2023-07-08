@@ -1,68 +1,10 @@
-#![allow(unused)]
-
-const SYSCALL_GETCWD: usize = 17;
-const SYSCALL_DUP: usize = 23;
-const SYSCALL_DUP3: usize = 24;
-const SYSCALL_MKDIRAT: usize = 34;
-const SYSCALL_UNLINKAT: usize = 35;
-const SYSCALL_LINKAT: usize = 37;
-const SYSCALL_UMOUNT2: usize = 39;
-const SYSCALL_MOUNT: usize = 40;
-const SYSCALL_CHDIR: usize = 49;
-const SYSCALL_OPENAT: usize = 56;
-const SYSCALL_CLOSE: usize = 57;
-const SYSCALL_PIPE: usize = 59;
-const SYSCALL_GENDENTS64: usize = 61;
-const SYSCALL_READ: usize = 63;
-const SYSCALL_WRITE: usize = 64;
-const SYSCALL_FSTATAT: usize = 79;
-const SYSCALL_FSTAT: usize = 80;
-const SYSCALL_EXIT: usize = 93;
-const SYSCALL_SET_TID_ADDRESS: usize = 96;
-const SYSCALL_SLEEP: usize = 101;
-const SYSCALL_YIELD: usize = 124;
-const SYSCALL_KILL: usize = 129;
-const SYSCALL_SIGACTION: usize = 134;
-const SYSCALL_SIGPROMASK: usize = 135;
-const SYSCALL_SIGRETURN: usize = 139;
-const SYSCALL_TIMES: usize = 153;
-const SYSCALL_UNAME: usize = 160;
-const SYSCALL_GET_TIME: usize = 169;
-const SYSCALL_GETPID: usize = 172;
-const SYSCALL_GETPPID: usize = 173;
-const SYSCALL_GET_UID: usize = 174;
-const SYSCALL_GET_EUID: usize = 175;
-const SYSCALL_GET_TID: usize = 178;
-const SYSCALL_BRK: usize = 214;
-const SYSCALL_MUNMAP: usize = 215;
-const SYSCALL_CLONE: usize = 220;
-const SYSCALL_EXECVE: usize = 221;
-const SYSCALL_MMAP: usize = 222;
-const SYSCALL_MPROTECT: usize = 226;
-const SYSCALL_WAITPID: usize = 260;
-const SYSCALL_THREAD_CREATE: usize = 1000;
-const SYSCALL_GETTID: usize = 1001;
-const SYSCALL_WAITTID: usize = 1002;
-const SYSCALL_MUTEX_CREATE: usize = 1010;
-const SYSCALL_MUTEX_LOCK: usize = 1011;
-const SYSCALL_MUTEX_UNLOCK: usize = 1012;
-const SYSCALL_SEMAPHORE_CREATE: usize = 1020;
-const SYSCALL_SEMAPHORE_UP: usize = 1021;
-const SYSCALL_SEMAPHORE_DOWN: usize = 1022;
-const SYSCALL_CONDVAR_CREATE: usize = 1030;
-const SYSCALL_CONDVAR_SIGNAL: usize = 1031;
-const SYSCALL_CONDVAR_WAIT: usize = 1032;
-
-// Not standard POSIX sys_call
-const SYSCALL_SHUTDOWN: usize = 2000;
-const SYSCALL_OPEN: usize = 506;
-
 pub mod errno;
 mod fs;
 mod process;
 mod sync;
 mod system;
 mod thread;
+mod config;
 
 use fs::*;
 // use log::{debug, error, info, trace, warn};
@@ -71,51 +13,8 @@ use process::*;
 use sync::*;
 use system::*;
 use thread::*;
+use config::*;
 pub use process::sys_getpid;
-
-pub fn syscall_name(id: usize) -> &'static str {
-    match id {
-        SYSCALL_DUP => "dup",
-        SYSCALL_DUP3 => "dup3",
-        SYSCALL_OPEN => "open",
-        SYSCALL_GET_TIME => "get_time",
-        SYSCALL_GETCWD => "getcwd",
-        SYSCALL_MKDIRAT => "mkdirat",
-        SYSCALL_UNLINKAT => "unlinkat",
-        SYSCALL_LINKAT => "linkat",
-        SYSCALL_UMOUNT2 => "umount2",
-        SYSCALL_MOUNT => "mount",
-        SYSCALL_CHDIR => "chdir",
-        SYSCALL_OPENAT => "openat",
-        SYSCALL_CLOSE => "close",
-        SYSCALL_READ => "read",
-        SYSCALL_WRITE => "write",
-        SYSCALL_FSTATAT => "fstatat",
-        SYSCALL_FSTAT => "fstat",
-        SYSCALL_EXIT => "exit",
-        SYSCALL_SET_TID_ADDRESS => "set_tid_address",
-        SYSCALL_YIELD => "yield",
-        SYSCALL_KILL => "kill",
-        SYSCALL_SIGACTION => "sigaction",
-        SYSCALL_SIGRETURN => "sigreturn",
-        SYSCALL_TIMES => "times",
-        SYSCALL_UNAME => "uname",
-        SYSCALL_GETPID => "getpid",
-        SYSCALL_GETPPID => "getppid",
-        SYSCALL_GETTID => "gettid",
-        SYSCALL_BRK => "brk",
-        SYSCALL_MUNMAP => "munmap",
-        SYSCALL_CLONE => "clone",
-        SYSCALL_EXECVE => "execve",
-        SYSCALL_MMAP => "mmap",
-        SYSCALL_MPROTECT => "mprotect",
-        SYSCALL_WAITPID => "waitpid",
-        SYSCALL_GET_UID => "getuid",
-        // non-standard
-        SYSCALL_SHUTDOWN => "shutdown",
-        _ => "unknown",
-    }
-}
 
 pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
     println!(

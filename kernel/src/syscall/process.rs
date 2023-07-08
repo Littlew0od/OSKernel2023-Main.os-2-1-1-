@@ -1,6 +1,3 @@
-use core::arch::asm;
-
-use crate::config::MMAP_BASE;
 use crate::config::PAGE_SIZE;
 use crate::fs::OpenFlags;
 use crate::mm::VirtAddr;
@@ -17,7 +14,6 @@ use crate::task::{
 use crate::timer::{get_time_ns, get_time_sec, get_time_us};
 use alloc::string::String;
 use alloc::sync::Arc;
-use alloc::task;
 use alloc::vec::Vec;
 
 use super::errno::{EINVAL, EPERM, SUCCESS};

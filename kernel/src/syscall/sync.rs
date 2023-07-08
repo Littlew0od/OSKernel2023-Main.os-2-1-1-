@@ -1,8 +1,10 @@
-use crate::sync::{Condvar, Mutex, MutexBlocking, MutexSpin, Semaphore};
-use crate::task::{suspend_current_and_run_next, current_process, current_task, current_user_token};
-use crate::timer::{get_time, get_time_ms, NSEC_PER_SEC};
-use crate::mm::{translated_ref, translated_refmut};
 use crate::config::CLOCK_FREQ;
+use crate::mm::{translated_ref, translated_refmut};
+use crate::sync::{Condvar, Mutex, MutexBlocking, MutexSpin, Semaphore};
+use crate::task::{
+    current_process, current_user_token, suspend_current_and_run_next,
+};
+use crate::timer::{get_time, NSEC_PER_SEC};
 use alloc::sync::Arc;
 
 pub fn sys_sleep(time_req: *const u64, time_remain: *mut u64) -> isize {
@@ -16,7 +18,7 @@ pub fn sys_sleep(time_req: *const u64, time_remain: *mut u64) -> isize {
     let nano_sec = *translated_ref(token, unsafe { time_req.add(1) });
     let end_time =
         get_time() + sec as usize * CLOCK_FREQ + nano_sec as usize * CLOCK_FREQ / NSEC_PER_SEC;
-    
+
     loop {
         if is_end(end_time) {
             break;

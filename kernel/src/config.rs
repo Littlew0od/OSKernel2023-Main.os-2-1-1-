@@ -1,4 +1,4 @@
-#[allow(unused)]
+#![allow(unused)]
 
 pub const USER_STACK_SIZE: usize = 4096 * 40;
 pub const KERNEL_STACK_SIZE: usize = 4096 * 2;
@@ -19,36 +19,29 @@ pub const SYSTEM_FD_LIMIT: usize = 256;
 pub const STACK_TOP: usize = 0x1_0000_0000;
 pub const MMAP_BASE: usize = 0x4000_0000;
 
-#[macro_export]
-macro_rules! const_def {
-    ($ident:ident, $val:expr) => {
-        pub const $ident: usize = $val;
-    };
-}
-
 //aux typ
-const_def!(AT_NULL, 0);
-const_def!(AT_IGNORE, 1);
-const_def!(AT_EXECCFD, 2);
-const_def!(AT_PHDR, 3);
-const_def!(AT_PHENT, 4);
-const_def!(AT_PHNUM, 5);
-const_def!(AT_PAGESIZE, 6);
-const_def!(AT_BASE, 7);
-const_def!(AT_FLAGS, 8);
-const_def!(AT_ENTRY, 9);
-const_def!(AT_NOELF, 10);
-const_def!(AT_UID, 11);
-const_def!(AT_EUID, 12);
-const_def!(AT_GID, 13);
-const_def!(AT_EGID, 14);
-const_def!(AT_PLATFORM, 15);
-const_def!(AT_HWCAP, 16);
-const_def!(AT_CLKTCK, 17);
-const_def!(AT_SECURE, 23);
-const_def!(AT_BASE_PLATFORM, 24);
-const_def!(AT_RANDOM, 25);
-const_def!(AT_HWCAP2, 26);
-const_def!(AT_EXECFN, 31);
-const_def!(AT_SYSINFO, 32);
-const_def!(AT_SYSINFO_EHDR, 33);
+pub const AT_NULL: usize = 0;
+pub const AT_IGNORE: usize = 1;
+pub const AT_EXECCFD: usize = 2;
+pub const AT_PHDR: usize = 3;
+pub const AT_PHENT: usize = 4;
+pub const AT_PHNUM: usize = 5;
+pub const AT_PAGESIZE: usize = 6;
+pub const AT_BASE: usize = 7;
+pub const AT_FLAGS: usize = 8;
+pub const AT_ENTRY: usize = 9;
+pub const AT_NOELF: usize = 10;
+pub const AT_UID: usize = 11;
+pub const AT_EUID: usize = 12;
+pub const AT_GID: usize = 13;
+pub const AT_EGID: usize = 14;
+pub const AT_PLATFORM: usize = 15;
+pub const AT_HWCAP: usize = 16;
+pub const AT_CLKTCK: usize = 17;
+pub const AT_SECURE: usize = 23;
+pub const AT_BASE_PLATFORM: usize = 24;
+pub const AT_RANDOM: usize = 25;
+pub const AT_HWCAP2: usize = 26;
+pub const AT_EXECFN: usize = 31;
+pub const AT_SYSINFO: usize = 32;
+pub const AT_SYSINFO_EHDR: usize = 33;
