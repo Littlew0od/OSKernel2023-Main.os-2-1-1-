@@ -97,6 +97,7 @@ pub fn syscall_name(id: usize) -> &'static str {
         SYSCALL_WAITPID => "waitpid",
         SYSCALL_GET_UID => "getuid",
         SYSCALL_SBRK => "maybe sbrk",
+        SYSCALL_SIGPROMASK => "sigprocmask",
         // non-standard
         SYSCALL_SHUTDOWN => "shutdown",
         _ => "unknown",

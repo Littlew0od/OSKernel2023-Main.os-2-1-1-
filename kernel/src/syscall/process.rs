@@ -318,6 +318,12 @@ pub fn sys_sigaction(
     action: *const SignalAction,
     old_action: *mut SignalAction,
 ) -> isize {
+    tip!(
+        "[sys_sigaction] signum = {:#x}, action = {:#x}, old_action = {:#x}",
+        signum,
+        action as usize,
+        old_action as usize
+    );
     let token = current_user_token();
     let process = current_process();
     let mut inner_process = process.inner_exclusive_access();
@@ -332,11 +338,13 @@ pub fn sys_sigaction(
             return EPERM;
         }
         let old_kernel_action = inner_process.signal_actions.table[signum];
-        if old_kernel_action.mask != SignalFlags::from_bits(40).unwrap() {
-            *translated_refmut(token, old_action) = old_kernel_action;
-        } else {
-            let mut ref_old_action = *translated_refmut(token, old_action);
-            ref_old_action.sa_handler = old_kernel_action.sa_handler;
+        if old_action as usize != 0 {
+            if old_kernel_action.mask != SignalFlags::from_bits(40).unwrap() {
+                *translated_refmut(token, old_action) = old_kernel_action;
+            } else {
+                let mut ref_old_action = *translated_refmut(token, old_action);
+                ref_old_action.sa_handler = old_kernel_action.sa_handler;
+            }
         }
         let ref_action = translated_ref(token, action);
         inner_process.signal_actions.table[signum as usize] = *ref_action;
