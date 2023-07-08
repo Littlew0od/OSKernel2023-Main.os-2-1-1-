@@ -71,6 +71,7 @@ use process::*;
 use sync::*;
 use system::*;
 use thread::*;
+pub use process::sys_getpid;
 
 pub fn syscall_name(id: usize) -> &'static str {
     match id {
@@ -109,6 +110,7 @@ pub fn syscall_name(id: usize) -> &'static str {
         SYSCALL_MMAP => "mmap",
         SYSCALL_MPROTECT => "mprotect",
         SYSCALL_WAITPID => "waitpid",
+        SYSCALL_GET_UID => "getuid",
         // non-standard
         SYSCALL_SHUTDOWN => "shutdown",
         _ => "unknown",
@@ -209,8 +211,8 @@ pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
         SYSCALL_SHUTDOWN => sys_shutdown(args[0] != 0),
         _ => panic!("Unsupported syscall_id: {}", syscall_id),
     };
-    log!(
-        "[syscall] pid: {}, syscall_name: {}, syscall_id: {}, returned {}",
+    tip!(
+        "[syscall] pid: {}, syscall_name: {}, syscall_id: {}, returned {:#x}",
         sys_getpid(),
         syscall_name(syscall_id),
         syscall_id,

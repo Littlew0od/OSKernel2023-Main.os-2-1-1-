@@ -131,13 +131,13 @@ pub fn sys_execve(path: *const u8, mut args: *const usize, mut envp: *const usiz
             }
         }
     }
-    tip!(
-        "[exec] argv: {:?} /* {} vars */, envp: {:?} /* {} vars */",
-        args_vec,
-        args_vec.len(),
-        envp_vec,
-        envp_vec.len()
-    );
+    // tip!(
+    //     "[exec] argv: {:?} /* {} vars */, envp: {:?} /* {} vars */",
+    //     args_vec,
+    //     args_vec.len(),
+    //     envp_vec,
+    //     envp_vec.len()
+    // );
     let process = current_process();
     let working_inode = process
         .inner_exclusive_access()

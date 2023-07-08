@@ -210,7 +210,7 @@ impl ProcessControlBlock {
         let task = self.inner_exclusive_access().get_task(0);
         let mut task_inner = task.inner_exclusive_access();
         task_inner.res.as_mut().unwrap().ustack_top = ustack_top;
-        println!("[exec] alloc user res at ustack_top :{:#x}", ustack_top);
+        // println!("[exec] alloc user res at ustack_top :{:#x}", ustack_top);
         task_inner.res.as_mut().unwrap().alloc_user_res();
         task_inner.trap_cx_ppn = task_inner.res.as_mut().unwrap().trap_cx_ppn();
         // push arguments on user stack
@@ -220,7 +220,7 @@ impl ProcessControlBlock {
             .memory_set
             .build_stack(ustack_top, argv_vec, envp_vec, auxv);
         // initialize trap_cx
-        println!("[exec] user_sp : {:#x}", user_sp);
+        // println!("[exec] user_sp : {:#x}", user_sp);
         let mut trap_cx = TrapContext::app_init_context(
             entry_point,
             user_sp,
@@ -228,13 +228,13 @@ impl ProcessControlBlock {
             task.kstack.get_top(),
             trap_handler as usize,
         );
-        tip!(
-            "[exec] argv_base: {:#x}, envp_base: {:#x}, aux_base: {:#x}, entry_point: {:#x}",
-            argv_base,
-            envp_base,
-            aux_base,
-            entry_point,
-        );
+        // tip!(
+        //     "[exec] argv_base: {:#x}, envp_base: {:#x}, aux_base: {:#x}, entry_point: {:#x}",
+        //     argv_base,
+        //     envp_base,
+        //     aux_base,
+        //     entry_point,
+        // );
         trap_cx.x[10] = argc; //argc
         trap_cx.x[11] = argv_base; //argv
         trap_cx.x[12] = envp_base; //envp

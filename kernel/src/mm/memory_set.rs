@@ -120,10 +120,19 @@ impl MemorySet {
     fn push(&mut self, mut map_area: MapArea, data: Option<&[u8]>) {
         map_area.map(&mut self.page_table);
         if let Some(data) = data {
-            map_area.copy_data(&mut self.page_table, data);
+            map_area.copy_data(&mut self.page_table, data, 0);
         }
         self.areas.push(map_area);
     }
+
+    fn push_with_offset(&mut self, mut map_area: MapArea, offset: usize, data: Option<&[u8]>) {
+        map_area.map(&mut self.page_table);
+        if let Some(data) = data {
+            map_area.copy_data(&mut self.page_table, data, offset)
+        }
+        self.areas.push(map_area);
+    }
+
     /// Mention that trampoline is not collected by areas.
     fn map_trampoline(&mut self) {
         self.page_table.map(
@@ -240,14 +249,22 @@ impl MemorySet {
         assert_eq!(magic, [0x7f, 0x45, 0x4c, 0x46], "invalid elf!");
         let ph_count = elf_header.pt2.ph_count();
         let mut max_end_vpn = VirtPageNum(0);
+        let mut head_va: usize = 0;
+
         for i in 0..ph_count {
             let ph = elf.program_header(i).unwrap();
             if ph.get_type().unwrap() == xmas_elf::program::Type::Load {
-                let start_va: VirtAddr = (ph.virtual_addr() as usize).into();
-                let end_va: VirtAddr = ((ph.virtual_addr() + ph.mem_size()) as usize).into();
+                let start_addr = ph.virtual_addr() as usize;
+                let end_addr = (ph.virtual_addr() + ph.mem_size()) as usize;
+                let start_va: VirtAddr = start_addr.into();
+                let end_va: VirtAddr = end_addr.into();
+                // println!("[app_map] .{} [{:#x}, {:#x})", ph, start_addr, end_addr,);
                 let offset = start_va.0 - start_va.floor().0 * PAGE_SIZE;
                 let mut map_perm = MapPermission::U;
                 let ph_flags = ph.flags();
+                if head_va == 0 {
+                    head_va = start_va.0;
+                }
                 if ph_flags.is_read() {
                     map_perm |= MapPermission::R;
                 }
@@ -259,13 +276,25 @@ impl MemorySet {
                 }
                 let map_area = MapArea::new(start_va, end_va, MapType::Framed, map_perm);
                 max_end_vpn = map_area.vpn_range.get_end();
-                if offset != 0 {
-                    println!("[from_elf] may some bug here");
+
+                if offset == 0 {
+                    memory_set.push(
+                        map_area,
+                        Some(
+                            &elf.input
+                                [ph.offset() as usize..(ph.offset() + ph.file_size()) as usize],
+                        ),
+                    )
+                } else {
+                    memory_set.push_with_offset(
+                        map_area,
+                        offset,
+                        Some(
+                            &elf.input
+                                [ph.offset() as usize..(ph.offset() + ph.file_size()) as usize],
+                        ),
+                    );
                 }
-                memory_set.push(
-                    map_area,
-                    Some(&elf.input[ph.offset() as usize..(ph.offset() + ph.file_size()) as usize]),
-                );
             }
         }
         if elf.find_section_by_name(".interp").is_some() {
@@ -274,7 +303,7 @@ impl MemorySet {
         auxv.push(AuxHeader::new(AT_BASE, 0));
         auxv.push(AuxHeader::new(
             AT_PHDR,
-            0 + elf_header.pt2.ph_offset() as usize,
+            head_va + elf_header.pt2.ph_offset() as usize,
         ));
         let max_end_va: VirtAddr = max_end_vpn.into();
         let mut user_heap_base: usize = max_end_va.into();
@@ -669,31 +698,34 @@ impl MapArea {
     }
     pub fn map(&mut self, page_table: &mut PageTable) {
         for vpn in self.vpn_range {
-            println!("[memory_set] = {:#x}", vpn.0);
+            // println!("[memory_set] map vpn = {:#x}", vpn.0);
             self.map_one(page_table, vpn);
         }
     }
     pub fn unmap(&mut self, page_table: &mut PageTable) {
         for vpn in self.vpn_range {
+            // println!("[memory_set] unmap vpn = {:#x}", vpn.0);
             self.unmap_one(page_table, vpn);
         }
     }
     /// data: start-aligned but maybe with shorter length
     /// assume that all frames were cleared before
-    pub fn copy_data(&mut self, page_table: &mut PageTable, data: &[u8]) {
+    pub fn copy_data(&mut self, page_table: &mut PageTable, data: &[u8], offset: usize) {
         assert_eq!(self.map_type, MapType::Framed);
         let mut start: usize = 0;
+        let mut page_offset = offset;
         let mut current_vpn = self.vpn_range.get_start();
         let len = data.len();
         loop {
-            let src = &data[start..len.min(start + PAGE_SIZE)];
+            let src = &data[start..len.min(start + PAGE_SIZE - page_offset)];
             let dst = &mut page_table
                 .translate(current_vpn)
                 .unwrap()
                 .ppn()
-                .get_bytes_array()[..src.len()];
+                .get_bytes_array()[page_offset..(page_offset + src.len())];
             dst.copy_from_slice(src);
-            start += PAGE_SIZE;
+            start += PAGE_SIZE - page_offset;
+            page_offset = 0;
             if start >= len {
                 break;
             }

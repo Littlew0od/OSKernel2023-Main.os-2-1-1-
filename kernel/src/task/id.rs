@@ -148,10 +148,10 @@ impl TaskUserRes {
         // alloc user stack
         let ustack_top = ustack_top_from_id(self.ustack_top, self.tid);
         let ustack_bottom = ustack_top - USER_STACK_SIZE;
-        println!(
-            "[exec] alloc_user_res, ustack_bottom = {:#x}, ustack_top = {:#x}.",
-            ustack_bottom, ustack_top
-        );
+        // println!(
+        //     "[exec] alloc_user_res, ustack_bottom = {:#x}, ustack_top = {:#x}.",
+        //     ustack_bottom, ustack_top
+        // );
         process_inner.memory_set.insert_framed_area(
             ustack_bottom.into(),
             ustack_top.into(),
