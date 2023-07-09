@@ -69,12 +69,15 @@ pub fn sys_ppoll(
     sigmask: *const SignalFlags,
 ) -> isize {
     let token = current_user_token();
-
+    log!("[sys_ppoll] nfds = {}", nfds);
     // oldsig in kernel space
     let oldsig = Box::new(SignalFlags::empty());
     let raw_ptr = Box::into_raw(oldsig);
     if !sigmask.is_null() {
         sys_sigprocmask(SIG_SETMASK, sigmask as *mut u32, raw_ptr as *mut u32, true);
+    }
+    if tmo_p as usize != 0{
+        println!("[sys_ppoll] Time limited maybe is needed!")
     }
     let mut done = 0;
     loop {
@@ -84,7 +87,7 @@ pub fn sys_ppoll(
         for i in 0..nfds {
             let poll_fd = translated_refmut(token, unsafe { fds.add(i) });
             let fd = poll_fd.fd as usize;
-
+            tip!("[sys_ppoll] fd = {}", fd);
             match fd_table.get_ref(fd) {
                 Ok(file_descriptor) => {
                     let mut trigger = 0;

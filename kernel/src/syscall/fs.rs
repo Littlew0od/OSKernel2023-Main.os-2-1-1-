@@ -604,7 +604,7 @@ pub fn sys_sendfile(out_fd: usize, in_fd: usize, mut offset: *mut usize, count: 
         Ok(file_descriptor) => file_descriptor.clone(),
         Err(errno) => return errno,
     };
-    tip!("[sys_sendfile] out_fd: {}, in_fd: {}", out_fd, in_fd);
+    log!("[sys_sendfile] out_fd: {}, in_fd: {}, offset = {}, count = {:#x}", out_fd, in_fd, offset as usize, count);
     if !in_file.readable() || !out_file.writable() {
         return EBADF;
     }
@@ -638,6 +638,6 @@ pub fn sys_sendfile(out_fd: usize, in_fd: usize, mut offset: *mut usize, count: 
         write_size += out_file.write(None, buffer.as_slice());
         left_bytes -= read_size;
     }
-    info!("[sys_sendfile] written bytes: {}", write_size);
+    tip!("[sys_sendfile] written bytes: {}", write_size);
     write_size as isize
 }
