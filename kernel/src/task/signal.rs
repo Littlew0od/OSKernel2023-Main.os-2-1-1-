@@ -94,38 +94,3 @@ impl SignalFlags {
     }
 }
 
-pub fn sigprocmask(how: usize, set: *mut u32, old_set: *mut u32, kernelSpace: bool) -> isize {
-    let task = current_task().unwrap();
-    let mut inner = task.inner_exclusive_access();
-    let mut mask = inner.signal_mask;
-
-    let token = current_user_token();
-
-    if kernelSpace {
-        if old_set as usize != 0 {
-            unsafe {
-                *old_set = mask.bits();
-            }
-        }
-    } else {
-        if old_set as usize != 0 {
-            *translated_refmut(token, old_set) = mask.bits();
-        }
-    }
-
-    if set as usize != 0 {
-        let set = *translated_ref(token, set);
-        let set_flags = SignalFlags::from_bits(set).unwrap();
-        match how {
-            // SIG_BLOCK The set of blocked signals is the union of the current set and the set argument.
-            SIG_BLOCK => mask |= set_flags,
-            // SIG_UNBLOCK The signals in set are removed from the current set of blocked signals.
-            SIG_UNBLOCK => mask &= !set_flags,
-            // SIG_SETMASK The set of blocked signals is set to the argument set.
-            SIG_SETMASK => mask = set_flags,
-            _ => return EPERM,
-        }
-        inner.signal_mask = mask;
-    }
-    SUCCESS
-}
