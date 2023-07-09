@@ -5,6 +5,8 @@ use crate::mm::MPROCTECTPROT;
 //open_file
 use crate::mm::{translated_ref, translated_refmut, translated_str};
 use crate::sbi::shutdown;
+use crate::syscall::errno::ECHILD;
+use crate::task::block_current_and_run_next;
 use crate::task::current_task;
 use crate::task::{
     current_process, current_user_token, exit_current_and_run_next, pid2process,
@@ -127,13 +129,14 @@ pub fn sys_execve(path: *const u8, mut args: *const usize, mut envp: *const usiz
             }
         }
     }
-    // tip!(
-    //     "[exec] argv: {:?} /* {} vars */, envp: {:?} /* {} vars */",
-    //     args_vec,
-    //     args_vec.len(),
-    //     envp_vec,
-    //     envp_vec.len()
-    // );
+    tip!(
+        "[exec] path: {} argv: {:?} /* {} vars */, envp: {:?} /* {} vars */",
+        path,
+        args_vec,
+        args_vec.len(),
+        envp_vec,
+        envp_vec.len()
+    );
     let process = current_process();
     let working_inode = process
         .inner_exclusive_access()
@@ -192,9 +195,15 @@ bitflags! {
 /// If there is not a child process whose pid is same as given, return -1.
 /// Else if there is a child process but it is still running, return -2.
 /// We use loop to ensure that the corresponding process has ended
-pub fn sys_waitpid(pid: isize, exit_code_ptr: *mut i32) -> isize {
+pub fn sys_wait4(pid: isize, exit_code_ptr: *mut i32, option: u32, ru: usize) -> isize {
+    log!(
+        "[sys_waitpid] call wait4, option = {}, ru = {:#x}",
+        option,
+        ru
+    );
+    let option = WaitOption::from_bits(option).unwrap();
     loop {
-        tip!("[sys_waitpid] pid = {}", pid);
+        // tip!("[sys_waitpid] wait pid = {}", pid);
         let process = current_process();
         // find a child process
 
@@ -204,7 +213,7 @@ pub fn sys_waitpid(pid: isize, exit_code_ptr: *mut i32) -> isize {
             .iter()
             .any(|p| pid == -1 || pid as usize == p.getpid())
         {
-            return -1;
+            return ECHILD;
             // ---- release current PCB
         }
         let pair = inner.children.iter().enumerate().find(|(_, p)| {
@@ -228,7 +237,13 @@ pub fn sys_waitpid(pid: isize, exit_code_ptr: *mut i32) -> isize {
             // drop ProcessControlBlock and ProcessControlBlock to avoid mulit-use
             drop(inner);
             drop(process);
-            suspend_current_and_run_next();
+            if option.contains(WaitOption::WNOHANG) {
+                return SUCCESS;
+            } else {
+                suspend_current_and_run_next();
+                // block_current_and_run_next();
+                // log!("[sys_wait4] --resumed--");
+            }
         }
     }
     // ---- release current PCB automatically

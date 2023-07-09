@@ -21,11 +21,11 @@ use system::*;
 use thread::*;
 
 pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
-    println!(
-        "[kernel] syscall start, syscall_name: {}, syscall_id: {}",
-        syscall_name(syscall_id),
-        syscall_id,
-    );
+    // println!(
+    //     "[kernel] syscall start, syscall_name: {}, syscall_id: {}",
+    //     syscall_name(syscall_id),
+    //     syscall_id,
+    // );
     let ret = match syscall_id {
         SYSCALL_GETCWD => sys_getcwd(args[0] as *mut u8, args[1]),
         SYSCALL_DUP => sys_dup(args[0]),
@@ -109,7 +109,12 @@ pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
             args[5],
         ),
         SYSCALL_MPROTECT => sys_mprotect(args[0], args[1], args[2]),
-        SYSCALL_WAITPID => sys_waitpid(args[0] as isize, args[1] as *mut i32),
+        SYSCALL_WAIT4 => sys_wait4(
+            args[0] as isize,
+            args[1] as *mut i32,
+            args[2] as u32,
+            args[3],
+        ),
         SYSCALL_THREAD_CREATE => sys_thread_create(args[0], args[1]),
         SYSCALL_WAITTID => sys_waittid(args[0]) as isize,
         SYSCALL_MUTEX_CREATE => sys_mutex_create(args[0] == 1),
@@ -124,12 +129,12 @@ pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
         SYSCALL_SHUTDOWN => sys_shutdown(args[0] != 0),
         _ => panic!("Unsupported syscall_id: {}", syscall_id),
     };
-    tip!(
-        "[syscall] pid: {}, syscall_name: {}, syscall_id: {}, returned {:#x}",
-        sys_getpid(),
-        syscall_name(syscall_id),
-        syscall_id,
-        ret
-    );
+    // tip!(
+    //     "[syscall] pid: {}, syscall_name: {}, syscall_id: {}, returned {:#x}",
+    //     sys_getpid(),
+    //     syscall_name(syscall_id),
+    //     syscall_id,
+    //     ret
+    // );
     ret
 }

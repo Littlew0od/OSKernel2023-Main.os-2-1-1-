@@ -91,16 +91,19 @@ pub fn sys_ppoll(
                     if file_descriptor.file.hang_up() {
                         poll_fd.revents |= PollEvent::POLLHUP;
                         trigger = 1;
+                        tip!("[sys_ppoll] POLLHUP.");
                     }
                     if poll_fd.events.contains(PollEvent::POLLIN) && file_descriptor.file.r_ready()
                     {
                         poll_fd.revents |= PollEvent::POLLIN;
-                        break;
+                        trigger = 1;
+                        tip!("[sys_ppoll] POLLIN.");
                     }
                     if poll_fd.events.contains(PollEvent::POLLOUT) && file_descriptor.file.w_ready()
                     {
                         poll_fd.revents |= PollEvent::POLLOUT;
                         trigger = 1;
+                        tip!("[sys_ppoll] POLLOUT.");
                     }
                     done += trigger;
                 }

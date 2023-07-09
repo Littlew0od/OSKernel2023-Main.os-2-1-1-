@@ -44,7 +44,7 @@ pub const SYSCALL_CLONE: usize = 220;
 pub const SYSCALL_EXECVE: usize = 221;
 pub const SYSCALL_MMAP: usize = 222;
 pub const SYSCALL_MPROTECT: usize = 226;
-pub const SYSCALL_WAITPID: usize = 260;
+pub const SYSCALL_WAIT4: usize = 260;
 pub const SYSCALL_THREAD_CREATE: usize = 1000;
 pub const SYSCALL_WAITTID: usize = 1002;
 pub const SYSCALL_MUTEX_CREATE: usize = 1010;
@@ -97,7 +97,7 @@ pub fn syscall_name(id: usize) -> &'static str {
         SYSCALL_EXECVE => "execve",
         SYSCALL_MMAP => "mmap",
         SYSCALL_MPROTECT => "mprotect",
-        SYSCALL_WAITPID => "waitpid",
+        SYSCALL_WAIT4 => "wait4",
         SYSCALL_GETUID => "getuid",
         SYSCALL_SBRK => "maybe sbrk",
         SYSCALL_SIGPROMASK => "sigprocmask",

@@ -21,7 +21,7 @@ pub fn main() -> i32 {
 
 pub fn load_final2_test_cmds() -> Vec<String> {
     let mut cmds = Vec::new();
-    cmds.push(String::from("busybox sh ./busybox_testcode.sh")); 
+    cmds.push(String::from("./busybox sh ./busybox_testcode.sh")); 
     cmds
 }
 
