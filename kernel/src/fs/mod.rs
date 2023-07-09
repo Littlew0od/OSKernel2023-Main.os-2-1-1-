@@ -5,7 +5,6 @@ mod fat32;
 pub mod file_trait;
 mod filesystem;
 mod layout;
-mod stdio;
 #[cfg(feature = "swap")]
 pub mod swap;
 
@@ -30,7 +29,7 @@ use alloc::{
 };
 use lazy_static::*;
 use spin::Mutex;
-pub use stdio::{Stdin, Stdout};
+pub use dev::stdio::{Stdin, Stdout};
 pub use file_trait::File;
 
 lazy_static! {

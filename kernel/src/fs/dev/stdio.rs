@@ -1,5 +1,5 @@
 #![allow(unused)]
-use super::{DiskInodeType, File};
+use crate::fs::{File, DiskInodeType};
 use crate::sbi::console_getchar;
 use crate::task::suspend_current_and_run_next;
 use crate::{mm::UserBuffer, syscall::errno::ENOTDIR};

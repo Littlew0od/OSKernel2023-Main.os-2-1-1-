@@ -1,14 +1,19 @@
 mod config;
 pub mod errno;
 mod fs;
+mod ppoll;
 mod process;
 mod sync;
 mod system;
 mod thread;
 
-use crate::task::SignalAction;
+use crate::{
+    task::{SignalAction, SignalFlags},
+    timer::TimeSpec,
+};
 use config::*;
 use fs::*;
+use ppoll::*;
 pub use process::sys_getpid;
 use process::*;
 use sync::*;
@@ -16,11 +21,11 @@ use system::*;
 use thread::*;
 
 pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
-    // println!(
-    //     "[kernel] syscall start, syscall_name: {}, syscall_id: {}",
-    //     syscall_name(syscall_id),
-    //     syscall_id,
-    // );
+    println!(
+        "[kernel] syscall start, syscall_name: {}, syscall_id: {}",
+        syscall_name(syscall_id),
+        syscall_id,
+    );
     let ret = match syscall_id {
         SYSCALL_GETCWD => sys_getcwd(args[0] as *mut u8, args[1]),
         SYSCALL_DUP => sys_dup(args[0]),
@@ -51,6 +56,12 @@ pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
         SYSCALL_READ => sys_read(args[0], args[1] as *const u8, args[2]),
         SYSCALL_WRITE => sys_write(args[0], args[1] as *const u8, args[2]),
         SYSCALL_SENDFILE => sys_sendfile(args[0], args[1], args[2] as *mut usize, args[3]),
+        SYSCALL_PPOLL => sys_ppoll(
+            args[0] as *mut PollFd,
+            args[1],
+            args[2] as *const TimeSpec,
+            args[3] as *const SignalFlags,
+        ),
         SYSCALL_FSTATAT => sys_fstatat(
             args[0],
             args[1] as *const u8,
@@ -69,16 +80,18 @@ pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
             args[1] as *const SignalAction,
             args[2] as *mut SignalAction,
         ),
-        SYSCALL_SIGPROMASK => sys_sigprocmask(args[0], args[1] as *mut u32, args[2] as *mut u32),
+        SYSCALL_SIGPROMASK => {
+            sys_sigprocmask(args[0], args[1] as *mut u32, args[2] as *mut u32, false)
+        }
         SYSCALL_SIGRETURN => sys_sigreturn(),
         SYSCALL_TIMES => sys_get_process_time(args[0] as *mut u64),
         SYSCALL_UNAME => sys_uname(args[0] as *mut u8),
         SYSCALL_GET_TIME => sys_get_time(args[0] as *mut u64),
         SYSCALL_GETPID => sys_getpid(),
         SYSCALL_GETPPID => sys_getppid(),
-        SYSCALL_GET_UID => sys_getuid(),
-        SYSCALL_GET_EUID => sys_geteuid(),
-        SYSCALL_GET_TID => sys_gettid(),
+        SYSCALL_GETUID => sys_getuid(),
+        SYSCALL_GETEUID => sys_geteuid(),
+        SYSCALL_GETTID => sys_gettid(),
         SYSCALL_BRK => sys_brk(args[0]),
         SYSCALL_MUNMAP => sys_munmap(args[0], args[1]),
         SYSCALL_CLONE => sys_fork(args[0], args[1], args[2], args[3], args[4]),
@@ -98,7 +111,6 @@ pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
         SYSCALL_MPROTECT => sys_mprotect(args[0], args[1], args[2]),
         SYSCALL_WAITPID => sys_waitpid(args[0] as isize, args[1] as *mut i32),
         SYSCALL_THREAD_CREATE => sys_thread_create(args[0], args[1]),
-        SYSCALL_GETTID => sys_gettid(),
         SYSCALL_WAITTID => sys_waittid(args[0]) as isize,
         SYSCALL_MUTEX_CREATE => sys_mutex_create(args[0] == 1),
         SYSCALL_MUTEX_LOCK => sys_mutex_lock(args[0]),
@@ -112,12 +124,12 @@ pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
         SYSCALL_SHUTDOWN => sys_shutdown(args[0] != 0),
         _ => panic!("Unsupported syscall_id: {}", syscall_id),
     };
-    // tip!(
-    //     "[syscall] pid: {}, syscall_name: {}, syscall_id: {}, returned {:#x}",
-    //     sys_getpid(),
-    //     syscall_name(syscall_id),
-    //     syscall_id,
-    //     ret
-    // );
+    tip!(
+        "[syscall] pid: {}, syscall_name: {}, syscall_id: {}, returned {:#x}",
+        sys_getpid(),
+        syscall_name(syscall_id),
+        syscall_id,
+        ret
+    );
     ret
 }

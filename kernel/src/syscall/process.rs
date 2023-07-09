@@ -194,6 +194,7 @@ bitflags! {
 /// We use loop to ensure that the corresponding process has ended
 pub fn sys_waitpid(pid: isize, exit_code_ptr: *mut i32) -> isize {
     loop {
+        tip!("[sys_waitpid] pid = {}", pid);
         let process = current_process();
         // find a child process
 
@@ -268,16 +269,25 @@ pub fn sys_munmap(start: usize, len: usize) -> isize {
         .munmap(start, len)
 }
 
-pub fn sys_sigprocmask(how: usize, set: *mut u32, old_set: *mut u32) -> isize {
+pub fn sys_sigprocmask(how: usize, set: *mut u32, old_set: *mut u32, kernelSpace: bool) -> isize {
     let task = current_task().unwrap();
     let mut inner = task.inner_exclusive_access();
     let mut mask = inner.signal_mask;
 
     let token = current_user_token();
 
-    if old_set as usize != 0 {
-        *translated_refmut(token, old_set) = mask.bits();
+    if kernelSpace {
+        if old_set as usize != 0 {
+            unsafe {
+                *old_set = mask.bits();
+            }
+        }
+    } else {
+        if old_set as usize != 0 {
+            *translated_refmut(token, old_set) = mask.bits();
+        }
     }
+
     if set as usize != 0 {
         let set = *translated_ref(token, set);
         let set_flags = SignalFlags::from_bits(set).unwrap();

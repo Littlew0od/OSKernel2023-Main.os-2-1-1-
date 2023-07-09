@@ -3,6 +3,7 @@ pub mod pipe;
 pub mod zero;
 pub mod socket;
 pub mod hwclock;
+pub mod stdio;
 
 #[macro_export]
 macro_rules! makedev {

@@ -15,6 +15,7 @@ use user_lib::*;
 pub fn main() -> i32 {
     println!("[user_shell] start test!");
     final2_test();
+    println!("[user_shell] finish test!");
     shutdown(false)
 }
 
