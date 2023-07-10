@@ -129,14 +129,14 @@ pub fn sys_execve(path: *const u8, mut args: *const usize, mut envp: *const usiz
             }
         }
     }
-    tip!(
-        "[exec] path: {} argv: {:?} /* {} vars */, envp: {:?} /* {} vars */",
-        path,
-        args_vec,
-        args_vec.len(),
-        envp_vec,
-        envp_vec.len()
-    );
+    // log!(
+    //     "[exec] path: {} argv: {:?} /* {} vars */, envp: {:?} /* {} vars */",
+    //     path,
+    //     args_vec,
+    //     args_vec.len(),
+    //     envp_vec,
+    //     envp_vec.len()
+    // );
     let process = current_process();
     let working_inode = process
         .inner_exclusive_access()
@@ -196,11 +196,12 @@ bitflags! {
 /// Else if there is a child process but it is still running, return -2.
 /// We use loop to ensure that the corresponding process has ended
 pub fn sys_wait4(pid: isize, exit_code_ptr: *mut i32, option: u32, ru: usize) -> isize {
-    log!(
-        "[sys_waitpid] call wait4, option = {}, ru = {:#x}",
-        option,
-        ru
-    );
+    // log!(
+    //     "[sys_waitpid] call wait4, option = {}, ru = {:#x}, pid = {}",
+    //     option,
+    //     ru,
+    //     pid,
+    // );
     let option = WaitOption::from_bits(option).unwrap();
     loop {
         // tip!("[sys_waitpid] wait pid = {}", pid);
@@ -330,8 +331,8 @@ pub fn sys_sigreturn() -> isize {
     SUCCESS
 }
 
-fn check_sigaction_error(signal: SignalFlags, action: usize) -> bool {
-    if action == 0 || signal == SignalFlags::SIGKILL || signal == SignalFlags::SIGSTOP {
+fn check_sigaction_error(signal: SignalFlags) -> bool {
+    if signal == SignalFlags::SIGKILL || signal == SignalFlags::SIGSTOP {
         true
     } else {
         false
@@ -344,7 +345,7 @@ pub fn sys_sigaction(
     old_action: *mut SignalAction,
 ) -> isize {
     // tip!(
-    //     "[sys_sigaction] signum = {:#x}, action = {:#x}, old_action = {:#x}",
+    //     "[sys_sigaction] signum = {:#x}, action = {:X}, old_action = {:X}",
     //     signum,
     //     action as usize,
     //     old_action as usize
@@ -353,13 +354,15 @@ pub fn sys_sigaction(
     let process = current_process();
     let mut inner_process = process.inner_exclusive_access();
     if signum > MAX_SIG {
+        log!("[sys_sigaction] error signum");
         return EPERM;
     }
     if old_action as usize != 0 {
         *translated_refmut(token, old_action) = inner_process.signal_actions.table[signum].clone();
     }
     if let Some(flag) = SignalFlags::from_bits(1 << signum) {
-        if check_sigaction_error(flag, action as usize) {
+        if check_sigaction_error(flag) {
+            log!("[sys_sigaction] check_sigaction_error");
             return EPERM;
         }
         let old_kernel_action = inner_process.signal_actions.table[signum];
@@ -371,8 +374,10 @@ pub fn sys_sigaction(
                 ref_old_action.sa_handler = old_kernel_action.sa_handler;
             }
         }
-        let ref_action = translated_ref(token, action);
-        inner_process.signal_actions.table[signum as usize] = *ref_action;
+        if action as usize != 0{
+            let ref_action = translated_ref(token, action);
+            inner_process.signal_actions.table[signum as usize] = *ref_action;
+        }
         return SUCCESS;
     } else {
         println!("Undefined SignalFlags");

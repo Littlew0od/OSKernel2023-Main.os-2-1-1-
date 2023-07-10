@@ -50,6 +50,7 @@ pub fn sys_getcwd(buf: *mut u8, size: usize) -> isize {
 }
 
 pub fn sys_read(fd: usize, buf: *const u8, len: usize) -> isize {
+    // log!("[sys_read] read_fd = {}, count = {:#x}.", fd, len);
     let token = current_user_token();
     let process = current_process();
     let inner = process.inner_exclusive_access();
@@ -112,6 +113,7 @@ pub fn sys_dup(oldfd: usize) -> isize {
 }
 
 pub fn sys_dup3(oldfd: usize, newfd: usize, flags: u32) -> isize {
+    // tip!("[sys_dup3] old_fd = {}, new_fd = {}", oldfd, newfd);
     if oldfd == newfd {
         return EINVAL;
     }
@@ -241,7 +243,7 @@ pub fn sys_pipe(pipe: *mut u32) -> isize {
     };
     *translated_refmut(token, pipe) = read_fd as u32;
     *translated_refmut(token, unsafe { pipe.add(1) }) = write_fd as u32;
-    tip!("[sys_pipe] read_fd = {}, write_fd = {}", read_fd, write_fd);
+    // tip!("[sys_pipe] read_fd = {}, write_fd = {}", read_fd, write_fd);
     SUCCESS
 }
 
@@ -604,7 +606,7 @@ pub fn sys_sendfile(out_fd: usize, in_fd: usize, mut offset: *mut usize, count: 
         Ok(file_descriptor) => file_descriptor.clone(),
         Err(errno) => return errno,
     };
-    log!("[sys_sendfile] out_fd: {}, in_fd: {}, offset = {}, count = {:#x}", out_fd, in_fd, offset as usize, count);
+    // log!("[sys_sendfile] out_fd: {}, in_fd: {}, offset = {}, count = {:#x}", out_fd, in_fd, offset as usize, count);
     if !in_file.readable() || !out_file.writable() {
         return EBADF;
     }
@@ -638,6 +640,6 @@ pub fn sys_sendfile(out_fd: usize, in_fd: usize, mut offset: *mut usize, count: 
         write_size += out_file.write(None, buffer.as_slice());
         left_bytes -= read_size;
     }
-    tip!("[sys_sendfile] written bytes: {}", write_size);
+    // tip!("[sys_sendfile] written bytes: {}", write_size);
     write_size as isize
 }

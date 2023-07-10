@@ -69,7 +69,7 @@ pub fn sys_ppoll(
     sigmask: *const SignalFlags,
 ) -> isize {
     let token = current_user_token();
-    log!("[sys_ppoll] nfds = {}", nfds);
+    // log!("[sys_ppoll] nfds = {}", nfds);
     // oldsig in kernel space
     let oldsig = Box::new(SignalFlags::empty());
     let raw_ptr = Box::into_raw(oldsig);
@@ -87,26 +87,22 @@ pub fn sys_ppoll(
         for i in 0..nfds {
             let poll_fd = translated_refmut(token, unsafe { fds.add(i) });
             let fd = poll_fd.fd as usize;
-            tip!("[sys_ppoll] fd = {}", fd);
             match fd_table.get_ref(fd) {
                 Ok(file_descriptor) => {
                     let mut trigger = 0;
                     if file_descriptor.file.hang_up() {
                         poll_fd.revents |= PollEvent::POLLHUP;
                         trigger = 1;
-                        tip!("[sys_ppoll] POLLHUP.");
                     }
                     if poll_fd.events.contains(PollEvent::POLLIN) && file_descriptor.file.r_ready()
                     {
                         poll_fd.revents |= PollEvent::POLLIN;
                         trigger = 1;
-                        tip!("[sys_ppoll] POLLIN.");
                     }
                     if poll_fd.events.contains(PollEvent::POLLOUT) && file_descriptor.file.w_ready()
                     {
                         poll_fd.revents |= PollEvent::POLLOUT;
                         trigger = 1;
-                        tip!("[sys_ppoll] POLLOUT.");
                     }
                     done += trigger;
                 }
@@ -128,5 +124,5 @@ pub fn sys_ppoll(
     unsafe {
         let _ = Box::from_raw(raw_ptr);
     }
-    SUCCESS
+    done
 }

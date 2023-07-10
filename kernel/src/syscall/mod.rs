@@ -137,14 +137,18 @@ pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
     //     ret
     // );
 
-    if [SYSCALL_WRITE, SYSCALL_READ, SYSCALL_PPOLL, SYSCALL_SENDFILE, SYSCALL_PIPE].contains(&syscall_id) {
-        tip!(
-            "[syscall] pid: {}, syscall_name: {}, syscall_id: {}, returned {:#x}",
-            sys_getpid(),
-            syscall_name(syscall_id),
-            syscall_id,
-            ret
-        );
-    }
+    // if [
+    //     SYSCALL_SIGACTION
+    // ]
+    // .contains(&syscall_id)
+    // {
+    //     tip!(
+    //         "[syscall] pid: {}, syscall_name: {}, syscall_id: {}, returned {:#x}",
+    //         sys_getpid(),
+    //         syscall_name(syscall_id),
+    //         syscall_id,
+    //         ret
+    //     );
+    // }
     ret
 }

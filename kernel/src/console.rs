@@ -44,3 +44,10 @@ macro_rules! tip {
     }
 }
 
+#[macro_export]
+macro_rules! warning {
+    ($fmt: literal $(, $($arg: tt)+)?) => {
+        $crate::console::print(format_args!(concat!("\x1B[33m", $fmt, "\x1B[0m\n") $(, $($arg)+)?))
+    }
+}
+
