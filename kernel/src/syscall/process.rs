@@ -13,6 +13,10 @@ use crate::task::{
     suspend_current_and_run_next, SignalAction, SignalFlags, MAX_SIG, SIG_BLOCK, SIG_SETMASK,
     SIG_UNBLOCK,
 };
+use crate::timer::TimeSpec;
+use crate::timer::TimeVal;
+use crate::timer::Times;
+use crate::timer::CLOCK_REALTIME;
 use crate::timer::{get_time_ns, get_time_sec, get_time_us};
 use alloc::string::String;
 use alloc::sync::Arc;
@@ -36,26 +40,42 @@ pub fn sys_yield() -> isize {
     0
 }
 
-///fake
-pub fn sys_get_process_time(times: *mut u64) -> isize {
+/// False implementation, but the required struct is ready.
+pub fn sys_times(buf: *mut Times) -> isize {
+    log!("[sys_times] The return value is not exact!");
     let token = current_user_token();
-    let usec = get_time_us() as u64;
-
-    *translated_refmut(token, times) = usec;
-    *translated_refmut(token, unsafe { times.add(1) }) = usec;
-    *translated_refmut(token, unsafe { times.add(2) }) = usec;
-    *translated_refmut(token, unsafe { times.add(3) }) = usec;
-
-    usec as isize
+    let process = current_process();
+    let inner = process.inner_exclusive_access();
+    let mut times = inner.tms;
+    let usec = get_time_us();
+    times.tms_stime = usec;
+    times.tms_utime = usec;
+    times.tms_cstime = usec;
+    times.tms_cutime = usec;
+    *translated_refmut(token, buf) = times;
+    SUCCESS
 }
 
-pub fn sys_get_time(time_return: *mut u64) -> isize {
+pub fn sys_get_time_day(tr: *mut TimeVal) -> isize {
     let token = current_user_token();
-    if time_return as usize != 0 {
-        *translated_refmut(token, time_return) = get_time_sec() as u64;
-        *translated_refmut(token, unsafe { time_return.add(1) }) = get_time_ns() as u64;
+    if tr as usize != 0 {
+        let timeval = TimeVal::now();
+        *translated_refmut(token, tr) = timeval;
     }
-    0
+    SUCCESS
+}
+
+pub fn sys_clock_gettime(clk_id: usize, tp: *mut TimeSpec) -> isize {
+    if clk_id == CLOCK_REALTIME {
+        if !tp.is_null() {
+            let token = current_user_token();
+            let timespec = TimeSpec::now();
+            *translated_refmut(token, tp) = timespec;
+        }
+    } else {
+        log!("[sys_clock_gettime] Unsupport clock type!");
+    }
+    SUCCESS
 }
 
 pub fn sys_getpid() -> isize {
@@ -374,7 +394,7 @@ pub fn sys_sigaction(
                 ref_old_action.sa_handler = old_kernel_action.sa_handler;
             }
         }
-        if action as usize != 0{
+        if action as usize != 0 {
             let ref_action = translated_ref(token, action);
             inner_process.signal_actions.table[signum as usize] = *ref_action;
         }

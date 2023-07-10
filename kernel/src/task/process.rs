@@ -9,6 +9,7 @@ use crate::fs::{File, Stdin, Stdout};
 use crate::mm::{translated_refmut, AuxHeader, MemorySet, PageTable, VirtAddr, KERNEL_SPACE};
 use crate::sync::{Condvar, Mutex, Semaphore, UPSafeCell};
 use crate::syscall::errno::EPERM;
+use crate::timer::Times;
 use crate::trap::{trap_handler, TrapContext};
 use alloc::string::String;
 use alloc::sync::{Arc, Weak};
@@ -48,6 +49,8 @@ pub struct ProcessControlBlockInner {
     pub heap_end: VirtAddr,
     // Signal actions
     pub signal_actions: SignalActions,
+    // for times syscall
+    pub tms: Times,
 }
 
 impl ProcessControlBlockInner {
@@ -161,6 +164,7 @@ impl ProcessControlBlock {
                     heap_base: uheap_base.into(),
                     heap_end: uheap_base.into(),
                     signal_actions: SignalActions::default(),
+                    tms: Times::new(),
                 })
             },
         });
@@ -288,6 +292,7 @@ impl ProcessControlBlock {
                     heap_base: parent.heap_base,
                     heap_end: parent.heap_base,
                     signal_actions: SignalActions::default(),
+                    tms: Times::new(),
                 })
             },
         });

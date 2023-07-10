@@ -9,7 +9,7 @@ mod thread;
 
 use crate::{
     task::{SignalAction, SignalFlags},
-    timer::TimeSpec,
+    timer::{TimeSpec, Times},
 };
 use config::*;
 use fs::*;
@@ -73,6 +73,7 @@ pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
         SYSCALL_EXIT_GROUP => sys_exit(args[0] as i32),
         SYSCALL_SET_TID_ADDRESS => sys_set_tid_address(args[0]),
         SYSCALL_SLEEP => sys_sleep(args[0] as *const u64, args[1] as *mut u64),
+        SYSCALL_CLOCK_GETTIME => sys_clock_gettime(args[0], args[1] as *mut TimeSpec),
         SYSCALL_YIELD => sys_yield(),
         SYSCALL_KILL => sys_kill(args[0], args[1] as u32),
         SYSCALL_SIGACTION => sys_sigaction(
@@ -84,9 +85,10 @@ pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
             sys_sigprocmask(args[0], args[1] as *mut u32, args[2] as *mut u32, false)
         }
         SYSCALL_SIGRETURN => sys_sigreturn(),
-        SYSCALL_TIMES => sys_get_process_time(args[0] as *mut u64),
+        // SYSCALL_TIMES => sys_get_process_time(args[0] as *mut u64),
+        SYSCALL_TIMES => sys_times(args[0] as *mut Times),
         SYSCALL_UNAME => sys_uname(args[0] as *mut u8),
-        SYSCALL_GET_TIME => sys_get_time(args[0] as *mut u64),
+        SYSCALL_GET_TIME_DAY => sys_get_time_day(args[0] as *mut crate::timer::TimeVal),
         SYSCALL_GETPID => sys_getpid(),
         SYSCALL_GETPPID => sys_getppid(),
         SYSCALL_GETUID => sys_getuid(),

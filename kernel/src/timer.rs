@@ -14,7 +14,6 @@ use riscv::register::time;
 // pub const TICKS_PER_SEC: usize = 25;
 const TICKS_PER_SEC: usize = 100;
 
-
 pub const MSEC_PER_SEC: usize = 1000;
 
 pub const USEC_PER_SEC: usize = 1_000_000;
@@ -23,6 +22,20 @@ pub const USEC_PER_MSEC: usize = 1_000;
 pub const NSEC_PER_SEC: usize = 1_000_000_000;
 pub const NSEC_PER_MSEC: usize = 1_000_000;
 pub const NSEC_PER_USEC: usize = 1_000;
+
+/*
+ * The IDs of the various system clocks (for POSIX.1b interval timers):
+ */
+pub const CLOCK_REALTIME: usize = 0;
+pub const CLOCK_MONOTONIC: usize = 1;
+pub const CLOCK_PROCESS_CPUTIME_ID: usize = 2;
+pub const CLOCK_THREAD_CPUTIME_ID: usize = 3;
+pub const CLOCK_MONOTONIC_RAW: usize = 4;
+pub const CLOCK_REALTIME_COARSE: usize = 5;
+pub const CLOCK_MONOTONIC_COARSE: usize = 6;
+pub const CLOCK_BOOTTIME: usize = 7;
+pub const CLOCK_REALTIME_ALARM: usize = 8;
+pub const CLOCK_BOOTTIME_ALARM: usize = 9;
 
 /// Return current time measured by ticks, which is NOT divided by frequency.
 pub fn get_time() -> usize {
@@ -107,7 +120,7 @@ impl Ord for TimeSpec {
     fn cmp(&self, other: &Self) -> Ordering {
         match self.tv_sec.cmp(&other.tv_sec) {
             Ordering::Less => Ordering::Less,
-            Ordering::Equal => { self.tv_nsec.cmp(&other.tv_nsec) }
+            Ordering::Equal => self.tv_nsec.cmp(&other.tv_nsec),
             Ordering::Greater => Ordering::Greater,
         }
     }
@@ -256,7 +269,7 @@ impl Ord for TimeVal {
     fn cmp(&self, other: &Self) -> Ordering {
         match self.tv_sec.cmp(&other.tv_sec) {
             Ordering::Less => Ordering::Less,
-            Ordering::Equal => { self.tv_usec.cmp(&other.tv_usec) }
+            Ordering::Equal => self.tv_usec.cmp(&other.tv_usec),
             Ordering::Greater => Ordering::Greater,
         }
     }
@@ -301,11 +314,75 @@ pub struct Times {
     pub tms_cstime: usize,
 }
 
+impl Times {
+    pub fn new() -> Self {
+        Self {
+            tms_utime: 0,
+            tms_stime: 0,
+            tms_cutime: 0,
+            tms_cstime: 0,
+        }
+    }
+    pub fn create(
+        tms_utime: usize,
+        tms_stime: usize,
+        tms_cutime: usize,
+        tms_cstime: usize,
+    ) -> Self {
+        Self {
+            tms_utime,
+            tms_stime,
+            tms_cutime,
+            tms_cstime,
+        }
+    }
+}
+
+impl Add for Times {
+    type Output = Self;
+
+    fn add(self, other: Self) -> Self {
+        let mut tms_utime = self.tms_utime + other.tms_utime;
+        let mut tms_stime = self.tms_stime + other.tms_stime;
+        let mut tms_cutime = self.tms_cutime + other.tms_cutime;
+        let mut tms_cstime = self.tms_cstime + other.tms_cstime;
+        Self {
+            tms_utime,
+            tms_stime,
+            tms_cutime,
+            tms_cstime,
+        }
+    }
+}
+
+impl Sub for Times {
+    type Output = Self;
+
+    fn sub(self, other: Self) -> Self {
+        if self.tms_utime < other.tms_utime
+            || self.tms_stime < other.tms_stime
+            || self.tms_cutime < other.tms_cutime
+            || self.tms_cstime < other.tms_cstime
+        {
+            return Times::new();
+        }
+        let mut tms_utime = self.tms_utime + other.tms_utime;
+        let mut tms_stime = self.tms_stime + other.tms_stime;
+        let mut tms_cutime = self.tms_cutime + other.tms_cutime;
+        let mut tms_cstime = self.tms_cstime + other.tms_cstime;
+        Self {
+            tms_utime,
+            tms_stime,
+            tms_cutime,
+            tms_cstime,
+        }
+    }
+}
+
 pub enum TimeRange {
     TimeSpec(TimeSpec),
     TimeVal(TimeVal),
 }
-
 
 pub struct TimerCondVar {
     pub expire_ms: usize,
