@@ -703,3 +703,53 @@ pub fn sys_sendfile(out_fd: usize, in_fd: usize, mut offset: *mut usize, count: 
 pub fn sys_ioctl(fd: usize, cmd: usize, arg: usize) -> isize {
     ENOTTY
 }
+
+bitflags! {
+    pub struct FaccessatMode: u32 {
+        const F_OK = 0;
+        const R_OK = 4;
+        const W_OK = 2;
+        const X_OK = 1;
+    }
+    pub struct FaccessatFlags: u32 {
+        const AT_SYMLINK_NOFOLLOW = 0x100;
+        const AT_EACCESS = 0x200;
+    }
+}
+
+/// All existing files can be accessed.
+pub fn sys_faccessat2(dirfd: usize, pathname: *const u8, mode: u32, flags: u32) -> isize {
+    let token = current_user_token();
+    let pathname = translated_str(token, pathname);
+    let process = current_process();
+    let inner = process.inner_exclusive_access();
+    let fd_table = inner.fd_table.lock();
+
+    let mode = match FaccessatMode::from_bits(mode) {
+        Some(mode) => mode,
+        None => {
+            log!("[sys_faccessat2] unknown mode");
+            return EINVAL;
+        }
+    };
+    let flags = match FaccessatFlags::from_bits(flags) {
+        Some(flags) => flags,
+        None => {
+            log!("[sys_faccessat2] unknown flags");
+            return EINVAL;
+        }
+    };
+
+    let file_descriptor = match dirfd {
+        AT_FDCWD => inner.work_path.lock().working_inode.as_ref().clone(),
+        fd => match fd_table.get_ref(fd) {
+            Ok(file_descriptor) => file_descriptor.clone(),
+            Err(errno) => return errno,
+        },
+    };
+
+    match file_descriptor.open(pathname.as_str(), OpenFlags::O_RDONLY, false) {
+        Ok(_) => SUCCESS,
+        Err(errno) => errno,
+    }
+}

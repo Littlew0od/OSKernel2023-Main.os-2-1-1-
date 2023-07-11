@@ -256,7 +256,7 @@ impl UserBuffer {
     pub fn write_at(&mut self, offset: usize, buf: &[u8]) -> isize {
         assert!(!self.buffers.is_empty());
         if offset + buf.len() > self.len() {
-            println!("[page_table] function write_at: wrong size, offset = {}, buf.len() = {}, self.len() = {}",offset, buf.len(), self.len());
+            // println!("[page_table] function write_at: wrong size, offset = {}, buf.len() = {}, self.len() = {}",offset, buf.len(), self.len());
             panic!("[page_table] function write_at: wrong size");
         }
         let len = (self.len() - offset).min(buf.len());
@@ -280,7 +280,7 @@ impl UserBuffer {
                 }
             } else {
                 // We don't need to tell if the current subbuffer is lagging behind the destination buffer,
-                // because the function has already returned
+                // because at that time the function has already returned
                 for index in 0..sub_buffer_len {
                     (*sub_buff)[index] = buf[offset_buf];
                     offset_buf += 1;

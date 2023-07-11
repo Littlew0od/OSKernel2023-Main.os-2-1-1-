@@ -6,6 +6,7 @@ use crate::mm::{translated_byte_buffer, UserBuffer};
 use crate::syscall::errno::EPERM;
 use crate::syscall::syslog::*;
 use crate::task::current_user_token;
+use crate::timer::get_time_sec;
 
 use super::errno::SUCCESS;
 
@@ -89,4 +90,55 @@ pub fn sys_syslog(type_: usize, bufp: *mut u8, len: usize) -> isize {
             EPERM
         }
     }
+}
+
+#[repr(C)]
+pub struct SysInfo {
+    uptime: isize,
+    loads: [usize; 3],
+    total_ram: usize,
+    free_ram: usize,
+    shared_ram: usize,
+    buffer_ram: usize,
+    total_swap: usize,
+    free_swap: usize,
+    procs: u16,
+    total_high: usize,
+    free_high: usize,
+    mem_unit: u32,
+    _f: [u8; 20 - 2 * size_of::<usize>() - size_of::<u32>()],
+}
+
+impl SysInfo {
+    pub fn new() -> Self {
+        extern "C" {
+            fn BASE_ADDRESS();
+        }
+        Self {
+            uptime: get_time_sec() as isize,
+            // Use only current sample (as average) to evaluate
+            loads: [1092, 218, 72],
+            total_ram: crate::config::MEMORY_END - BASE_ADDRESS as usize,
+            free_ram: 0x1000000,
+            shared_ram: 1,
+            buffer_ram: 1,
+            total_swap: 0,
+            free_swap: 0,
+            procs: 1,
+            total_high: 0,
+            free_high: 0,
+            mem_unit: 1,
+            _f: [0; 20 - 2 * size_of::<usize>() - size_of::<u32>()],
+        }
+    }
+    pub fn as_bytes(&self) -> &[u8] {
+        unsafe { from_raw_parts(self as *const _ as *const u8, size_of::<SysInfo>()) }
+    }
+}
+
+pub fn sys_sysinfo(buf: *mut u8) -> isize {
+    let token = current_user_token();
+    let mut user_buf = UserBuffer::new(translated_byte_buffer(token, buf, size_of::<SysInfo>()));
+    user_buf.write(SysInfo::new().as_bytes());
+    SUCCESS
 }
