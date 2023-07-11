@@ -24,6 +24,7 @@ pub const SYSCALL_SENDFILE: usize = 71;
 pub const SYSCALL_PPOLL: usize = 73;
 pub const SYSCALL_FSTATAT: usize = 79;
 pub const SYSCALL_FSTAT: usize = 80;
+pub const SYSCALL_UTIMENSAT: usize = 88;
 pub const SYSCALL_EXIT: usize = 93;
 pub const SYSCALL_EXIT_GROUP: usize = 94;
 pub const SYSCALL_SET_TID_ADDRESS: usize = 96;
@@ -124,6 +125,7 @@ pub fn syscall_name(id: usize) -> &'static str {
         SYSCALL_GETDENTS64 => "getdents64",
         SYSCALL_FACCESSAT => "faccessat",
         SYSCALL_SYSINFO => "sysinfo",
+        SYSCALL_UTIMENSAT =>"utimensat",
         // non-standard
         SYSCALL_SHUTDOWN => "shutdown",
         _ => "unknown",

@@ -9,6 +9,7 @@ use crate::syscall::process;
 // translated_byte_buffer_append_to_existing_vec,copy_from_user, try_get_from_user,
 //copy_from_user_array,copy_to_user, copy_to_user_array, copy_to_user_string,
 use crate::task::{current_process, current_user_token};
+use crate::timer::TimeSpec;
 // use crate::timer::TimeSpec;
 use alloc::boxed::Box;
 use alloc::string::String;
@@ -82,8 +83,34 @@ struct IOVec {
 }
 
 pub fn sys_readv(fd: usize, iov: usize, iovcnt: usize) -> isize {
-    todo!();
-    EPERM
+    let token = current_user_token();
+    let process = current_process();
+    let inner = process.inner_exclusive_access();
+    let fd_table = inner.fd_table.lock();
+
+    let file_descriptor = match fd_table.get_ref(fd) {
+        Ok(file_descriptor) => file_descriptor.clone(),
+        Err(errno) => return errno,
+    };
+    if !file_descriptor.readable() {
+        return EBADF;
+    }
+    let mut read_size = 0;
+    for i in 0..iovcnt {
+        read_size += file_descriptor.read_user(
+            None,
+            UserBuffer::new({
+                let iov_ref = translated_ref(
+                    token,
+                    (iov + i * core::mem::size_of::<IOVec>()) as *const IOVec,
+                );
+                let buf =
+                    unsafe { translated_byte_buffer(token, iov_ref.iov_base, iov_ref.iov_len) };
+                buf
+            }),
+        )
+    }
+    read_size as isize
 }
 
 pub fn sys_write(fd: usize, buf: *const u8, len: usize) -> isize {
@@ -752,4 +779,13 @@ pub fn sys_faccessat2(dirfd: usize, pathname: *const u8, mode: u32, flags: u32) 
         Ok(_) => SUCCESS,
         Err(errno) => errno,
     }
+}
+
+pub fn sys_utimensat(
+    dirfd: usize,
+    pathname: *const u8,
+    times: *const [TimeSpec; 2],
+    flags: isize,
+) -> isize {
+    SUCCESS
 }
