@@ -2,7 +2,8 @@
 // use crate::fs::poll::{ppoll, pselect, FdSet, PollFd};
 use crate::fs::*;
 use crate::mm::{
-    translated_byte_buffer, translated_refmut, translated_str, MapPermission, UserBuffer, VirtAddr,
+    translated_byte_buffer, translated_ref, translated_refmut, translated_str, MapPermission,
+    UserBuffer, VirtAddr,
 };
 use crate::syscall::process;
 // translated_byte_buffer_append_to_existing_vec,copy_from_user, try_get_from_user,
@@ -73,6 +74,18 @@ pub fn sys_read(fd: usize, buf: *const u8, len: usize) -> isize {
     ) as isize
 }
 
+#[repr(C)]
+#[derive(Clone, Copy)]
+struct IOVec {
+    iov_base: *const u8, /* Starting address */
+    iov_len: usize,      /* Number of bytes to transfer */
+}
+
+pub fn sys_readv(fd: usize, iov: usize, iovcnt: usize) -> isize {
+    todo!();
+    EPERM
+}
+
 pub fn sys_write(fd: usize, buf: *const u8, len: usize) -> isize {
     let token = current_user_token();
     let process = current_process();
@@ -94,6 +107,38 @@ pub fn sys_write(fd: usize, buf: *const u8, len: usize) -> isize {
         None,
         UserBuffer::new(translated_byte_buffer(token, buf, len)),
     );
+    write_size as isize
+}
+
+pub fn sys_writev(fd: usize, iov: usize, iovcnt: usize) -> isize {
+    let token = current_user_token();
+    let process = current_process();
+    let inner = process.inner_exclusive_access();
+    let fd_table = inner.fd_table.lock();
+
+    let file_descriptor = match fd_table.get_ref(fd) {
+        Ok(file_descriptor) => file_descriptor.clone(),
+        Err(errno) => return errno,
+    };
+    if !file_descriptor.writable() {
+        return EBADF;
+    }
+    let mut write_size = 0;
+    for i in 0..iovcnt {
+        write_size += file_descriptor.write_user(
+            None,
+            UserBuffer::new({
+                let iov_ref = translated_ref(
+                    token,
+                    (iov + i * core::mem::size_of::<IOVec>()) as *const IOVec,
+                );
+                let buf = unsafe {
+                    translated_byte_buffer(token, iov_ref.iov_base, iov_ref.iov_len)
+                };
+                buf
+            }),
+        );
+    }
     write_size as isize
 }
 
@@ -642,4 +687,8 @@ pub fn sys_sendfile(out_fd: usize, in_fd: usize, mut offset: *mut usize, count: 
     }
     // tip!("[sys_sendfile] written bytes: {}", write_size);
     write_size as isize
+}
+
+pub fn sys_ioctl(fd: usize, cmd: usize, arg: usize) -> isize {
+    ENOTTY
 }

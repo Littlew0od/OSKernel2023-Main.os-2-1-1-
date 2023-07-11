@@ -8,7 +8,7 @@
 
 - [x] 对信号机制的支持
 - [ ] 对实时信号的支持
-- [ ] syscall具体作用于process还是thread
+- [x] syscall具体作用于process还是thread
 
 ## 硬件
 
@@ -18,8 +18,8 @@
 
 ## 测评
 
-- [ ] 对shell的sh支持
-- [ ] 运行测试机程序
+- [x] 对shell的sh支持
+- [x] 运行测试机程序
 - [ ] 动态链接
 
 ## 文件系统
@@ -36,3 +36,6 @@
 - SYSCALL_SET_TID_ADDRESS
   - [ ] futex(clear_child_tid, FUTEX_WAKE, 1, NULL, NULL, 0);
   - [ ] support for CLONE_CHILD_CLEARTID flag
+
+- SYSCALL_WRITEV
+  - [ ] 将多个vec连接，只调用一次write()
