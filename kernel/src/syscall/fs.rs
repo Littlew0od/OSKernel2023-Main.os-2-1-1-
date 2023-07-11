@@ -132,9 +132,8 @@ pub fn sys_writev(fd: usize, iov: usize, iovcnt: usize) -> isize {
                     token,
                     (iov + i * core::mem::size_of::<IOVec>()) as *const IOVec,
                 );
-                let buf = unsafe {
-                    translated_byte_buffer(token, iov_ref.iov_base, iov_ref.iov_len)
-                };
+                let buf =
+                    unsafe { translated_byte_buffer(token, iov_ref.iov_base, iov_ref.iov_len) };
                 buf
             }),
         );
@@ -231,10 +230,13 @@ pub fn sys_openat(dirfd: usize, path: *const u8, flags: u32, mode: u32) -> isize
         }
     };
     let mode = StatMode::from_bits(mode);
-    info!(
-        "[sys_openat] dirfd: {}, path: {}, flags: {:?}, mode: {:?}",
-        dirfd as isize, path, flags, mode
-    );
+    // log!(
+    //     "[sys_openat] dirfd: {}, path: {}, flags: {:?}, mode: {:?}",
+    //     dirfd as isize,
+    //     path,
+    //     flags,
+    //     mode
+    // );
     let inner = process.inner_exclusive_access();
     let mut fd_table = inner.fd_table.lock();
     let file_descriptor = match dirfd {
@@ -402,11 +404,12 @@ pub fn sys_mount(
     SUCCESS
 }
 
-pub fn sys_getdents64(fd: usize, buf: *mut u8, len: usize) -> isize {
+pub fn sys_getdents64(fd: usize, buf: *mut u8, count: usize) -> isize {
     let token = current_user_token();
     let process = current_process();
     let inner = process.inner_exclusive_access();
     let mut fd_table = inner.fd_table.lock();
+
     let file_descriptor = match fd {
         AT_FDCWD => inner.work_path.lock().working_inode.as_ref().clone(),
         fd => match fd_table.get_ref(fd) {
@@ -414,12 +417,20 @@ pub fn sys_getdents64(fd: usize, buf: *mut u8, len: usize) -> isize {
             Err(errno) => return errno,
         },
     };
-    let dirent_vec = match file_descriptor.get_dirent(len) {
+    let dirent_vec = match file_descriptor.get_dirent(count) {
         Ok(vec) => vec,
         Err(errno) => return errno,
     };
-    let mut user_buf = UserBuffer::new(translated_byte_buffer(token, buf, len));
-    user_buf.write(dirent_vec[0].as_bytes());
+    let mut user_buf = UserBuffer::new(translated_byte_buffer(
+        token,
+        buf,
+        dirent_vec.len() * size_of::<Dirent>(),
+    ));
+    let buffer_index = dirent_vec.len().min(count / core::mem::size_of::<Dirent>());
+    for index in 0..buffer_index {
+        user_buf.write_at(size_of::<Dirent>() * index, dirent_vec[index].as_bytes());
+    }
+
     (dirent_vec.len() * size_of::<Dirent>()) as isize
 }
 

@@ -14,7 +14,7 @@ pub const SYSCALL_CHDIR: usize = 49;
 pub const SYSCALL_OPENAT: usize = 56;
 pub const SYSCALL_CLOSE: usize = 57;
 pub const SYSCALL_PIPE: usize = 59;
-pub const SYSCALL_GENDENTS64: usize = 61;
+pub const SYSCALL_GETDENTS64: usize = 61;
 pub const SYSCALL_READ: usize = 63;
 pub const SYSCALL_WRITE: usize = 64;
 pub const SYSCALL_READV: usize = 65;
@@ -119,6 +119,7 @@ pub fn syscall_name(id: usize) -> &'static str {
         SYSCALL_WRITEV => "writev",
         SYSCALL_SYSLOG => "syslog",
         SYSCALL_FUTEX => "futex",
+        SYSCALL_GETDENTS64 => "SYSCALL_GENDENTS64",
         // non-standard
         SYSCALL_SHUTDOWN => "shutdown",
         _ => "unknown",
