@@ -6,6 +6,7 @@ mod process;
 mod sync;
 mod system;
 mod thread;
+mod syslog;
 
 use crate::{
     task::{SignalAction, SignalFlags},
@@ -75,6 +76,7 @@ pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
         SYSCALL_EXIT_GROUP => sys_exit(args[0] as i32),
         SYSCALL_SET_TID_ADDRESS => sys_set_tid_address(args[0]),
         SYSCALL_SLEEP => sys_sleep(args[0] as *const u64, args[1] as *mut u64),
+        SYSCALL_SYSLOG => sys_syslog(args[0], args[1] as *mut u8, args[2]),
         SYSCALL_CLOCK_GETTIME => sys_clock_gettime(args[0], args[1] as *mut TimeSpec),
         SYSCALL_YIELD => sys_yield(),
         SYSCALL_KILL => sys_kill(args[0], args[1] as u32),
