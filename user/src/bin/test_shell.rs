@@ -21,7 +21,8 @@ pub fn main() -> i32 {
 
 pub fn load_final2_test_cmds() -> Vec<String> {
     let mut cmds = Vec::new();
-    cmds.push(String::from("./busybox sh ./busybox_testcode.sh")); 
+    // cmds.push(String::from("./busybox sh ./busybox_testcode.sh"));
+    cmds.push(String::from("./busybox sh ./lua_testcode.sh"));
     cmds
 }
 
@@ -39,7 +40,6 @@ pub fn final2_test() {
         }
     }
 }
-
 
 pub fn str2args(s: &str) -> (Vec<String>, Vec<*const u8>) {
     let args_copy: Vec<String> = s

@@ -789,3 +789,74 @@ pub fn sys_utimensat(
 ) -> isize {
     SUCCESS
 }
+
+pub fn sys_lseek(fd: usize, offset: isize, whence: u32) -> isize {
+    // whence is not valid
+    let whence = match SeekWhence::from_bits(whence) {
+        Some(whence) => whence,
+        None => {
+            warn!("[sys_lseek] unknown flags");
+            return EINVAL;
+        }
+    };
+    info!(
+        "[sys_lseek] fd: {}, offset: {}, whence: {:?}",
+        fd, offset, whence,
+    );
+    let process = current_process();
+    let inner = process.inner_exclusive_access();
+    let fd_table = inner.fd_table.lock();
+    let file_descriptor = match fd_table.get_ref(fd) {
+        Ok(file_descriptor) => file_descriptor,
+        Err(errno) => return errno,
+    };
+    match file_descriptor.lseek(offset, whence) {
+        Ok(pos) => pos as isize,
+        Err(errno) => errno,
+    }
+}
+
+pub fn sys_renameat2(
+    olddirfd: usize,
+    oldpath: *const u8,
+    newdirfd: usize,
+    newpath: *const u8,
+    flags: u32,
+) -> isize {
+    let token = current_user_token();
+    let oldpath = translated_str(token, oldpath);
+    let newpath = translated_str(token, newpath);
+    let process = current_process();
+    let inner = process.inner_exclusive_access();
+    let fd_table = inner.fd_table.lock();
+
+    info!(
+        "[sys_renameat2] olddirfd: {}, oldpath: {}, newdirfd: {}, newpath: {}, flags: {}",
+        olddirfd as isize, oldpath, newdirfd as isize, newpath, flags
+    );
+
+    let old_file_descriptor = match olddirfd {
+        AT_FDCWD => inner.work_path.lock().working_inode.as_ref().clone(),
+        fd => match fd_table.get_ref(fd) {
+            Ok(file_descriptor) => file_descriptor.clone(),
+            Err(errno) => return errno,
+        },
+    };
+    let new_file_descriptor = match newdirfd {
+        AT_FDCWD => inner.work_path.lock().working_inode.as_ref().clone(),
+        fd => match fd_table.get_ref(fd) {
+            Ok(file_descriptor) => file_descriptor.clone(),
+            Err(errno) => return errno,
+        },
+    };
+
+    match FileDescriptor::rename(
+        &old_file_descriptor,
+        &oldpath,
+        &new_file_descriptor,
+        &newpath,
+    ) {
+        Ok(_) => SUCCESS,
+        Err(errno) => errno,
+    }
+}

@@ -122,7 +122,7 @@ pub fn sys_fork(flags: usize, stack_ptr: usize, ptid: usize, tls: usize, ctid: u
 
 pub fn sys_execve(path: *const u8, mut args: *const usize, mut envp: *const usize) -> isize {
     let token = current_user_token();
-    let path = translated_str(token, path);
+    let mut path = translated_str(token, path);
     let mut args_vec: Vec<String> = Vec::new();
     let mut envp_vec: Vec<String> = Vec::new();
     if args as usize != 0 {
@@ -149,14 +149,19 @@ pub fn sys_execve(path: *const u8, mut args: *const usize, mut envp: *const usiz
             }
         }
     }
-    // log!(
-    //     "[exec] path: {} argv: {:?} /* {} vars */, envp: {:?} /* {} vars */",
-    //     path,
-    //     args_vec,
-    //     args_vec.len(),
-    //     envp_vec,
-    //     envp_vec.len()
-    // );
+    if path.ends_with(".sh") {
+        args_vec.insert(0, String::from("sh"));
+        args_vec.insert(0, String::from("/busybox"));
+        path = String::from("./busybox");
+    }
+    log!(
+        "[exec] path: {} argv: {:?} /* {} vars */, envp: {:?} /* {} vars */",
+        path,
+        args_vec,
+        args_vec.len(),
+        envp_vec,
+        envp_vec.len()
+    );
     let process = current_process();
     let working_inode = process
         .inner_exclusive_access()

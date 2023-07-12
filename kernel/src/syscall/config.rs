@@ -16,6 +16,7 @@ pub const SYSCALL_OPENAT: usize = 56;
 pub const SYSCALL_CLOSE: usize = 57;
 pub const SYSCALL_PIPE: usize = 59;
 pub const SYSCALL_GETDENTS64: usize = 61;
+pub const SYSCALL_LSEEK: usize = 62;
 pub const SYSCALL_READ: usize = 63;
 pub const SYSCALL_WRITE: usize = 64;
 pub const SYSCALL_READV: usize = 65;
@@ -54,6 +55,7 @@ pub const SYSCALL_EXECVE: usize = 221;
 pub const SYSCALL_MMAP: usize = 222;
 pub const SYSCALL_MPROTECT: usize = 226;
 pub const SYSCALL_WAIT4: usize = 260;
+pub const SYSCALL_RENAMEAT2: usize = 276;
 pub const SYSCALL_THREAD_CREATE: usize = 1000;
 pub const SYSCALL_WAITTID: usize = 1002;
 pub const SYSCALL_MUTEX_CREATE: usize = 1010;
@@ -125,7 +127,9 @@ pub fn syscall_name(id: usize) -> &'static str {
         SYSCALL_GETDENTS64 => "getdents64",
         SYSCALL_FACCESSAT => "faccessat",
         SYSCALL_SYSINFO => "sysinfo",
-        SYSCALL_UTIMENSAT =>"utimensat",
+        SYSCALL_UTIMENSAT => "utimensat",
+        SYSCALL_LSEEK => "lseek",
+        SYSCALL_RENAMEAT2 => "renameat2",
         // non-standard
         SYSCALL_SHUTDOWN => "shutdown",
         _ => "unknown",
