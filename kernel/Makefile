@@ -52,7 +52,9 @@ endif
 
 #make user apps, it should finish before fat32
 apps:$(APPS)
-	cd ../user && make build TEST=$(TEST)
+	cd ../user && make build 
+
+# TEST=$(TEST)
 
 # build fat32 for kernel
 fat32:

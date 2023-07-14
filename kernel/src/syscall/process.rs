@@ -332,6 +332,9 @@ pub fn sys_sigprocmask(how: usize, set: *mut u32, old_set: *mut u32, kernelSpace
     if set as usize != 0 {
         let set = *translated_ref(token, set);
         let set_flags = SignalFlags::from_bits(set).unwrap();
+        if set_flags.contains(SignalFlags::SIGILL){
+            log!("[sys_sigprocmask] SignalFlags::SIGILL");
+        }
         match how {
             // SIG_BLOCK The set of blocked signals is the union of the current set and the set argument.
             SIG_BLOCK => mask |= set_flags,
