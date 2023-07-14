@@ -18,7 +18,7 @@ easy-fs-fuse/target/*
 # tools/
 pushall.sh
 .vscode/*.log
-tests
+./test
 sbi-qemu
 kernel-qemu
 kernel/buildfs.sh
