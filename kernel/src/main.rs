@@ -10,8 +10,7 @@ extern crate alloc;
 #[macro_use]
 extern crate bitflags;
 
-use riscv::register::mstatus::set_fs;
-use riscv::register::sstatus::FS;
+use riscv::register::sstatus::{set_fs, FS};
 
 #[cfg(feature = "board_k210")]
 #[path = "boards/k210.rs"]
@@ -58,8 +57,8 @@ fn enable_float() {
 
 #[no_mangle]
 pub fn rust_main() -> ! {
-    enable_float();
     clear_bss();
+    enable_float();
     println!("[kernel] Hello, world!");
     mm::init();
     mm::remap_test();

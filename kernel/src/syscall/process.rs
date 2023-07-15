@@ -65,7 +65,6 @@ pub fn sys_get_time_day(tr: *mut TimeVal) -> isize {
 }
 
 pub fn sys_clock_gettime(clk_id: usize, tp: *mut TimeSpec) -> isize {
-    println!("[sys_clock_gettime] tp = {:#x}.", tp as usize);
     if clk_id == CLOCK_REALTIME {
         if !tp.is_null() {
             let token = current_user_token();
@@ -154,14 +153,14 @@ pub fn sys_execve(path: *const u8, mut args: *const usize, mut envp: *const usiz
         args_vec.insert(0, String::from("/busybox"));
         path = String::from("./busybox");
     }
-    log!(
-        "[exec] path: {} argv: {:?} /* {} vars */, envp: {:?} /* {} vars */",
-        path,
-        args_vec,
-        args_vec.len(),
-        envp_vec,
-        envp_vec.len()
-    );
+    // log!(
+    //     "[exec] path: {} argv: {:?} /* {} vars */, envp: {:?} /* {} vars */",
+    //     path,
+    //     args_vec,
+    //     args_vec.len(),
+    //     envp_vec,
+    //     envp_vec.len()
+    // );
     let process = current_process();
     let working_inode = process
         .inner_exclusive_access()

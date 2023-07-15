@@ -14,13 +14,6 @@ use user_lib::*;
 #[no_mangle]
 pub fn main() -> i32 {
     println!("[user_shell] start test!");
-    let n: f32 = 1165645.0;
-    let dur_ms: f32 = 1156456.0;
-    let per: f32 = n / dur_ms;
-    println!(
-        "time-test: time/iteration: {} total time: {}\n",
-        per, dur_ms
-    );
     final2_test();
     println!("[user_shell] finish test!");
     shutdown(false)
@@ -28,7 +21,7 @@ pub fn main() -> i32 {
 
 pub fn load_final2_test_cmds() -> Vec<String> {
     let mut cmds = Vec::new();
-    // cmds.push(String::from("./busybox sh ./busybox_testcode.sh"));
+    cmds.push(String::from("./busybox sh ./busybox_testcode.sh"));
     // cmds.push(String::from("./busybox sh ./lua_testcode.sh"));
     cmds.push(String::from("./time-test"));
     // cmds.push(String::from("./busybox sh ./run-static.sh"));

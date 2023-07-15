@@ -277,12 +277,12 @@ impl MemorySet {
                 let map_area = MapArea::new(start_va, end_va, MapType::Framed, map_perm);
                 max_end_vpn = map_area.vpn_range.get_end();
 
-                println!(
-                    "[from_elf] start_va = {:#x}, end_va = {:#x}, ph.offset = {:#x}, ph.file_size = {:#x}",
-                    start_va.0 as usize, end_va.0 as usize,
-                    ph.offset(),
-                    ph.file_size()
-                );
+                // println!(
+                //     "[from_elf] start_va = {:#x}, end_va = {:#x}, ph.offset = {:#x}, ph.file_size = {:#x}",
+                //     start_va.0 as usize, end_va.0 as usize,
+                //     ph.offset(),
+                //     ph.file_size()
+                // );
                 if page_offset == 0 {
                     memory_set.push(
                         map_area,
