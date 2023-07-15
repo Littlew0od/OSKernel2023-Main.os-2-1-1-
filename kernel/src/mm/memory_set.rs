@@ -5,7 +5,7 @@ use super::{StepByOne, VPNRange};
 use crate::config::{
     AT_BASE, AT_CLKTCK, AT_EGID, AT_ENTRY, AT_EUID, AT_EXECFN, AT_FLAGS, AT_GID, AT_HWCAP,
     AT_NOELF, AT_NULL, AT_PAGESIZE, AT_PHDR, AT_PHENT, AT_PHNUM, AT_PLATFORM, AT_RANDOM, AT_SECURE,
-    AT_UID, MEMORY_END, MMAP_BASE, MMIO, PAGE_SIZE, STACK_TOP, TRAMPOLINE,
+    AT_UID, CLOCK_FREQ, MEMORY_END, MMAP_BASE, MMIO, PAGE_SIZE, STACK_TOP, TRAMPOLINE,
 };
 use crate::sync::UPSafeCell;
 use crate::syscall::errno::{EPERM, SUCCESS};
@@ -240,7 +240,7 @@ impl MemorySet {
             AuxHeader::new(AT_EGID, 0),
             AuxHeader::new(AT_PLATFORM, 0),
             AuxHeader::new(AT_HWCAP, 0),
-            AuxHeader::new(AT_CLKTCK, 100usize),
+            AuxHeader::new(AT_CLKTCK, CLOCK_FREQ),
             AuxHeader::new(AT_SECURE, 0),
             AuxHeader::new(AT_NOELF, 0x112d),
         ];
@@ -259,7 +259,7 @@ impl MemorySet {
                 let start_va: VirtAddr = start_addr.into();
                 let end_va: VirtAddr = end_addr.into();
                 // println!("[app_map] .{} [{:#x}, {:#x})", ph, start_addr, end_addr,);
-                let offset = start_va.0 - start_va.floor().0 * PAGE_SIZE;
+                let page_offset = start_va.page_offset();
                 let mut map_perm = MapPermission::U;
                 let ph_flags = ph.flags();
                 if head_va == 0 {
@@ -277,7 +277,13 @@ impl MemorySet {
                 let map_area = MapArea::new(start_va, end_va, MapType::Framed, map_perm);
                 max_end_vpn = map_area.vpn_range.get_end();
 
-                if offset == 0 {
+                println!(
+                    "[from_elf] start_va = {:#x}, end_va = {:#x}, ph.offset = {:#x}, ph.file_size = {:#x}",
+                    start_va.0 as usize, end_va.0 as usize,
+                    ph.offset(),
+                    ph.file_size()
+                );
+                if page_offset == 0 {
                     memory_set.push(
                         map_area,
                         Some(
@@ -288,17 +294,16 @@ impl MemorySet {
                 } else {
                     memory_set.push_with_offset(
                         map_area,
-                        offset,
+                        page_offset,
                         Some(
                             &elf.input
                                 [ph.offset() as usize..(ph.offset() + ph.file_size()) as usize],
                         ),
                     );
                 }
+            } else if ph.get_type().unwrap() == xmas_elf::program::Type::Interp {
+                log!("[from_elf] .interp")
             }
-        }
-        if elf.find_section_by_name(".interp").is_some() {
-            println!("not static");
         }
         auxv.push(AuxHeader::new(AT_BASE, 0));
         auxv.push(AuxHeader::new(
@@ -563,8 +568,8 @@ impl MemorySet {
             }
             ptr_vec
         };
-        // unkonwn use
-        // user_sp -= 2 * core::mem::size_of::<usize>();
+
+        user_sp -= 2 * core::mem::size_of::<usize>();
 
         //////////////////////// envp[] ////////////////////////////////
         let envp = push_stack(envp_vec, &mut user_sp);

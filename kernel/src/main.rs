@@ -10,6 +10,9 @@ extern crate alloc;
 #[macro_use]
 extern crate bitflags;
 
+use riscv::register::mstatus::set_fs;
+use riscv::register::sstatus::FS;
+
 #[cfg(feature = "board_k210")]
 #[path = "boards/k210.rs"]
 mod board;
@@ -47,8 +50,15 @@ fn clear_bss() {
     }
 }
 
+fn enable_float() {
+    unsafe {
+        set_fs(FS::Clean);
+    };
+}
+
 #[no_mangle]
 pub fn rust_main() -> ! {
+    enable_float();
     clear_bss();
     println!("[kernel] Hello, world!");
     mm::init();

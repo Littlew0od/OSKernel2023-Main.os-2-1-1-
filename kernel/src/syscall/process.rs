@@ -6,18 +6,17 @@ use crate::mm::MPROCTECTPROT;
 use crate::mm::{translated_ref, translated_refmut, translated_str};
 use crate::sbi::shutdown;
 use crate::syscall::errno::ECHILD;
-use crate::task::block_current_and_run_next;
 use crate::task::current_task;
 use crate::task::{
     current_process, current_user_token, exit_current_and_run_next, pid2process,
     suspend_current_and_run_next, SignalAction, SignalFlags, MAX_SIG, SIG_BLOCK, SIG_SETMASK,
     SIG_UNBLOCK,
 };
+use crate::timer::get_time_us;
 use crate::timer::TimeSpec;
 use crate::timer::TimeVal;
 use crate::timer::Times;
 use crate::timer::CLOCK_REALTIME;
-use crate::timer::{get_time_ns, get_time_sec, get_time_us};
 use alloc::string::String;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
@@ -66,6 +65,7 @@ pub fn sys_get_time_day(tr: *mut TimeVal) -> isize {
 }
 
 pub fn sys_clock_gettime(clk_id: usize, tp: *mut TimeSpec) -> isize {
+    println!("[sys_clock_gettime] tp = {:#x}.", tp as usize);
     if clk_id == CLOCK_REALTIME {
         if !tp.is_null() {
             let token = current_user_token();
@@ -332,9 +332,9 @@ pub fn sys_sigprocmask(how: usize, set: *mut u32, old_set: *mut u32, kernelSpace
     if set as usize != 0 {
         let set = *translated_ref(token, set);
         let set_flags = SignalFlags::from_bits(set).unwrap();
-        if set_flags.contains(SignalFlags::SIGILL){
-            log!("[sys_sigprocmask] SignalFlags::SIGILL");
-        }
+        // if set_flags.contains(SignalFlags::SIGILL) {
+        //     log!("[sys_sigprocmask] SignalFlags::SIGILL");
+        // }
         match how {
             // SIG_BLOCK The set of blocked signals is the union of the current set and the set argument.
             SIG_BLOCK => mask |= set_flags,
