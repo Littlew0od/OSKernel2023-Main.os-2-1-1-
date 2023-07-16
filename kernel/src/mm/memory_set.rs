@@ -260,7 +260,8 @@ impl MemorySet {
                 let end_va: VirtAddr = end_addr.into();
                 // println!("[app_map] .{} [{:#x}, {:#x})", ph, start_addr, end_addr,);
                 let page_offset = start_va.page_offset();
-                let mut map_perm = MapPermission::U;
+                // Attention, every memoryArea can write. It's wrong!
+                let mut map_perm = MapPermission::U | MapPermission::W;
                 let ph_flags = ph.flags();
                 if head_va == 0 {
                     head_va = start_va.0;
@@ -278,11 +279,12 @@ impl MemorySet {
                 max_end_vpn = map_area.vpn_range.get_end();
 
                 println!(
-                    "[from_elf] start_va = {:#x}, end_va = {:#x}, ph.offset = {:#x}, ph.file_size = {:#x}, page_offset = {:#x}",
+                    "[from_elf] start_va = {:#x}, end_va = {:#x}, ph.offset = {:#x}, ph.file_size = {:#x}, page_offset = {:#x} flag = {}",
                     start_va.0 as usize, end_va.0 as usize,
                     ph.offset(),
                     ph.file_size(),
-                    page_offset
+                    page_offset,
+                    ph_flags
                 );
                 if page_offset == 0 {
                     memory_set.push(

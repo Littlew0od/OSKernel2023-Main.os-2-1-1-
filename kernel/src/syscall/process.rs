@@ -154,14 +154,14 @@ pub fn sys_execve(path: *const u8, mut args: *const usize, mut envp: *const usiz
         args_vec.insert(0, String::from("/busybox"));
         path = String::from("./busybox");
     }
-    log!(
-        "[exec] path: {} argv: {:?} /* {} vars */, envp: {:?} /* {} vars */",
-        path,
-        args_vec,
-        args_vec.len(),
-        envp_vec,
-        envp_vec.len()
-    );
+    // log!(
+    //     "[exec] path: {} argv: {:?} /* {} vars */, envp: {:?} /* {} vars */",
+    //     path,
+    //     args_vec,
+    //     args_vec.len(),
+    //     envp_vec,
+    //     envp_vec.len()
+    // );
     let process = current_process();
     let working_inode = process
         .inner_exclusive_access()
@@ -182,7 +182,7 @@ pub fn sys_execve(path: *const u8, mut args: *const usize, mut envp: *const usiz
 }
 
 pub fn sys_brk(addr: usize) -> isize {
-    println!("[sys_brk] addr = {:#x}", addr);
+    // println!("[sys_brk] addr = {:#x}", addr);
     let process = current_process();
     let mut inner = process.inner_exclusive_access();
     if addr == 0 {
@@ -414,7 +414,7 @@ pub fn sys_sigaction(
 }
 
 pub fn sys_set_tid_address(tid_ptr: usize) -> isize {
-    tip!("[sys_set_tid_address] tid_ptr = {:#x}", tid_ptr);
+    // tip!("[sys_set_tid_address] tid_ptr = {:#x}", tid_ptr);
     let task = current_task().unwrap();
     let mut task_inner = task.inner_exclusive_access();
     task_inner.clear_child_tid = tid_ptr;
@@ -422,6 +422,7 @@ pub fn sys_set_tid_address(tid_ptr: usize) -> isize {
 }
 
 pub fn sys_mprotect(addr: usize, len: usize, prot: usize) -> isize {
+    tip!("[sys_mprotect] addr = {:#x}", addr); 
     if addr == 0 || addr % PAGE_SIZE != 0 {
         EINVAL
     } else {
