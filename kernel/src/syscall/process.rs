@@ -6,6 +6,7 @@ use crate::mm::MPROCTECTPROT;
 use crate::mm::{translated_ref, translated_refmut, translated_str};
 use crate::sbi::shutdown;
 use crate::syscall::errno::ECHILD;
+use crate::task::block_current_and_run_next;
 use crate::task::current_task;
 use crate::task::{
     current_process, current_user_token, exit_current_and_run_next, pid2process,
@@ -153,14 +154,14 @@ pub fn sys_execve(path: *const u8, mut args: *const usize, mut envp: *const usiz
         args_vec.insert(0, String::from("/busybox"));
         path = String::from("./busybox");
     }
-    // log!(
-    //     "[exec] path: {} argv: {:?} /* {} vars */, envp: {:?} /* {} vars */",
-    //     path,
-    //     args_vec,
-    //     args_vec.len(),
-    //     envp_vec,
-    //     envp_vec.len()
-    // );
+    log!(
+        "[exec] path: {} argv: {:?} /* {} vars */, envp: {:?} /* {} vars */",
+        path,
+        args_vec,
+        args_vec.len(),
+        envp_vec,
+        envp_vec.len()
+    );
     let process = current_process();
     let working_inode = process
         .inner_exclusive_access()
@@ -181,7 +182,7 @@ pub fn sys_execve(path: *const u8, mut args: *const usize, mut envp: *const usiz
 }
 
 pub fn sys_brk(addr: usize) -> isize {
-    // println!("[sys_brk] addr = {:#x}", addr);
+    println!("[sys_brk] addr = {:#x}", addr);
     let process = current_process();
     let mut inner = process.inner_exclusive_access();
     if addr == 0 {
@@ -265,8 +266,8 @@ pub fn sys_wait4(pid: isize, exit_code_ptr: *mut i32, option: u32, ru: usize) ->
             if option.contains(WaitOption::WNOHANG) {
                 return SUCCESS;
             } else {
-                suspend_current_and_run_next();
-                // block_current_and_run_next();
+                // suspend_current_and_run_next();
+                block_current_and_run_next();
                 // log!("[sys_wait4] --resumed--");
             }
         }
@@ -413,6 +414,7 @@ pub fn sys_sigaction(
 }
 
 pub fn sys_set_tid_address(tid_ptr: usize) -> isize {
+    tip!("[sys_set_tid_address] tid_ptr = {:#x}", tid_ptr);
     let task = current_task().unwrap();
     let mut task_inner = task.inner_exclusive_access();
     task_inner.clear_child_tid = tid_ptr;

@@ -39,3 +39,7 @@
 
 - SYSCALL_WRITEV
   - [ ] 将多个vec连接，只调用一次write()
+
+## 进程
+
+- [ ] exit_current_and_run_next 只支持单线程

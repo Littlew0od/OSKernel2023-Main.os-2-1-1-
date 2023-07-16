@@ -257,13 +257,13 @@ pub fn sys_openat(dirfd: usize, path: *const u8, flags: u32, mode: u32) -> isize
         }
     };
     let mode = StatMode::from_bits(mode);
-    // log!(
-    //     "[sys_openat] dirfd: {}, path: {}, flags: {:?}, mode: {:?}",
-    //     dirfd as isize,
-    //     path,
-    //     flags,
-    //     mode
-    // );
+    log!(
+        "[sys_openat] dirfd: {}, path: {}, flags: {:?}, mode: {:?}",
+        dirfd as isize,
+        path,
+        flags,
+        mode
+    );
     let inner = process.inner_exclusive_access();
     let mut fd_table = inner.fd_table.lock();
     let file_descriptor = match dirfd {

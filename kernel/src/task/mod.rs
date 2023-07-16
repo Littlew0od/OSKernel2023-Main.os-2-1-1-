@@ -11,6 +11,7 @@ mod switch;
 mod task;
 
 use self::id::TaskUserRes;
+use self::manager::{block_task, unblock_task};
 use crate::fs::{OpenFlags, ROOT_FD}; // open_file,
 use crate::sbi::shutdown;
 use crate::timer::remove_timer;
@@ -55,8 +56,8 @@ pub fn block_current_and_run_next() {
     let mut task_inner = task.inner_exclusive_access();
     let task_cx_ptr = &mut task_inner.task_cx as *mut TaskContext;
     task_inner.task_status = TaskStatus::Blocked;
-    // block_task(task.clone());
-    
+    block_task(task.clone());
+
     drop(task_inner);
     schedule(task_cx_ptr);
 }
@@ -66,6 +67,20 @@ pub fn exit_current_and_run_next(exit_code: i32) {
     let task = take_current_task().unwrap();
     let mut task_inner = task.inner_exclusive_access();
     let process = task.process.upgrade().unwrap();
+
+    let mut process_inner = process.inner_exclusive_access();
+    let parent_task = process_inner
+        .parent
+        .as_ref()
+        .unwrap()
+        .upgrade()
+        .unwrap()
+        .inner_exclusive_access()
+        .get_task(0);
+    unblock_task(parent_task.clone());  
+
+    drop(process_inner);
+
     let tid = task_inner.res.as_ref().unwrap().tid;
     // record exit code
     task_inner.exit_code = Some(exit_code);
@@ -230,6 +245,7 @@ fn call_kernel_signal_handler(signal: SignalFlags) {
 }
 
 fn call_user_signal_handler(sig: usize, signal: SignalFlags) {
+    log!("3216516");
     let task = current_task().unwrap();
     let mut task_inner = task.inner_exclusive_access();
     let process = current_process();
@@ -257,7 +273,7 @@ fn check_pending_signals() {
         let task = current_task().unwrap();
         let task_inner = task.inner_exclusive_access();
         let process = current_process();
-    let mut process_inner = process.inner_exclusive_access();
+        let mut process_inner = process.inner_exclusive_access();
         let signal = SignalFlags::from_bits(1 << sig).unwrap();
         if task_inner.signals.contains(signal) && (!task_inner.signal_mask.contains(signal)) {
             if task_inner.handling_sig == -1 {
