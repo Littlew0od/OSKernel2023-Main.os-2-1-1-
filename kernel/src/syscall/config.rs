@@ -37,6 +37,7 @@ pub const SYSCALL_YIELD: usize = 124;
 pub const SYSCALL_KILL: usize = 129;
 pub const SYSCALL_SIGACTION: usize = 134;
 pub const SYSCALL_SIGPROMASK: usize = 135;
+pub const SYSCALL_SIGTIMEDWAIT: usize = 137;
 pub const SYSCALL_SIGRETURN: usize = 139;
 pub const SYSCALL_TIMES: usize = 153;
 pub const SYSCALL_UNAME: usize = 160;
@@ -130,6 +131,7 @@ pub fn syscall_name(id: usize) -> &'static str {
         SYSCALL_UTIMENSAT => "utimensat",
         SYSCALL_LSEEK => "lseek",
         SYSCALL_RENAMEAT2 => "renameat2",
+        SYSCALL_SIGTIMEDWAIT => "sigtimedwait",
         // non-standard
         SYSCALL_SHUTDOWN => "shutdown",
         _ => "unknown",
