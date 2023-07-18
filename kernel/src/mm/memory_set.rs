@@ -1,16 +1,20 @@
+use super::config::{AT_EXECFN, AT_NULL, AT_RANDOM};
 use super::{frame_alloc, translated_refmut, FrameTracker};
 use super::{PTEFlags, PageTable, PageTableEntry};
 use super::{PhysAddr, PhysPageNum, VirtAddr, VirtPageNum};
 use super::{StepByOne, VPNRange};
 use crate::config::{
-    AT_BASE, AT_CLKTCK, AT_EGID, AT_ENTRY, AT_EUID, AT_EXECFN, AT_FLAGS, AT_GID, AT_HWCAP,
-    AT_NOELF, AT_NULL, AT_PAGESIZE, AT_PHDR, AT_PHENT, AT_PHNUM, AT_PLATFORM, AT_RANDOM, AT_SECURE,
-    AT_UID, CLOCK_FREQ, MEMORY_END, MMAP_BASE, MMIO, PAGE_SIZE, STACK_TOP, TRAMPOLINE,
+    CLOCK_FREQ, DYN_BASE, MEMORY_END, MMAP_BASE, MMIO, PAGE_SIZE, STACK_TOP, TRAMPOLINE,
+};
+use crate::fs::{OpenFlags, ROOT_FD};
+use crate::mm::config::{
+    AT_BASE, AT_CLKTCK, AT_EGID, AT_ENTRY, AT_EUID, AT_FLAGS, AT_GID, AT_HWCAP, AT_NOELF,
+    AT_PAGESIZE, AT_PHDR, AT_PHENT, AT_PHNUM, AT_PLATFORM, AT_SECURE, AT_UID,
 };
 use crate::sync::UPSafeCell;
 use crate::syscall::errno::{EPERM, SUCCESS};
 use alloc::collections::BTreeMap;
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use alloc::sync::Arc;
 use alloc::vec;
 use alloc::vec::Vec;
@@ -220,7 +224,7 @@ impl MemorySet {
     }
     /// Include sections in elf and trampoline,
     /// also returns user_sp_top and entry point.
-    pub fn from_elf(elf_data: &[u8]) -> (Self, usize, usize, usize, Vec<AuxHeader>) {
+    pub fn from_elf(elf_data: &[u8]) -> (Self, usize, usize, usize, Vec<AuxHeader>, Option<usize>) {
         let mut memory_set = Self::new_bare();
         // map trampoline
         memory_set.map_trampoline();
@@ -250,6 +254,8 @@ impl MemorySet {
         let ph_count = elf_header.pt2.ph_count();
         let mut max_end_vpn = VirtPageNum(0);
         let mut head_va: usize = 0;
+        let mut interp_entry: Option<usize> = None;
+        let mut interp_base: Option<usize> = None;
 
         for i in 0..ph_count {
             let ph = elf.program_header(i).unwrap();
@@ -261,7 +267,7 @@ impl MemorySet {
                 // println!("[app_map] .{} [{:#x}, {:#x})", ph, start_addr, end_addr,);
                 let page_offset = start_va.page_offset();
                 // Attention, every memoryArea can write. It's wrong!
-                let mut map_perm = MapPermission::U ;
+                let mut map_perm = MapPermission::U;
                 let ph_flags = ph.flags();
                 if head_va == 0 {
                     head_va = start_va.0;
@@ -305,10 +311,34 @@ impl MemorySet {
                     );
                 }
             } else if ph.get_type().unwrap() == xmas_elf::program::Type::Interp {
-                log!("[from_elf] .interp")
+                // log!("[from_elf] .interp")
+                let mut path = String::from_utf8_lossy(
+                    &elf.input[ph.offset() as usize..(ph.offset() + ph.file_size() - 1) as usize],
+                )
+                .to_string();
+                if path == "/lib/ld-musl-riscv64-sf.so.1" {
+                    path = String::from("/libc.so");
+                }
+                match ROOT_FD.open(&path, OpenFlags::O_RDONLY, false) {
+                    Ok(file) => {
+                        let all_data = file.read_all();
+                        let (entry, base) = memory_set.load_interp(all_data.as_slice());
+                        interp_entry = Some(entry);
+                        interp_base = Some(base);
+                    }
+                    Err(errno) => {
+                        panic!("[from_elf] Unkonwn interpreter path = {}", path);
+                    }
+                }
             }
         }
-        auxv.push(AuxHeader::new(AT_BASE, 0));
+
+        if let Some(base) = interp_base {
+            auxv.push(AuxHeader::new(AT_BASE, base));
+        } else {
+            auxv.push(AuxHeader::new(AT_BASE, 0));
+        }
+
         auxv.push(AuxHeader::new(
             AT_PHDR,
             head_va + elf_header.pt2.ph_offset() as usize,
@@ -329,10 +359,77 @@ impl MemorySet {
             STACK_TOP,
             elf.header.pt2.entry_point() as usize,
             auxv,
+            interp_entry,
         )
     }
-    pub fn load_interp(){
-        
+    pub fn load_interp(&mut self, elf_data: &[u8]) -> (usize, usize) {
+        let elf = xmas_elf::ElfFile::new(elf_data).unwrap();
+        let elf_header = elf.header;
+        let magic = elf_header.pt1.magic;
+        assert_eq!(magic, [0x7f, 0x45, 0x4c, 0x46], "invalid elf!");
+
+        let interp_base = DYN_BASE;
+        let interp_entry = elf.header.pt2.entry_point() as usize + interp_base;
+
+        let ph_count = elf_header.pt2.ph_count();
+        let mut head_va: usize = 0;
+        for i in 0..ph_count {
+            let ph = elf.program_header(i).unwrap();
+            if ph.get_type().unwrap() == xmas_elf::program::Type::Load {
+                let start_addr = ph.virtual_addr() as usize + interp_base;
+                let end_addr = (ph.virtual_addr() + ph.mem_size()) as usize + interp_base;
+                let start_va: VirtAddr = start_addr.into();
+                let end_va: VirtAddr = end_addr.into();
+                // println!("[app_map] .{} [{:#x}, {:#x})", ph, start_addr, end_addr,);
+                let page_offset = start_va.page_offset();
+                // Attention, every memoryArea can write. It's wrong!
+                let mut map_perm = MapPermission::U;
+                let ph_flags = ph.flags();
+                if head_va == 0 {
+                    head_va = start_va.0;
+                }
+                if ph_flags.is_read() {
+                    map_perm |= MapPermission::R;
+                }
+                if ph_flags.is_write() {
+                    map_perm |= MapPermission::W;
+                }
+                if ph_flags.is_execute() {
+                    map_perm |= MapPermission::X;
+                }
+                let map_area = MapArea::new(start_va, end_va, MapType::Framed, map_perm);
+
+                // println!(
+                //     "[from_elf] start_va = {:#x}, end_va = {:#x}, ph.offset = {:#x}, ph.file_size = {:#x}, page_offset = {:#x} flag = {}",
+                //     start_va.0 as usize, end_va.0 as usize,
+                //     ph.offset(),
+                //     ph.file_size(),
+                //     page_offset,
+                //     ph_flags
+                // );
+                if page_offset == 0 {
+                    self.push(
+                        map_area,
+                        Some(
+                            &elf.input
+                                [ph.offset() as usize..(ph.offset() + ph.file_size()) as usize],
+                        ),
+                    )
+                } else {
+                    self.push_with_offset(
+                        map_area,
+                        page_offset,
+                        Some(
+                            &elf.input
+                                [ph.offset() as usize..(ph.offset() + ph.file_size()) as usize],
+                        ),
+                    );
+                }
+            } else if ph.get_type().unwrap() == xmas_elf::program::Type::Interp {
+                panic!("[from_elf] .interp in .interp");
+            }
+        }
+        (interp_entry, interp_base)
     }
     pub fn from_existed_user(user_space: &MemorySet) -> MemorySet {
         let mut memory_set = Self::new_bare();

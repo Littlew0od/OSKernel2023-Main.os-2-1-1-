@@ -3,7 +3,7 @@ use super::manager::insert_into_pid2process;
 use super::{add_task, SignalFlags};
 use super::{pid_alloc, PidHandle};
 use super::{SignalActions, TaskControlBlock};
-use crate::config::{AT_EXECFN, AT_NULL, AT_RANDOM, MMAP_BASE, PAGE_SIZE};
+use crate::config::{MMAP_BASE, PAGE_SIZE};
 use crate::fs::{FdTable, FileDescriptor, OpenFlags, ROOT_FD};
 use crate::fs::{File, Stdin, Stdout};
 use crate::mm::{translated_refmut, AuxHeader, MemorySet, PageTable, VirtAddr, KERNEL_SPACE};
@@ -126,7 +126,8 @@ impl ProcessControlBlock {
 
     pub fn new(elf_data: &[u8]) -> Arc<Self> {
         // memory_set with elf program headers/trampoline/trap context/user stack
-        let (memory_set, uheap_base, ustack_top, entry_point, auxv) = MemorySet::from_elf(elf_data);
+        let (memory_set, uheap_base, ustack_top, entry_point, auxv, _) =
+            MemorySet::from_elf(elf_data);
         // allocate a pid
         let pid_handle = pid_alloc();
         let process = Arc::new(Self {
@@ -203,7 +204,7 @@ impl ProcessControlBlock {
     pub fn exec(self: &Arc<Self>, elf_data: &[u8], argv_vec: Vec<String>, envp_vec: Vec<String>) {
         assert_eq!(self.inner_exclusive_access().thread_count(), 1);
         // memory_set with elf program headers/trampoline/trap context/user stack
-        let (memory_set, uheap_base, ustack_top, entry_point, mut auxv) =
+        let (memory_set, uheap_base, ustack_top, entry_point, mut auxv, interp_entry) =
             MemorySet::from_elf(elf_data);
         let new_token = memory_set.token();
         // substitute memory_set
@@ -228,7 +229,11 @@ impl ProcessControlBlock {
         // initialize trap_cx
         // println!("[exec] user_sp : {:#x}", user_sp);
         let mut trap_cx = TrapContext::app_init_context(
-            entry_point,
+            if let Some(interp_entry) = interp_entry {
+                interp_entry
+            } else {
+                entry_point
+            },
             user_sp,
             KERNEL_SPACE.exclusive_access().token(),
             task.kstack.get_top(),

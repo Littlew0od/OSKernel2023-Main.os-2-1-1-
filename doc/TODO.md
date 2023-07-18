@@ -49,7 +49,7 @@
 
 ## run-static.sh
 
-- [ ] fscanf
+- [ ]  fscanf
 - [ ]  fwscanf
 - [ ]  pthread_cancel_points
 - [ ]  pthread_cancel
@@ -74,3 +74,29 @@
 - [ ]  statvfs
 
 ## run-dynamic.sh
+
+- [ ]  dlopen
+- [ ]  fscanf
+- [ ]  pthread_cancel_points
+- [ ]  pthread_cancel
+- [ ]  pthread_cond
+- [ ]  pthread_tsd
+- [ ]  sem_init
+- [ ]  socket
+- [ ]  sscanf_long
+- [ ]  stat
+- [ ]  tls_init
+- [ ]  tls_local_exec
+- [ ]  utime
+- [ ]  fflush_exit
+- [ ]  fgetwc_buffering
+- [ ]  pthread_robust_detach
+- [ ]  pthread_cancel_sem_wait
+- [ ]  pthread_cond_smasher
+- [ ]  pthread_condattr_setclock
+- [ ]  pthread_exit_cancel
+- [ ]  pthread_once_deadlock
+- [ ]  pthread_rwlock_ebusy
+- [ ]  rewind_clear_error
+- [ ]  setvbuf_unget
+- [ ]  statvfs
