@@ -331,6 +331,9 @@ impl MemorySet {
             auxv,
         )
     }
+    pub fn load_interp(){
+        
+    }
     pub fn from_existed_user(user_space: &MemorySet) -> MemorySet {
         let mut memory_set = Self::new_bare();
         // map trampoline
@@ -499,7 +502,7 @@ impl MemorySet {
         }
         SUCCESS
     }
-    /// If MapArea.map_perm is useful. We have to split MapArea.
+    /// If MapArea.map_perm is useful during the application run phase. We have to split MapArea.
     pub fn mprotect(&self, start: VirtAddr, end: VirtAddr, new_flags: PTEFlags) -> isize {
         let start_vpn = start.floor();
         let end_vpn = end.ceil();

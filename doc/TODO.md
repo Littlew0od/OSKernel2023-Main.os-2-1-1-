@@ -46,3 +46,31 @@
 ## 进程
 
 - [ ] exit_current_and_run_next 只支持单线程
+
+## run-static.sh
+
+- [ ] fscanf
+- [ ]  fwscanf
+- [ ]  pthread_cancel_points
+- [ ]  pthread_cancel
+- [ ]  pthread_cond
+- [ ]  pthread_tsd
+- [ ]  socket
+- [ ]  sscanf_long
+- [ ]  stat
+- [ ]  utime
+- [ ]  fflush_exit
+- [ ]  fgetwc_buffering
+- [ ]  pthread_robust_detach
+- [ ]  pthread_cancel_sem_wait
+- [ ]  pthread_cond_smasher
+- [ ]  pthread_condattr_setclock
+- [ ]  pthread_exit_cancel
+- [ ]  pthread_once_deadlock
+- [ ]  pthread_rwlock_ebusy
+- [ ]  rewind_clear_error
+- [ ]  rlimit_open_files
+- [ ]  setvbuf_unget
+- [ ]  statvfs
+
+## run-dynamic.sh
