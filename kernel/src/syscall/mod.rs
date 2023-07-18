@@ -3,13 +3,14 @@ pub mod errno;
 mod fs;
 mod ppoll;
 mod process;
+mod signal;
 mod sync;
 mod syslog;
 mod system;
 mod thread;
 
 use crate::{
-    task::{SignalAction, SignalFlags},
+    task::{SigInfo, SignalAction, SignalFlags},
     timer::{TimeSpec, Times},
 };
 use config::*;
@@ -17,6 +18,7 @@ use fs::*;
 use ppoll::*;
 pub use process::sys_getpid;
 use process::*;
+use signal::*;
 use sync::*;
 use system::*;
 use thread::*;
@@ -96,6 +98,12 @@ pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
         SYSCALL_SIGPROMASK => {
             sys_sigprocmask(args[0], args[1] as *mut u32, args[2] as *mut u32, false)
         }
+        SYSCALL_SIGTIMEDWAIT => sys_sigtimedwait(
+            args[0] as *mut u32,
+            args[1] as *mut SigInfo,
+            args[2] as *const TimeSpec,
+            args[3],
+        ),
         SYSCALL_SIGRETURN => sys_sigreturn(),
         // SYSCALL_TIMES => sys_get_process_time(args[0] as *mut u64),
         SYSCALL_TIMES => sys_times(args[0] as *mut Times),
@@ -130,6 +138,7 @@ pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
             args[2] as u32,
             args[3],
         ),
+        SYSCALL_PRLIMIT => sys_prlimit(),
         SYSCALL_RENAMEAT2 => sys_renameat2(
             args[0],
             args[1] as *const u8,

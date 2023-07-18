@@ -10,8 +10,7 @@ use crate::task::block_current_and_run_next;
 use crate::task::current_task;
 use crate::task::{
     current_process, current_user_token, exit_current_and_run_next, pid2process,
-    suspend_current_and_run_next, SignalAction, SignalFlags, MAX_SIG, SIG_BLOCK, SIG_SETMASK,
-    SIG_UNBLOCK,
+    suspend_current_and_run_next, SignalFlags,
 };
 use crate::timer::get_time_us;
 use crate::timer::TimeSpec;
@@ -222,10 +221,11 @@ bitflags! {
 /// We use loop to ensure that the corresponding process has ended
 pub fn sys_wait4(pid: isize, exit_code_ptr: *mut i32, option: u32, ru: usize) -> isize {
     // log!(
-    //     "[sys_waitpid] call wait4, option = {}, ru = {:#x}, pid = {}",
+    //     "[sys_waitpid] call wait4, option = {}, ru = {:#x}, pid = {}, exit_code_ptr = {:#x}",
     //     option,
     //     ru,
     //     pid,
+    //     exit_code_ptr as usize
     // );
     let option = WaitOption::from_bits(option).unwrap();
     loop {
@@ -275,19 +275,6 @@ pub fn sys_wait4(pid: isize, exit_code_ptr: *mut i32, option: u32, ru: usize) ->
     // ---- release current PCB automatically
 }
 
-pub fn sys_kill(pid: usize, signal: u32) -> isize {
-    if let Some(process) = pid2process(pid) {
-        if let Some(flag) = SignalFlags::from_bits(signal) {
-            process.inner_exclusive_access().signals |= flag;
-            0
-        } else {
-            -1
-        }
-    } else {
-        -1
-    }
-}
-
 pub fn sys_mmap(
     start: usize,
     len: usize,
@@ -310,109 +297,6 @@ pub fn sys_munmap(start: usize, len: usize) -> isize {
         .munmap(start, len)
 }
 
-pub fn sys_sigprocmask(how: usize, set: *mut u32, old_set: *mut u32, kernelSpace: bool) -> isize {
-    let task = current_task().unwrap();
-    let mut inner = task.inner_exclusive_access();
-    let mut mask = inner.signal_mask;
-
-    let token = current_user_token();
-
-    if kernelSpace {
-        if old_set as usize != 0 {
-            unsafe {
-                *old_set = mask.bits();
-            }
-        }
-    } else {
-        if old_set as usize != 0 {
-            *translated_refmut(token, old_set) = mask.bits();
-        }
-    }
-
-    if set as usize != 0 {
-        let set = *translated_ref(token, set);
-        let set_flags = SignalFlags::from_bits(set).unwrap();
-        // if set_flags.contains(SignalFlags::SIGILL) {
-        //     log!("[sys_sigprocmask] SignalFlags::SIGILL");
-        // }
-        match how {
-            // SIG_BLOCK The set of blocked signals is the union of the current set and the set argument.
-            SIG_BLOCK => mask |= set_flags,
-            // SIG_UNBLOCK The signals in set are removed from the current set of blocked signals.
-            SIG_UNBLOCK => mask &= !set_flags,
-            // SIG_SETMASK The set of blocked signals is set to the argument set.
-            SIG_SETMASK => mask = set_flags,
-            _ => return EPERM,
-        }
-        inner.signal_mask = mask;
-    }
-    SUCCESS
-}
-
-pub fn sys_sigreturn() -> isize {
-    let task = current_task().unwrap();
-    let mut inner = task.inner_exclusive_access();
-    inner.handling_sig = -1;
-    // restore the trap context
-    let trap_ctx = inner.get_trap_cx();
-    *trap_ctx = inner.trap_ctx_backup.unwrap();
-    SUCCESS
-}
-
-fn check_sigaction_error(signal: SignalFlags) -> bool {
-    if signal == SignalFlags::SIGKILL || signal == SignalFlags::SIGSTOP {
-        true
-    } else {
-        false
-    }
-}
-
-pub fn sys_sigaction(
-    signum: usize,
-    action: *const SignalAction,
-    old_action: *mut SignalAction,
-) -> isize {
-    // tip!(
-    //     "[sys_sigaction] signum = {:#x}, action = {:X}, old_action = {:X}",
-    //     signum,
-    //     action as usize,
-    //     old_action as usize
-    // );
-    let token = current_user_token();
-    let process = current_process();
-    let mut inner_process = process.inner_exclusive_access();
-    if signum > MAX_SIG {
-        log!("[sys_sigaction] error signum");
-        return EPERM;
-    }
-    if old_action as usize != 0 {
-        *translated_refmut(token, old_action) = inner_process.signal_actions.table[signum].clone();
-    }
-    if let Some(flag) = SignalFlags::from_bits(1 << signum) {
-        if check_sigaction_error(flag) {
-            log!("[sys_sigaction] check_sigaction_error");
-            return EPERM;
-        }
-        let old_kernel_action = inner_process.signal_actions.table[signum];
-        if old_action as usize != 0 {
-            if old_kernel_action.mask != SignalFlags::from_bits(40).unwrap() {
-                *translated_refmut(token, old_action) = old_kernel_action;
-            } else {
-                let mut ref_old_action = *translated_refmut(token, old_action);
-                ref_old_action.sa_handler = old_kernel_action.sa_handler;
-            }
-        }
-        if action as usize != 0 {
-            let ref_action = translated_ref(token, action);
-            inner_process.signal_actions.table[signum as usize] = *ref_action;
-        }
-        return SUCCESS;
-    } else {
-        println!("Undefined SignalFlags");
-        return EPERM;
-    }
-}
-
 pub fn sys_set_tid_address(tid_ptr: usize) -> isize {
     // tip!("[sys_set_tid_address] tid_ptr = {:#x}", tid_ptr);
     let task = current_task().unwrap();
@@ -422,7 +306,7 @@ pub fn sys_set_tid_address(tid_ptr: usize) -> isize {
 }
 
 pub fn sys_mprotect(addr: usize, len: usize, prot: usize) -> isize {
-    tip!("[sys_mprotect] addr = {:#x}", addr); 
+    // tip!("[sys_mprotect] addr = {:#x}", addr);
     if addr == 0 || addr % PAGE_SIZE != 0 {
         EINVAL
     } else {
@@ -435,4 +319,9 @@ pub fn sys_mprotect(addr: usize, len: usize, prot: usize) -> isize {
                 MPROCTECTPROT::from_bits(prot as u32).unwrap().into(),
             )
     }
+}
+
+pub fn sys_prlimit() -> isize {
+    log!("[sys_prlimit] fake.");
+    SUCCESS
 }

@@ -261,7 +261,7 @@ impl MemorySet {
                 // println!("[app_map] .{} [{:#x}, {:#x})", ph, start_addr, end_addr,);
                 let page_offset = start_va.page_offset();
                 // Attention, every memoryArea can write. It's wrong!
-                let mut map_perm = MapPermission::U | MapPermission::W;
+                let mut map_perm = MapPermission::U ;
                 let ph_flags = ph.flags();
                 if head_va == 0 {
                     head_va = start_va.0;
@@ -728,6 +728,10 @@ impl MapArea {
             }
         }
         let pte_flags = PTEFlags::from_bits(self.map_perm.bits).unwrap();
+        // println!(
+        //     "[map_one] vpn = {:#x}, ppn = {:#x}, pey_flags = {:?}",
+        //     vpn.0, ppn.0, pte_flags
+        // );
         page_table.map(vpn, ppn, pte_flags);
     }
     pub fn unmap_one(&mut self, page_table: &mut PageTable, vpn: VirtPageNum) {

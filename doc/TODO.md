@@ -40,6 +40,9 @@
 - SYSCALL_WRITEV
   - [ ] 将多个vec连接，只调用一次write()
 
+- 返回值
+  - [ ] 大部分syscall的错误返回值很草率
+
 ## 进程
 
 - [ ] exit_current_and_run_next 只支持单线程

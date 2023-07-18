@@ -94,3 +94,22 @@ impl SignalFlags {
     }
 }
 
+#[derive(Clone, Copy)]
+pub struct SigInfo {
+    si_signo: u32,
+    si_errno: u32,
+    si_code: u32,
+    _si_pad: [u8; 128 - 3 * core::mem::size_of::<u32>()],
+}
+
+impl SigInfo {
+    pub fn new(si_signo: usize, si_errno: usize, si_code: usize) -> Self {
+        Self {
+            si_signo: si_signo as u32,
+            si_errno: si_errno as u32,
+            si_code: si_code as u32,
+            _si_pad: [0; 128 - 3 * core::mem::size_of::<u32>()],
+        }
+    }
+}
+

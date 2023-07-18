@@ -56,6 +56,7 @@ pub const SYSCALL_EXECVE: usize = 221;
 pub const SYSCALL_MMAP: usize = 222;
 pub const SYSCALL_MPROTECT: usize = 226;
 pub const SYSCALL_WAIT4: usize = 260;
+pub const SYSCALL_PRLIMIT: usize = 261;
 pub const SYSCALL_RENAMEAT2: usize = 276;
 pub const SYSCALL_THREAD_CREATE: usize = 1000;
 pub const SYSCALL_WAITTID: usize = 1002;
@@ -132,6 +133,7 @@ pub fn syscall_name(id: usize) -> &'static str {
         SYSCALL_LSEEK => "lseek",
         SYSCALL_RENAMEAT2 => "renameat2",
         SYSCALL_SIGTIMEDWAIT => "sigtimedwait",
+        SYSCALL_PRLIMIT => "prlimit64",
         // non-standard
         SYSCALL_SHUTDOWN => "shutdown",
         _ => "unknown",

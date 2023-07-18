@@ -8,7 +8,8 @@ use crate::{
     timer::TimeSpec,
 };
 
-use super::{errno::SUCCESS, process::sys_sigprocmask};
+use super::signal::sys_sigprocmask;
+
 
 ///  A scheduling  scheme  whereby  the  local  process  periodically  checks  until  the  pre-specified events (for example, read, write) have occurred.
 /// The PollFd struct in 32-bit style.
@@ -76,7 +77,7 @@ pub fn sys_ppoll(
     if !sigmask.is_null() {
         sys_sigprocmask(SIG_SETMASK, sigmask as *mut u32, raw_ptr as *mut u32, true);
     }
-    if tmo_p as usize != 0{
+    if tmo_p as usize != 0 {
         println!("[sys_ppoll] Time limited maybe is needed!")
     }
     let mut done = 0;
