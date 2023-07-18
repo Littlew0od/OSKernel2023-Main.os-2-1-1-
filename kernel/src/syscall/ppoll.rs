@@ -75,7 +75,7 @@ pub fn sys_ppoll(
     let oldsig = Box::new(SignalFlags::empty());
     let raw_ptr = Box::into_raw(oldsig);
     if !sigmask.is_null() {
-        sys_sigprocmask(SIG_SETMASK, sigmask as *mut u32, raw_ptr as *mut u32, true);
+        sys_sigprocmask(SIG_SETMASK, sigmask as *mut usize, raw_ptr as *mut usize, true);
     }
     if tmo_p as usize != 0 {
         println!("[sys_ppoll] Time limited maybe is needed!")
@@ -120,7 +120,7 @@ pub fn sys_ppoll(
     }
 
     if !sigmask.is_null() {
-        sys_sigprocmask(SIG_SETMASK, raw_ptr as *mut u32, 0 as *mut u32, true);
+        sys_sigprocmask(SIG_SETMASK, raw_ptr as *mut usize, 0 as *mut usize, true);
     }
     unsafe {
         let _ = Box::from_raw(raw_ptr);

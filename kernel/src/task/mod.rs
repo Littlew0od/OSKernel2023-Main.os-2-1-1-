@@ -29,7 +29,7 @@ pub use processor::{
     current_kstack_top, current_process, current_task, current_trap_cx, current_trap_cx_user_va,
     current_user_token, run_tasks, schedule, take_current_task,
 };
-pub use signal::{SignalFlags, MAX_SIG, SIG_BLOCK, SIG_SETMASK, SIG_UNBLOCK, SigInfo};
+pub use signal::{SigInfo, SignalFlags, MAX_SIG, SIG_BLOCK, SIG_SETMASK, SIG_UNBLOCK};
 pub use task::{TaskControlBlock, TaskStatus};
 
 pub fn suspend_current_and_run_next() {
@@ -67,19 +67,23 @@ pub fn exit_current_and_run_next(exit_code: i32) {
     let task = take_current_task().unwrap();
     let mut task_inner = task.inner_exclusive_access();
     let process = task.process.upgrade().unwrap();
+    // send exit signals.
+    // The exit_signal is never empty
+    let exit_signal = process.inner_exclusive_access().exit_signal;
+    if !exit_signal.is_empty() {
+        let mut process_inner = process.inner_exclusive_access();
 
-    let mut process_inner = process.inner_exclusive_access();
-    let parent_task = process_inner
-        .parent
-        .as_ref()
-        .unwrap()
-        .upgrade()
-        .unwrap()
-        .inner_exclusive_access()
-        .get_task(0);
-    unblock_task(parent_task.clone());  
+        let parent_process = process_inner.parent.as_ref().unwrap().upgrade().unwrap();
+        let mut parent_process_inner = parent_process.inner_exclusive_access();
 
-    drop(process_inner);
+        parent_process_inner.signals_pending |= exit_signal;
+        let parent_task = parent_process_inner.get_task(0);
+        if parent_task.inner_exclusive_access().task_status == TaskStatus::Blocked {
+            unblock_task(parent_task.clone());
+        }
+    } else {
+        log!("[exit_current_and_run_next] Empty exit_signal!");
+    }
 
     let tid = task_inner.res.as_ref().unwrap().tid;
     // record exit code
@@ -210,13 +214,13 @@ pub fn add_initproc() {
 pub fn check_signals_of_current() -> Option<(i32, &'static str)> {
     let process = current_process();
     let process_inner = process.inner_exclusive_access();
-    process_inner.signals.check_error()
+    process_inner.signals_pending.check_error()
 }
 
 pub fn current_add_signal(signal: SignalFlags) {
     let process = current_process();
     let mut process_inner = process.inner_exclusive_access();
-    process_inner.signals |= signal;
+    process_inner.signals_pending |= signal;
 }
 
 pub fn remove_inactive_task(task: Arc<TaskControlBlock>) {
@@ -245,7 +249,6 @@ fn call_kernel_signal_handler(signal: SignalFlags) {
 }
 
 fn call_user_signal_handler(sig: usize, signal: SignalFlags) {
-    log!("3216516");
     let task = current_task().unwrap();
     let mut task_inner = task.inner_exclusive_access();
     let process = current_process();
@@ -282,7 +285,6 @@ fn check_pending_signals() {
                 if signal == SignalFlags::SIGKILL
                     || signal == SignalFlags::SIGSTOP
                     || signal == SignalFlags::SIGCONT
-                    || signal == SignalFlags::SIGDEF
                 {
                     // signal is a kernel signal
                     call_kernel_signal_handler(signal);
@@ -301,7 +303,6 @@ fn check_pending_signals() {
                     if signal == SignalFlags::SIGKILL
                         || signal == SignalFlags::SIGSTOP
                         || signal == SignalFlags::SIGCONT
-                        || signal == SignalFlags::SIGDEF
                     {
                         // signal is a kernel signal
                         call_kernel_signal_handler(signal);

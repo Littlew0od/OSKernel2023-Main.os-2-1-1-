@@ -34,9 +34,9 @@ pub fn sys_exit(exit_code: i32) -> ! {
     panic!("Unreachable in sys_exit!");
 }
 
-pub fn sys_yield() -> isize {
+pub fn sys_yield() -> ! {
     suspend_current_and_run_next();
-    0
+    panic!("Unreachable in sys_exit!");
 }
 
 /// False implementation, but the required struct is ready.
@@ -103,11 +103,22 @@ pub fn sys_geteuid() -> isize {
 }
 
 pub fn sys_fork(flags: usize, stack_ptr: usize, ptid: usize, tls: usize, ctid: usize) -> isize {
+    // println!("[sys_fork] flags ={}", flags);
     let current_process = current_process();
+    
+    let exit_signal;
+    if flags != 17 {
+        log!("[sys_fork] Unkonwn flags, flags = {:#x}", flags);
+        exit_signal = SignalFlags::SIGCHLD;
+    } else {
+        exit_signal = SignalFlags::from_bits(1 << (flags - 1)).unwrap();
+    }
+
     let new_process = current_process.fork();
     let new_pid = new_process.getpid();
     // modify trap context of new_task, because it returns immediately after switching
-    let new_process_inner = new_process.inner_exclusive_access();
+    let mut new_process_inner = new_process.inner_exclusive_access();
+    new_process_inner.exit_signal |= exit_signal;
     let task = new_process_inner.tasks[0].as_ref().unwrap();
     let trap_cx = task.inner_exclusive_access().get_trap_cx();
     // we do not have to move to next instruction since we have done it before

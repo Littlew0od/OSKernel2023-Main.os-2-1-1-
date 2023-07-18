@@ -89,17 +89,17 @@ pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
         SYSCALL_SYSLOG => sys_syslog(args[0], args[1] as *mut u8, args[2]),
         SYSCALL_CLOCK_GETTIME => sys_clock_gettime(args[0], args[1] as *mut TimeSpec),
         SYSCALL_YIELD => sys_yield(),
-        SYSCALL_KILL => sys_kill(args[0], args[1] as u32),
+        SYSCALL_KILL => sys_kill(args[0], args[1]),
         SYSCALL_SIGACTION => sys_sigaction(
             args[0],
             args[1] as *const SignalAction,
             args[2] as *mut SignalAction,
         ),
         SYSCALL_SIGPROMASK => {
-            sys_sigprocmask(args[0], args[1] as *mut u32, args[2] as *mut u32, false)
+            sys_sigprocmask(args[0], args[1] as *mut usize, args[2] as *mut usize, false)
         }
         SYSCALL_SIGTIMEDWAIT => sys_sigtimedwait(
-            args[0] as *mut u32,
+            args[0] as *mut usize,
             args[1] as *mut SigInfo,
             args[2] as *const TimeSpec,
             args[3],

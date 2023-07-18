@@ -11,7 +11,12 @@ use crate::{
 
 use super::errno::{EPERM, SUCCESS};
 
-pub fn sys_sigprocmask(how: usize, set: *mut u32, old_set: *mut u32, kernel_space: bool) -> isize {
+pub fn sys_sigprocmask(
+    how: usize,
+    set: *mut usize,
+    old_set: *mut usize,
+    kernel_space: bool,
+) -> isize {
     let task = current_task().unwrap();
     let mut inner = task.inner_exclusive_access();
     let mut mask = inner.signal_mask;
@@ -32,8 +37,8 @@ pub fn sys_sigprocmask(how: usize, set: *mut u32, old_set: *mut u32, kernel_spac
 
     if set as usize != 0 {
         let set = *translated_ref(token, set);
+        // tip!("[sys_sigprocmask] set = {:#b}, how = {}", set, how);
         let set_flags = SignalFlags::from_bits(set).unwrap();
-        // tip!("[sys_sigprocmask] set = {:?}", set_flags);
         // if set_flags.contains(SignalFlags::SIGILL) {
         //     log!("[sys_sigprocmask] SignalFlags::SIGILL");
         // }
@@ -90,7 +95,7 @@ pub fn sys_sigaction(
     if old_action as usize != 0 {
         *translated_refmut(token, old_action) = inner_process.signal_actions.table[signum].clone();
     }
-    if let Some(flag) = SignalFlags::from_bits(1 << signum) {
+    if let Some(flag) = SignalFlags::from_bits(1 << (signum - 1)) {
         if check_sigaction_error(flag) {
             log!("[sys_sigaction] check_sigaction_error");
             return EPERM;
@@ -115,8 +120,9 @@ pub fn sys_sigaction(
     }
 }
 
+// The timedwiat used in the libtest is different from the linux manual page
 pub fn sys_sigtimedwait(
-    uthese: *mut u32,
+    uthese: *mut usize,
     info: *mut SigInfo,
     uts: *const TimeSpec,
     // I find sigsetsize in Linux 5.2 source code, but I dont know how to use it.
@@ -134,18 +140,18 @@ pub fn sys_sigtimedwait(
     let set = *translated_ref(token, uthese);
     let set_flags = SignalFlags::from_bits(set).unwrap();
 
-    // tip!(
-    //     "[sys_sigtimedwait] uthese = {:?}, uts = {:?}, sigsetsize = {}",
+    // log!(
+    //     "[sys_sigtimedwait] uthese = {:?}, uts = {:?}, set = {}.",
     //     set_flags,
     //     uts,
-    //     sigsetsize
+    //     set
     // );
 
     loop {
         let process = current_process();
-        let signals = process.inner_exclusive_access().signals;
+        let signals_pending = process.inner_exclusive_access().signals_pending;
         // Every matched signals will return. This method is wrong.
-        let match_signals = set_flags & signals;
+        let match_signals = set_flags & signals_pending;
         if !match_signals.is_empty() {
             let first_signals = match_signals.bits().trailing_zeros();
             if info as usize != 0 {
@@ -159,16 +165,16 @@ pub fn sys_sigtimedwait(
             return EAGAIN;
         }
         drop(process);
-        drop(signals);
+        drop(signals_pending);
         suspend_current_and_run_next();
     }
 }
 
-pub fn sys_kill(pid: usize, signal: u32) -> isize {
-    tip!("[sys_kill] Add siganl.");
+pub fn sys_kill(pid: usize, signal: usize) -> isize {
+    tip!("[sys_kill] Add siganl = {:?}.", signal);
     if let Some(process) = pid2process(pid) {
         if let Some(flag) = SignalFlags::from_bits(signal) {
-            process.inner_exclusive_access().signals |= flag;
+            process.inner_exclusive_access().signals_pending |= flag;
             0
         } else {
             -1

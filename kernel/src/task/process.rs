@@ -38,7 +38,7 @@ pub struct ProcessControlBlockInner {
     pub exit_code: i32,
     pub fd_table: Arc<MutexSpin<FdTable>>,
     pub work_path: Arc<MutexSpin<FsStatus>>,
-    pub signals: SignalFlags,
+    pub signals_pending: SignalFlags,
     pub tasks: Vec<Option<Arc<TaskControlBlock>>>,
     pub task_res_allocator: RecycleAllocator,
     pub mutex_list: Vec<Option<Arc<dyn Mutex>>>,
@@ -51,6 +51,7 @@ pub struct ProcessControlBlockInner {
     pub signal_actions: SignalActions,
     // for times syscall
     pub tms: Times,
+    pub exit_signal: SignalFlags,
 }
 
 impl ProcessControlBlockInner {
@@ -155,7 +156,7 @@ impl ProcessControlBlock {
                                 .unwrap(),
                         ),
                     })),
-                    signals: SignalFlags::empty(),
+                    signals_pending: SignalFlags::empty(),
                     tasks: Vec::new(),
                     task_res_allocator: RecycleAllocator::new(),
                     mutex_list: Vec::new(),
@@ -165,6 +166,7 @@ impl ProcessControlBlock {
                     heap_end: uheap_base.into(),
                     signal_actions: SignalActions::default(),
                     tms: Times::new(),
+                    exit_signal: SignalFlags::empty(),
                 })
             },
         });
@@ -252,6 +254,7 @@ impl ProcessControlBlock {
         assert_eq!(parent.thread_count(), 1);
         // clone parent's memory_set completely including trampoline/ustacks/trap_cxs
         let memory_set = MemorySet::from_existed_user(&parent.memory_set);
+        let signals_pending = parent.signals_pending;
         // alloc a pid
         let pid = pid_alloc();
         // copy fd table
@@ -283,7 +286,7 @@ impl ProcessControlBlock {
                                 .unwrap(),
                         ),
                     })),
-                    signals: SignalFlags::empty(),
+                    signals_pending: signals_pending.clone(),
                     tasks: Vec::new(),
                     task_res_allocator: RecycleAllocator::new(),
                     mutex_list: Vec::new(),
@@ -293,6 +296,7 @@ impl ProcessControlBlock {
                     heap_end: parent.heap_base,
                     signal_actions: SignalActions::default(),
                     tms: Times::new(),
+                    exit_signal: SignalFlags::empty(),
                 })
             },
         });
