@@ -51,8 +51,8 @@ sigprocmask是对线程设置信号屏蔽字，kill是对进程发送信号，�
 
 ## run-static.sh
 
-- [ ]  fscanf
-- [ ]  fwscanf
+- [x]  fscanf
+- [x]  fwscanf
 - [ ]  pthread_cancel_points
 - [ ]  pthread_cancel
 - [ ]  pthread_cond
