@@ -229,6 +229,7 @@ pub fn remove_inactive_task(task: Arc<TaskControlBlock>) {
 }
 
 fn call_kernel_signal_handler(signal: SignalFlags) {
+    // tip!("[call_kernel_signal_handler]");
     let task = current_task().unwrap();
     let mut task_inner = task.inner_exclusive_access();
     let process = current_process();
@@ -251,27 +252,30 @@ fn call_kernel_signal_handler(signal: SignalFlags) {
 }
 
 fn call_user_signal_handler(sig: usize, signal: SignalFlags) {
+    // tip!("[call_user_signal_handler]");
     let task = current_task().unwrap();
     let mut task_inner = task.inner_exclusive_access();
     let process = current_process();
     let mut process_inner = process.inner_exclusive_access();
 
     let handler = process_inner.signal_actions.table[sig].sa_handler;
-    // change current mask
-    process_inner.signal_mask = process_inner.signal_actions.table[sig].mask;
-    // handle flag
-    task_inner.handling_sig = sig as isize;
-    process_inner.signals_pending ^= signal;
+    if handler != 0 {
+        // change current mask
+        process_inner.signal_mask = process_inner.signal_actions.table[sig].mask;
+        // handle flag
+        task_inner.handling_sig = sig as isize;
+        process_inner.signals_pending ^= signal;
 
-    // backup trapframe
-    let mut trap_ctx = task_inner.get_trap_cx();
-    task_inner.trap_ctx_backup = Some(*trap_ctx);
+        // backup trapframe
+        let mut trap_ctx = task_inner.get_trap_cx();
+        task_inner.trap_ctx_backup = Some(*trap_ctx);
 
-    // modify trapframe
-    trap_ctx.sepc = handler;
+        // modify trapframe
+        trap_ctx.sepc = handler;
 
-    // put args (a0)
-    trap_ctx.x[10] = sig;
+        // put args (a0)
+        trap_ctx.x[10] = sig;
+    }
 }
 fn check_pending_signals() {
     for sig in 0..(MAX_SIG + 1) {
@@ -280,10 +284,14 @@ fn check_pending_signals() {
         let process = current_process();
         let mut process_inner = process.inner_exclusive_access();
         let signal = SignalFlags::from_bits(1 << sig).unwrap();
-        if process_inner.signals_pending.contains(signal) && (!process_inner.signal_mask.contains(signal)) {
+        if process_inner.signals_pending.contains(signal)
+            && (!process_inner.signal_mask.contains(signal))
+        {
             if task_inner.handling_sig == -1 {
                 drop(task_inner);
                 drop(task);
+                drop(process_inner);
+                drop(process);
                 if signal == SignalFlags::SIGKILL
                     || signal == SignalFlags::SIGSTOP
                     || signal == SignalFlags::SIGCONT
@@ -302,6 +310,8 @@ fn check_pending_signals() {
                 {
                     drop(task_inner);
                     drop(task);
+                    drop(process_inner);
+                    drop(process);
                     if signal == SignalFlags::SIGKILL
                         || signal == SignalFlags::SIGSTOP
                         || signal == SignalFlags::SIGCONT

@@ -140,12 +140,12 @@ pub fn sys_sigtimedwait(
     let set = *translated_ref(token, uthese);
     let set_flags = SignalFlags::from_bits(set).unwrap();
 
-    log!(
-        "[sys_sigtimedwait] uthese = {:?}, uts = {:?}, set = {}.",
-        set_flags,
-        uts,
-        set
-    );
+    // log!(
+    //     "[sys_sigtimedwait] uthese = {:?}, uts = {:?}, set = {}.",
+    //     set_flags,
+    //     uts,
+    //     set
+    // );
 
     loop {
         let process = current_process();

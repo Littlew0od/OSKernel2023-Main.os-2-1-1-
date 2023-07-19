@@ -24,11 +24,11 @@ use system::*;
 use thread::*;
 
 pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
-    println!(
-        "[kernel] syscall start, syscall_name: {}, syscall_id: {}",
-        syscall_name(syscall_id),
-        syscall_id,
-    );
+    // println!(
+    //     "[kernel] syscall start, syscall_name: {}, syscall_id: {}",
+    //     syscall_name(syscall_id),
+    //     syscall_id,
+    // );
     let ret = match syscall_id {
         SYSCALL_GETCWD => sys_getcwd(args[0] as *mut u8, args[1]),
         SYSCALL_DUP => sys_dup(args[0]),
@@ -160,13 +160,13 @@ pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
         SYSCALL_SHUTDOWN => sys_shutdown(args[0] != 0),
         _ => panic!("Unsupported syscall_id: {}", syscall_id),
     };
-    tip!(
-        "[syscall] pid: {}, syscall_name: {}, syscall_id: {}, returned {:#x}",
-        sys_getpid(),
-        syscall_name(syscall_id),
-        syscall_id,
-        ret
-    );
+    // tip!(
+    //     "[syscall] pid: {}, syscall_name: {}, syscall_id: {}, returned {:#x}",
+    //     sys_getpid(),
+    //     syscall_name(syscall_id),
+    //     syscall_id,
+    //     ret
+    // );
 
     // if [
     //     SYSCALL_SIGACTION,
