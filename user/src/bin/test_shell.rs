@@ -31,7 +31,7 @@ pub fn load_final2_test_cmds() -> Vec<String> {
     // cmds.push(String::from("./busybox sh ./unixbench_testcode.sh"));
     // cmds.push(String::from("./busybox sh ./iperf_testcode.sh"));
     // cmds.push(String::from("./busybox sh ./cyclic_testcode.sh"));
-    cmds.push(String::from("./runtest.ex -w entry-static.exe fscanf"));
+    cmds.push(String::from("./runtest.exe -w entry-static.exe fscanf"));
     // cmds.push(String::from("./runtest.exe -w entry-static.exe fwscanf"));
     // cmds.push(String::from("./runtest.exe -w entry-static.exe pthread_cancel_points"));
     // cmds.push(String::from("./runtest.exe -w entry-static.exe pthread_cancel"));
