@@ -114,6 +114,7 @@ pub fn sys_readv(fd: usize, iov: usize, iovcnt: usize) -> isize {
 }
 
 pub fn sys_write(fd: usize, buf: *const u8, len: usize) -> isize {
+    // log!("[sys_write] write_fd = {}, count = {:#x}.", fd, len);
     let token = current_user_token();
     let process = current_process();
     let inner = process.inner_exclusive_access();

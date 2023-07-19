@@ -7,7 +7,7 @@ use crate::{
 
 use super::{current_task, current_user_token};
 
-pub const MAX_SIG: usize = 31;
+pub const MAX_SIG: usize = 63;
 // how flags
 pub const SIG_BLOCK: usize = 0;
 pub const SIG_UNBLOCK: usize = 1;
@@ -154,6 +154,8 @@ impl SignalFlags {
             Some((-8, "Erroneous Arithmetic Operation, SIGFPE=8"))
         } else if self.contains(Self::SIGSEGV) {
             Some((-11, "Segmentation Fault, SIGSEGV=11"))
+        } else if self.contains(Self::SIGKILL){
+            Some((-9, "Application being killed, SIGSEGV=9"))
         } else {
             None
         }

@@ -8,9 +8,11 @@
 
 - [x] 对信号机制的支持
 - [ ] 对实时信号的支持
-- [x] syscall具体作用于process还是thread
+- [x] syscall具体作用于process还是thread 
+  
+sigprocmask是对线程设置信号屏蔽字，kill是对进程发送信号，理论上sigprocmask的信号屏蔽字并不影响kill的信号传递，但是由于测试用例的经验，我们运行的测试用例只会使用kill发送信号，所以暂时将信号屏蔽字放在process层面，方便操作系统的实现。等到对线程的进一步支持时再修改。
 
-## 硬件
+## 硬件 
 
 - [x] 烧录k210的购物清单
 - [x] 烧录k210流程

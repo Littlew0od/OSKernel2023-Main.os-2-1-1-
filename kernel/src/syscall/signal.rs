@@ -17,11 +17,11 @@ pub fn sys_sigprocmask(
     old_set: *mut usize,
     kernel_space: bool,
 ) -> isize {
-    let task = current_task().unwrap();
-    let mut inner = task.inner_exclusive_access();
-    let mut mask = inner.signal_mask;
-
     let token = current_user_token();
+    let process = current_process();
+    let mut inner = process.inner_exclusive_access();
+
+    let mut mask = inner.signal_mask;
 
     if kernel_space {
         if old_set as usize != 0 {
@@ -140,12 +140,12 @@ pub fn sys_sigtimedwait(
     let set = *translated_ref(token, uthese);
     let set_flags = SignalFlags::from_bits(set).unwrap();
 
-    // log!(
-    //     "[sys_sigtimedwait] uthese = {:?}, uts = {:?}, set = {}.",
-    //     set_flags,
-    //     uts,
-    //     set
-    // );
+    log!(
+        "[sys_sigtimedwait] uthese = {:?}, uts = {:?}, set = {}.",
+        set_flags,
+        uts,
+        set
+    );
 
     loop {
         let process = current_process();
@@ -170,10 +170,10 @@ pub fn sys_sigtimedwait(
     }
 }
 
-pub fn sys_kill(pid: usize, signal: usize) -> isize {
-    tip!("[sys_kill] Add siganl = {:?}.", signal);
+pub fn sys_kill(pid: usize, signum: usize) -> isize {
+    tip!("[sys_kill] Add siganl = {:?}.", signum);
     if let Some(process) = pid2process(pid) {
-        if let Some(flag) = SignalFlags::from_bits(signal) {
+        if let Some(flag) = SignalFlags::from_bits(1 << (signum - 1)) {
             process.inner_exclusive_access().signals_pending |= flag;
             0
         } else {

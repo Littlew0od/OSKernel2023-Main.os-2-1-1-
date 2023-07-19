@@ -231,14 +231,16 @@ pub fn remove_inactive_task(task: Arc<TaskControlBlock>) {
 fn call_kernel_signal_handler(signal: SignalFlags) {
     let task = current_task().unwrap();
     let mut task_inner = task.inner_exclusive_access();
+    let process = current_process();
+    let mut process_inner = process.inner_exclusive_access();
     match signal {
         SignalFlags::SIGSTOP => {
             task_inner.frozen = true;
-            task_inner.signals ^= SignalFlags::SIGSTOP;
+            process_inner.signals_pending ^= SignalFlags::SIGSTOP;
         }
         SignalFlags::SIGCONT => {
-            if task_inner.signals.contains(SignalFlags::SIGCONT) {
-                task_inner.signals ^= SignalFlags::SIGCONT;
+            if process_inner.signals_pending.contains(SignalFlags::SIGCONT) {
+                process_inner.signals_pending ^= SignalFlags::SIGCONT;
                 task_inner.frozen = false;
             }
         }
@@ -256,10 +258,10 @@ fn call_user_signal_handler(sig: usize, signal: SignalFlags) {
 
     let handler = process_inner.signal_actions.table[sig].sa_handler;
     // change current mask
-    task_inner.signal_mask = process_inner.signal_actions.table[sig].mask;
+    process_inner.signal_mask = process_inner.signal_actions.table[sig].mask;
     // handle flag
     task_inner.handling_sig = sig as isize;
-    task_inner.signals ^= signal;
+    process_inner.signals_pending ^= signal;
 
     // backup trapframe
     let mut trap_ctx = task_inner.get_trap_cx();
@@ -278,7 +280,7 @@ fn check_pending_signals() {
         let process = current_process();
         let mut process_inner = process.inner_exclusive_access();
         let signal = SignalFlags::from_bits(1 << sig).unwrap();
-        if task_inner.signals.contains(signal) && (!task_inner.signal_mask.contains(signal)) {
+        if process_inner.signals_pending.contains(signal) && (!process_inner.signal_mask.contains(signal)) {
             if task_inner.handling_sig == -1 {
                 drop(task_inner);
                 drop(task);

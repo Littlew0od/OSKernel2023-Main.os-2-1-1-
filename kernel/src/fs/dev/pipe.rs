@@ -137,6 +137,7 @@ impl File for Pipe {
         loop {
             let mut ring_buffer = self.buffer.exclusive_access();
             let loop_read = ring_buffer.available_read();
+            // println!("loop_read = {}",loop_read);
             if loop_read == 0 {
                 if ring_buffer.all_write_ends_closed() {
                     return already_read;
@@ -158,6 +159,10 @@ impl File for Pipe {
                 } else {
                     return already_read;
                 }
+            }
+            // Return as long as it is read
+            if loop_read > 0 {
+                return already_read;
             }
         }
     }
