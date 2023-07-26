@@ -24,11 +24,11 @@ use system::*;
 use thread::*;
 
 pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
-    println!(
-        "[kernel] syscall start, syscall_name: {}, syscall_id: {}",
-        syscall_name(syscall_id),
-        syscall_id,
-    );
+    // println!(
+    //     "[kernel] syscall start, syscall_name: {}, syscall_id: {}",
+    //     syscall_name(syscall_id),
+    //     syscall_id,
+    // );
     let ret = match syscall_id {
         SYSCALL_GETCWD => sys_getcwd(args[0] as *mut u8, args[1]),
         SYSCALL_DUP => sys_dup(args[0]),
@@ -117,7 +117,13 @@ pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
         SYSCALL_SYSINFO => sys_sysinfo(args[0] as *mut u8),
         SYSCALL_BRK => sys_brk(args[0]),
         SYSCALL_MUNMAP => sys_munmap(args[0], args[1]),
-        SYSCALL_CLONE => sys_fork(args[0], args[1], args[2], args[3], args[4]),
+        SYSCALL_CLONE => sys_clone(
+            args[0],
+            args[1],
+            args[2] as *mut usize,
+            args[3],
+            args[4] as *mut usize,
+        ),
         SYSCALL_EXECVE => sys_execve(
             args[0] as *const u8,
             args[1] as *const usize,

@@ -17,6 +17,7 @@ pub fn sys_thread_create(entry: usize, arg: usize) -> isize {
             .unwrap()
             .ustack_top,
         true,
+        true
     ));
     // add new task to scheduler
     add_task(Arc::clone(&new_task));

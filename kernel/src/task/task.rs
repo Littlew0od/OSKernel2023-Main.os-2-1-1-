@@ -1,5 +1,7 @@
 use super::id::TaskUserRes;
-use super::{kstack_alloc, KernelStack, ProcessControlBlock, TaskContext, SignalFlags, SignalActions};
+use super::{
+    kstack_alloc, KernelStack, ProcessControlBlock, SignalActions, SignalFlags, TaskContext,
+};
 use crate::fs::Null;
 use crate::trap::TrapContext;
 use crate::{mm::PhysPageNum, sync::UPSafeCell};
@@ -62,8 +64,14 @@ impl TaskControlBlock {
         process: Arc<ProcessControlBlock>,
         ustack_top: usize,
         alloc_user_res: bool,
+        alloc_user_stack: bool,
     ) -> Self {
-        let res = TaskUserRes::new(Arc::clone(&process), ustack_top, alloc_user_res);
+        let res = TaskUserRes::new(
+            Arc::clone(&process),
+            ustack_top,
+            alloc_user_res,
+            alloc_user_stack,
+        );
         let trap_cx_ppn = res.trap_cx_ppn();
         let kstack = kstack_alloc();
         let kstack_top = kstack.get_top();
@@ -81,7 +89,7 @@ impl TaskControlBlock {
                     killed: false,
                     frozen: false,
                     trap_ctx_backup: None,
-                    clear_child_tid: 0
+                    clear_child_tid: 0,
                 })
             },
         }

@@ -8,9 +8,11 @@ use crate::sbi::shutdown;
 use crate::syscall::errno::ECHILD;
 use crate::task::block_current_and_run_next;
 use crate::task::current_task;
+use crate::task::CloneFlags;
+use crate::task::CSIGNAL;
 use crate::task::{
-    current_process, current_user_token, exit_current_and_run_next, pid2process,
-    suspend_current_and_run_next, SignalFlags,
+    current_process, current_user_token, exit_current_and_run_next, suspend_current_and_run_next,
+    SignalFlags,
 };
 use crate::timer::get_time_us;
 use crate::timer::TimeSpec;
@@ -102,32 +104,56 @@ pub fn sys_geteuid() -> isize {
     0
 }
 
-pub fn sys_fork(flags: usize, stack_ptr: usize, ptid: usize, tls: usize, ctid: usize) -> isize {
-    // println!("[sys_fork] flags ={}", flags);
+pub fn sys_clone(
+    flags: usize,
+    stack_ptr: usize,
+    ptid: *mut usize,
+    tls: usize,
+    ctid: *mut usize,
+) -> isize {
     let current_process = current_process();
-    
-    let exit_signal;
-    if flags != 17 {
-        log!("[sys_fork] Unkonwn flags, flags = {:#x}", flags);
-        exit_signal = SignalFlags::SIGCHLD;
-    } else {
-        exit_signal = SignalFlags::from_bits(1 << (flags - 1)).unwrap();
-    }
 
-    let new_process = current_process.fork();
-    let new_pid = new_process.getpid();
-    // modify trap context of new_task, because it returns immediately after switching
-    let mut new_process_inner = new_process.inner_exclusive_access();
-    new_process_inner.exit_signal |= exit_signal;
-    let task = new_process_inner.tasks[0].as_ref().unwrap();
-    let trap_cx = task.inner_exclusive_access().get_trap_cx();
-    // we do not have to move to next instruction since we have done it before
-    // for child process, fork returns 0
-    if stack_ptr != 0 {
-        trap_cx.x[2] = stack_ptr;
+    let exit_signal = SignalFlags::from_bits(1 << ((flags & CSIGNAL) - 1)).unwrap();
+    let clone_signals = CloneFlags::from_bits((flags & !CSIGNAL) as u32).unwrap();
+
+    println!(
+        "[sys_clone] exit_signal ={:?}, clone_signals = {:?}, stack_ptr = {:#x}, ptid = {:#x}, tls = {:#x}, ctid = {:#x}",
+        exit_signal, clone_signals, stack_ptr, ptid as usize, tls, ctid as usize
+    );
+
+    if !clone_signals.contains(CloneFlags::CLONE_THREAD) {
+        assert!(stack_ptr == 0);
+        return current_process.fork() as isize;
+    } else {
+        let new_thread = current_process.clone2(exit_signal, clone_signals, stack_ptr, tls);
+
+        // The thread ID of the main thread needs to be the same as the Process ID,
+        // so we will exchange the thread whose thread ID is equal to Process ID with the thread whose thread ID is equal to 0,
+        // but the system will not exchange it internally
+        let process_pid = current_process.getpid();
+        let mut new_thread_ttid = new_thread.inner_exclusive_access().gettid();
+        if new_thread_ttid == process_pid {
+            new_thread_ttid = 0;
+        }
+
+        let token = current_user_token();
+        if clone_signals.contains(CloneFlags::CLONE_PARENT_SETTID) {
+            if !ptid.is_null() {
+                *translated_refmut(token, ptid) = new_thread_ttid;
+            }
+        }
+        if clone_signals.contains(CloneFlags::CLONE_CHILD_SETTID) {
+            if !ctid.is_null() {
+                *translated_refmut(token, ctid) = new_thread_ttid;
+            }
+        }
+        if clone_signals.contains(CloneFlags::CLONE_CHILD_CLEARTID) {
+            let mut thread_inner = new_thread.inner_exclusive_access();
+            thread_inner.clear_child_tid = ctid as usize;
+        }
+
+        return new_thread_ttid as isize;
     }
-    trap_cx.x[10] = 0;
-    new_pid as isize
 }
 
 pub fn sys_execve(path: *const u8, mut args: *const usize, mut envp: *const usize) -> isize {
@@ -294,6 +320,10 @@ pub fn sys_mmap(
     fd: usize,
     offset: usize,
 ) -> isize {
+    // println!(
+    //     "[sys_mmap] start = {}, len = {}, prot = {}, flags = {}, fd = {:#x}, offset = {}",
+    //     start, len, prot, flags, fd, offset
+    // );
     if start as isize == -1 || len == 0 {
         return EPERM;
     }

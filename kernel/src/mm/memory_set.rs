@@ -13,6 +13,7 @@ use crate::mm::config::{
 };
 use crate::sync::UPSafeCell;
 use crate::syscall::errno::{EPERM, SUCCESS};
+use crate::task::Flags;
 use alloc::collections::BTreeMap;
 use alloc::string::{String, ToString};
 use alloc::sync::Arc;
@@ -61,27 +62,6 @@ pub struct MemorySet {
     pub mmap_base: VirtAddr,
     // always aligh to PAGE_SIZE
     pub mmap_end: VirtAddr,
-}
-
-bitflags! {
-    pub struct Flags: u32 {
-        const MAP_SHARED = 0x01;
-        const MAP_PRIVATE = 0x02;
-        const MAP_FIXED = 0x10;
-        const MAP_ANONYMOUS = 0x20;
-        const MAP_GROWSDOWN = 0x0100;
-        const MAP_DENYWRITE = 0x0800;
-        const MAP_EXECUTABLE = 0x1000;
-        const MAP_LOCKED = 0x2000;
-        const MAP_NORESERVE = 0x4000;
-        const MAP_POPULATE = 0x8000;
-        const MAP_NONBLOCK = 0x10000;
-        const MAP_STACK = 0x20000;
-        const MAP_HUGETLB = 0x40000;
-        const MAP_SYNC = 0x80000;
-        const MAP_FIXED_NOREPLACE = 0x100000;
-        const MAP_UNINITIALIZED = 0x4000000;
-    }
 }
 
 impl MemorySet {
@@ -521,9 +501,8 @@ impl MemorySet {
         len: usize,
         offset: usize,
         context: Vec<u8>,
-        flags: u32,
+        flags: Flags,
     ) -> isize {
-        let flags = Flags::from_bits(flags).unwrap();
         let start_addr_align: usize;
         let end_addr_align: usize;
         if flags.contains(Flags::MAP_FIXED) && start_addr != 0 {
@@ -568,22 +547,24 @@ impl MemorySet {
             }
         }
         // write context
-        let mut start: usize = offset;
-        let mut current_vpn = vpn_range.get_start();
-        loop {
-            let src = &context[start..len.min(start + PAGE_SIZE)];
-            let dst = &mut self
-                .page_table
-                .translate(current_vpn)
-                .unwrap()
-                .ppn()
-                .get_bytes_array()[..src.len()];
-            dst.copy_from_slice(src);
-            start += PAGE_SIZE;
-            if start >= len {
-                break;
+        if !flags.contains(Flags::MAP_ANONYMOUS) {
+            let mut start: usize = offset;
+            let mut current_vpn = vpn_range.get_start();
+            loop {
+                let src = &context[start..len.min(start + PAGE_SIZE)];
+                let dst = &mut self
+                    .page_table
+                    .translate(current_vpn)
+                    .unwrap()
+                    .ppn()
+                    .get_bytes_array()[..src.len()];
+                dst.copy_from_slice(src);
+                start += PAGE_SIZE;
+                if start >= len {
+                    break;
+                }
+                current_vpn.step();
             }
-            current_vpn.step();
         }
         start_addr_align as isize
     }

@@ -1,14 +1,16 @@
 use super::id::RecycleAllocator;
 use super::manager::insert_into_pid2process;
-use super::{add_task, SignalFlags};
+use super::{add_task, current_task, SignalFlags};
 use super::{pid_alloc, PidHandle};
 use super::{SignalActions, TaskControlBlock};
 use crate::config::{MMAP_BASE, PAGE_SIZE};
 use crate::fs::{FdTable, FileDescriptor, OpenFlags, ROOT_FD};
 use crate::fs::{File, Stdin, Stdout};
-use crate::mm::{translated_refmut, AuxHeader, MemorySet, PageTable, VirtAddr, KERNEL_SPACE};
+use crate::mm::{
+    kernel_token, translated_refmut, AuxHeader, MemorySet, PageTable, VirtAddr, KERNEL_SPACE,
+};
 use crate::sync::{Condvar, Mutex, Semaphore, UPSafeCell};
-use crate::syscall::errno::EPERM;
+use crate::syscall::errno::{EPERM, SUCCESS};
 use crate::timer::Times;
 use crate::trap::{trap_handler, TrapContext};
 use alloc::string::String;
@@ -56,6 +58,27 @@ pub struct ProcessControlBlockInner {
     pub exit_signal: SignalFlags,
 }
 
+bitflags! {
+    pub struct Flags: u32 {
+        const MAP_SHARED = 0x01;
+        const MAP_PRIVATE = 0x02;
+        const MAP_FIXED = 0x10;
+        const MAP_ANONYMOUS = 0x20;
+        const MAP_GROWSDOWN = 0x0100;
+        const MAP_DENYWRITE = 0x0800;
+        const MAP_EXECUTABLE = 0x1000;
+        const MAP_LOCKED = 0x2000;
+        const MAP_NORESERVE = 0x4000;
+        const MAP_POPULATE = 0x8000;
+        const MAP_NONBLOCK = 0x10000;
+        const MAP_STACK = 0x20000;
+        const MAP_HUGETLB = 0x40000;
+        const MAP_SYNC = 0x80000;
+        const MAP_FIXED_NOREPLACE = 0x100000;
+        const MAP_UNINITIALIZED = 0x4000000;
+    }
+}
+
 impl ProcessControlBlockInner {
     #[allow(unused)]
     pub fn get_user_token(&self) -> usize {
@@ -84,18 +107,25 @@ impl ProcessControlBlockInner {
         fd: usize,
         offset: usize,
     ) -> isize {
-        let file_descriptor = match self.fd_table.lock().get_ref(fd) {
-            Ok(file_descriptor) => file_descriptor.clone(),
-            Err(errno) => return errno,
+        let flags = Flags::from_bits(flags).unwrap();
+        let (context, length) = if flags.contains(Flags::MAP_ANONYMOUS) {
+            (Vec::new(), len)
+        } else {
+            let file_descriptor = match self.fd_table.lock().get_ref(fd) {
+                Ok(file_descriptor) => file_descriptor.clone(),
+                Err(errno) => return errno,
+            };
+            let context = file_descriptor.read_all();
+            let file_len = context.len();
+            let mut length = len;
+            if file_len <= offset {
+                return EPERM;
+            } else if file_len > len + offset {
+                length = file_len - offset;
+            };
+            (context, length)
         };
-        let context = file_descriptor.read_all();
-        let mut file_len = context.len();
-        let mut length = len;
-        if file_len <= offset {
-            return EPERM;
-        } else if file_len > len + offset {
-            length = file_len - offset;
-        };
+
         self.memory_set
             .mmap(start_addr, length, offset, context, flags)
     }
@@ -118,6 +148,36 @@ impl ProcessControlBlockInner {
 
     pub fn get_task(&self, tid: usize) -> Arc<TaskControlBlock> {
         self.tasks[tid].as_ref().unwrap().clone()
+    }
+}
+
+pub const CSIGNAL: usize = 0x000000ff; /* signal mask to be sent at exit */
+bitflags! {
+    pub struct CloneFlags: u32 {
+        const CLONE_VM	            = 0x00000100;/* set if VM shared between processes */
+        const CLONE_FS	            = 0x00000200;/* set if fs info shared between processes */
+        const CLONE_FILES	        = 0x00000400;/* set if open files shared between processes */
+        const CLONE_SIGHAND	        = 0x00000800;/* set if signal handlers and blocked signals shared */
+        const CLONE_PIDFD	        = 0x00001000;/* set if a pidfd should be placed in parent */
+        const CLONE_PTRACE	        = 0x00002000;/* set if we want to let tracing continue on the child too */
+        const CLONE_VFORK	        = 0x00004000;/* set if the parent wants the child to wake it up on mm_release */
+        const CLONE_PARENT	        = 0x00008000;/* set if we want to have the same parent as the cloner */
+        const CLONE_THREAD	        = 0x00010000;/* Same thread group? */
+        const CLONE_NEWNS	        = 0x00020000;/* New mount namespace group */
+        const CLONE_SYSVSEM	        = 0x00040000;/* share system V SEM_UNDO semantics */
+        const CLONE_SETTLS	        = 0x00080000;/* create a new TLS for the child */
+        const CLONE_PARENT_SETTID	= 0x00100000;/* set the TID in the parent */
+        const CLONE_CHILD_CLEARTID	= 0x00200000;/* clear the TID in the child */
+        const CLONE_DETACHED		= 0x00400000;/* Unused, ignored */
+        const CLONE_UNTRACED		= 0x00800000;/* set if the tracing process can't force CLONE_PTRACE on this clone */
+        const CLONE_CHILD_SETTID	= 0x01000000;/* set the TID in the child */
+        const CLONE_NEWCGROUP		= 0x02000000;/* New cgroup namespace */
+        const CLONE_NEWUTS		    = 0x04000000;/* New utsname namespace */
+        const CLONE_NEWIPC		    = 0x08000000;/* New ipc namespace */
+        const CLONE_NEWUSER		    = 0x10000000;/* New user namespace */
+        const CLONE_NEWPID		    = 0x20000000;/* New pid namespace */
+        const CLONE_NEWNET		    = 0x40000000;/* New network namespace */
+        const CLONE_IO		        = 0x80000000;/* Clone io context */
     }
 }
 
@@ -179,6 +239,7 @@ impl ProcessControlBlock {
             Arc::clone(&process),
             ustack_top,
             true,
+            true
         ));
         // prepare trap_cx of main thread
         let task_inner = task.inner_exclusive_access();
@@ -221,7 +282,7 @@ impl ProcessControlBlock {
         let mut task_inner = task.inner_exclusive_access();
         task_inner.res.as_mut().unwrap().ustack_top = ustack_top;
         // println!("[exec] alloc user res at ustack_top :{:#x}", ustack_top);
-        task_inner.res.as_mut().unwrap().alloc_user_res();
+        task_inner.res.as_mut().unwrap().alloc_user_res(true);
         task_inner.trap_cx_ppn = task_inner.res.as_mut().unwrap().trap_cx_ppn();
         // push arguments on user stack
         // let mut user_sp = ustack_top;
@@ -257,7 +318,7 @@ impl ProcessControlBlock {
     }
 
     /// Only support processes with a single thread.
-    pub fn fork(self: &Arc<Self>) -> Arc<Self> {
+    pub fn fork(self: &Arc<Self>) -> usize {
         let mut parent = self.inner_exclusive_access();
         assert_eq!(parent.thread_count(), 1);
         // clone parent's memory_set completely including trampoline/ustacks/trap_cxs
@@ -305,7 +366,7 @@ impl ProcessControlBlock {
                     heap_end: parent.heap_base,
                     signal_actions: SignalActions::default(),
                     tms: Times::new(),
-                    exit_signal: SignalFlags::empty(),
+                    exit_signal: SignalFlags::SIGCHLD,
                 })
             },
         });
@@ -324,6 +385,7 @@ impl ProcessControlBlock {
             // here we do not allocate trap_cx or ustack again
             // but mention that we allocate a new kstack here
             false,
+            false
         ));
         // attach task to child process
         let mut child_inner = child.inner_exclusive_access();
@@ -333,11 +395,72 @@ impl ProcessControlBlock {
         let task_inner = task.inner_exclusive_access();
         let trap_cx = task_inner.get_trap_cx();
         trap_cx.kernel_sp = task.kstack.get_top();
+        // we do not have to move to next instruction since we have done it before
+        // for child process, fork returns 0
+        trap_cx.x[10] = 0;
         drop(task_inner);
-        insert_into_pid2process(child.getpid(), Arc::clone(&child));
+        let pid = child.getpid();
+        insert_into_pid2process(pid, Arc::clone(&child));
         // add this thread to scheduler
         add_task(task);
-        child
+        pid
+    }
+
+    pub fn clone2(
+        self: &Arc<Self>,
+        exit_signals: SignalFlags,
+        clone_signals: CloneFlags,
+        stack_ptr: usize,
+        tls: usize,
+    ) -> Arc<TaskControlBlock> {
+        let task = current_task().unwrap();
+        let process = task.process.upgrade().unwrap();
+        // create a new thread.
+        // We did not alloc for stack space here
+        let thread_stack = if stack_ptr != 0 {
+            stack_ptr
+        } else {
+            task.inner_exclusive_access()
+                .res
+                .as_ref()
+                .unwrap()
+                .ustack_top
+        };
+        let new_task = Arc::new(TaskControlBlock::new(
+            Arc::clone(&process),
+            thread_stack,
+            true,
+            false
+        ));
+        let new_task_inner = new_task.inner_exclusive_access();
+        let new_task_res = new_task_inner.res.as_ref().unwrap();
+        let new_task_tid = new_task_res.tid;
+        let mut process_inner = process.inner_exclusive_access();
+        // add new thread to current process
+        let tasks = &mut process_inner.tasks;
+        while tasks.len() < new_task_tid + 1 {
+            tasks.push(None);
+        }
+        tasks[new_task_tid] = Some(Arc::clone(&new_task));
+        let new_task_trap_cx = new_task_inner.get_trap_cx();
+
+        // I don't know if this is correct
+        *new_task_trap_cx = *task.inner_exclusive_access().get_trap_cx();
+
+        // for child process, fork returns 0
+        new_task_trap_cx.x[10] = 0;
+        // set tp reg
+        new_task_trap_cx.x[4] = tls;
+        // set sp reg
+        new_task_trap_cx.set_sp(new_task_res.ustack_top());
+        // modify kernel_sp in trap_cx
+        new_task_trap_cx.kernel_sp = new_task.kstack.get_top();
+
+        // add new task to scheduler
+        add_task(Arc::clone(&new_task));
+        
+        drop(new_task_inner);
+        new_task
     }
 
     pub fn getpid(&self) -> usize {

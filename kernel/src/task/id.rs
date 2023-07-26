@@ -129,7 +129,7 @@ fn ustack_top_from_id(ustack_top: usize, id: usize) -> usize {
 }
 
 impl TaskUserRes {
-    pub fn new(process: Arc<ProcessControlBlock>, ustack_top: usize, alloc_user_res: bool) -> Self {
+    pub fn new(process: Arc<ProcessControlBlock>, ustack_top: usize, alloc_user_res: bool, alloc_user_stack: bool) -> Self {
         let tid = process.inner_exclusive_access().alloc_tid();
         let task_user_res = Self {
             tid,
@@ -137,26 +137,28 @@ impl TaskUserRes {
             process: Arc::downgrade(&process),
         };
         if alloc_user_res {
-            task_user_res.alloc_user_res();
+            task_user_res.alloc_user_res(alloc_user_stack);
         }
         task_user_res
     }
 
-    pub fn alloc_user_res(&self) {
+    pub fn alloc_user_res(&self, alloc_user_stack: bool) {
         let process = self.process.upgrade().unwrap();
         let mut process_inner = process.inner_exclusive_access();
-        // alloc user stack
-        let ustack_top = ustack_top_from_id(self.ustack_top, self.tid);
-        let ustack_bottom = ustack_top - USER_STACK_SIZE;
-        // println!(
-        //     "[exec] alloc_user_res, ustack_bottom = {:#x}, ustack_top = {:#x}.",
-        //     ustack_bottom, ustack_top
-        // );
-        process_inner.memory_set.insert_framed_area(
-            ustack_bottom.into(),
-            ustack_top.into(),
-            MapPermission::R | MapPermission::W | MapPermission::U,
-        );
+        if alloc_user_stack {
+            // alloc user stack
+            let ustack_top = ustack_top_from_id(self.ustack_top, self.tid);
+            let ustack_bottom = ustack_top - USER_STACK_SIZE;
+            // println!(
+            //     "[exec] alloc_user_res, ustack_bottom = {:#x}, ustack_top = {:#x}.",
+            //     ustack_bottom, ustack_top
+            // );
+            process_inner.memory_set.insert_framed_area(
+                ustack_bottom.into(),
+                ustack_top.into(),
+                MapPermission::R | MapPermission::W | MapPermission::U,
+            );
+        }
         // alloc trap_cx
         let trap_cx_bottom = trap_cx_bottom_from_tid(self.tid);
         let trap_cx_top = trap_cx_bottom + PAGE_SIZE;
