@@ -10,6 +10,8 @@ use crate::task::block_current_and_run_next;
 use crate::task::current_task;
 use crate::task::CloneFlags;
 use crate::task::CSIGNAL;
+use crate::task::FUTEX_CMD_MASK;
+use crate::task::FUTEX_PRIVATE_FLAG;
 use crate::task::{
     current_process, current_user_token, exit_current_and_run_next, suspend_current_and_run_next,
     SignalFlags,
@@ -116,10 +118,10 @@ pub fn sys_clone(
     let exit_signal = SignalFlags::from_bits(1 << ((flags & CSIGNAL) - 1)).unwrap();
     let clone_signals = CloneFlags::from_bits((flags & !CSIGNAL) as u32).unwrap();
 
-    println!(
-        "[sys_clone] exit_signal ={:?}, clone_signals = {:?}, stack_ptr = {:#x}, ptid = {:#x}, tls = {:#x}, ctid = {:#x}",
-        exit_signal, clone_signals, stack_ptr, ptid as usize, tls, ctid as usize
-    );
+    // println!(
+    //     "[sys_clone] exit_signal ={:?}, clone_signals = {:?}, stack_ptr = {:#x}, ptid = {:#x}, tls = {:#x}, ctid = {:#x}",
+    //     exit_signal, clone_signals, stack_ptr, ptid as usize, tls, ctid as usize
+    // );
 
     if !clone_signals.contains(CloneFlags::CLONE_THREAD) {
         assert!(stack_ptr == 0);
@@ -364,5 +366,27 @@ pub fn sys_mprotect(addr: usize, len: usize, prot: usize) -> isize {
 
 pub fn sys_prlimit() -> isize {
     log!("[sys_prlimit] fake.");
+    SUCCESS
+}
+
+pub fn sys_futex(
+    uaddr: *const u32,
+    futex_op: usize,
+    val: u32,
+    timeout: *const TimeSpec,
+    uaddr2: *const u32,
+    val3: u32,
+) -> isize {
+    if futex_op & FUTEX_PRIVATE_FLAG == 0 {
+        panic!("[sys_futex] process-shared futex is unimplemented");
+    }
+
+    let cmd = futex_op & FUTEX_CMD_MASK;
+
+    println!(
+        "[futex] uaddr: {:?}, futex_op: {:?}, val: {:X}, timeout: {:?}, uaddr2: {:?}, val3: {:X}",
+        uaddr, cmd, val, timeout, uaddr2, val3
+    );
+    // todo!();
     SUCCESS
 }

@@ -7,6 +7,7 @@ mod process;
 mod processor;
 mod signal;
 mod switch;
+mod futex;
 #[allow(clippy::module_inception)]
 mod task;
 
@@ -32,6 +33,7 @@ pub use processor::{
 };
 pub use signal::{SigInfo, SignalFlags, MAX_SIG, SIG_BLOCK, SIG_SETMASK, SIG_UNBLOCK};
 pub use task::{TaskControlBlock, TaskStatus};
+pub use futex::*;
 
 pub fn suspend_current_and_run_next() {
     // There must be an application running.

@@ -183,3 +183,12 @@ pub fn sys_kill(pid: usize, signum: usize) -> isize {
         -1
     }
 }
+
+pub fn sys_tkill(tid: usize, signum: usize) -> isize {
+    let signal = SignalFlags::from_bits(1 << (signum - 1)).unwrap();
+    println!(
+        "[sys_tkill] tid = {}, signum = {}, signal = {:?}",
+        tid, signum, signal
+    );
+    SUCCESS
+}

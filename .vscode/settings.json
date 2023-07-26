@@ -8,6 +8,7 @@
    "rust-analyzer.cargo.target": "riscv64gc-unknown-none-elf",
    "rust-analyzer.checkOnSave.allTargets": false,
    "rust-analyzer.linkedProjects": [
+      "./kernel/Cargo.toml",
       "./kernel/Cargo.toml"
    ],
    // "rust-analyzer.cargo.features": [

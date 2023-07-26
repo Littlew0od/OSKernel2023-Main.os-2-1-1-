@@ -135,6 +135,7 @@ pub fn syscall_name(id: usize) -> &'static str {
         SYSCALL_RENAMEAT2 => "renameat2",
         SYSCALL_SIGTIMEDWAIT => "sigtimedwait",
         SYSCALL_PRLIMIT => "prlimit64",
+        SYSCALL_TKILL => "tkill",
         // non-standard
         SYSCALL_SHUTDOWN => "shutdown",
         _ => "unknown",
