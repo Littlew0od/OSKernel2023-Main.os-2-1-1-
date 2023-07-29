@@ -186,27 +186,22 @@ pub fn sys_kill(pid: usize, signum: usize) -> isize {
 
 pub fn sys_tkill(tid: usize, signum: usize) -> isize {
     let process = current_process();
-
     // The thread ID of the main thread needs to be the same as the Process ID,
     // so we will exchange the thread whose thread ID is equal to Process ID with the thread whose thread ID is equal to 0,
     // but the system will not exchange it internally
     let pid = process.getpid();
-    let tid = if tid == pid {
-        0
-    } else if tid == 0 {
-        pid
-    } else {
-        tid
+    let tid = match tid {
+        t if t == pid => 0,
+        0 => pid,
+        _ => tid,
     };
-
     let signal = SignalFlags::from_bits(1 << (signum - 1)).unwrap();
     let thread = process.inner_exclusive_access().get_task(tid);
     // Thread may be null.
     thread.inner_exclusive_access().signal_pending |= signal;
-
-    println!(
-        "[sys_tkill] tid = {}, signum = {}, signal = {:?}",
-        tid, signum, signal
-    );
+    // println!(
+    //     "[sys_tkill] tid = {}, signum = {}, signal = {:?}",
+    //     tid, signum, signal
+    // );
     SUCCESS
 }

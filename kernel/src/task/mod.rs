@@ -89,6 +89,7 @@ pub fn exit_current_and_run_next(exit_code: i32) {
     }
 
     let tid = task_inner.res.as_ref().unwrap().tid;
+    // log!("[exit_current_and_run_next] tid ={}", tid);
     // record exit code
     task_inner.exit_code = Some(exit_code);
     task_inner.res = None;
@@ -214,10 +215,16 @@ pub fn add_initproc() {
     let _initproc = INITPROC.clone();
 }
 
-pub fn check_signals_of_current() -> Option<(i32, &'static str)> {
+pub fn check_signals_of_current_process() -> Option<(i32, &'static str)> {
     let process = current_process();
     let process_inner = process.inner_exclusive_access();
     process_inner.signals_pending.check_error()
+}
+
+pub fn check_signals_of_current_thread() -> Option<(i32, &'static str)> {
+    let thread = current_task().unwrap();
+    let thread_inner = thread.inner_exclusive_access();
+    thread_inner.signal_pending.check_error()
 }
 
 pub fn current_add_signal(signal: SignalFlags) {
@@ -281,6 +288,41 @@ fn call_user_signal_handler(sig: usize, signal: SignalFlags) {
     }
 }
 fn check_pending_signals() {
+    // Thread semaphores only support SIGCANCEL
+    // Processing signal values in process
+    {
+        let sigcancel = SignalFlags::SIGCANCEL;
+        let task = current_task().unwrap();
+        let task_inner = task.inner_exclusive_access();
+        let process = current_process();
+        let mut process_inner = process.inner_exclusive_access();
+
+        if task_inner.signal_pending.contains(sigcancel)
+            && process_inner.signal_mask.contains(sigcancel)
+        {
+            if task_inner.handling_sig == -1 {
+                drop(task_inner);
+                drop(task);
+                drop(process_inner);
+                drop(process);
+                // signal is a kernel signal
+                call_kernel_signal_handler(sigcancel)
+            } else {
+                if !process_inner.signal_actions.table[task_inner.handling_sig as usize]
+                    .mask
+                    .contains(sigcancel)
+                {
+                    drop(task_inner);
+                    drop(task);
+                    drop(process_inner);
+                    drop(process);
+                    // signal is a kernel signal
+                    call_kernel_signal_handler(sigcancel)
+                }
+            }
+        }
+    }
+    // Processing signal values in process
     for sig in 0..(MAX_SIG + 1) {
         let task = current_task().unwrap();
         let task_inner = task.inner_exclusive_access();

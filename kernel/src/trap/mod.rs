@@ -1,10 +1,11 @@
 mod context;
 
 use crate::config::TRAMPOLINE;
-use crate::syscall::syscall;
+use crate::syscall::{sys_getpid, syscall};
 use crate::task::{
-    check_signals_of_current, current_add_signal, current_trap_cx, current_trap_cx_user_va,
-    current_user_token, exit_current_and_run_next, suspend_current_and_run_next, SignalFlags, handle_signals, current_process,
+    check_signals_of_current_process, check_signals_of_current_thread, current_add_signal,
+    current_trap_cx, current_trap_cx_user_va, current_user_token, exit_current_and_run_next,
+    handle_signals, suspend_current_and_run_next, SignalFlags,
 };
 use crate::timer::{check_timer, set_next_trigger};
 use core::arch::{asm, global_asm};
@@ -13,7 +14,6 @@ use riscv::register::{
     scause::{self, Exception, Interrupt, Trap},
     sie, stval, stvec,
 };
-use crate::syscall::sys_getpid;
 
 global_asm!(include_str!("trap.S"));
 
@@ -50,7 +50,10 @@ pub fn trap_handler() -> ! {
             let mut cx = current_trap_cx();
             cx.sepc += 4;
             // get system call return value
-            let result = syscall(cx.x[17], [cx.x[10], cx.x[11], cx.x[12], cx.x[13], cx.x[14], cx.x[15]]);
+            let result = syscall(
+                cx.x[17],
+                [cx.x[10], cx.x[11], cx.x[12], cx.x[13], cx.x[14], cx.x[15]],
+            );
             // cx is changed during sys_exec, so we have to call it again
             cx = current_trap_cx();
             cx.x[10] = result as usize;
@@ -97,7 +100,11 @@ pub fn trap_handler() -> ! {
     handle_signals();
 
     // check signals
-    if let Some((errno, msg)) = check_signals_of_current() {
+    if let Some((errno, msg)) = check_signals_of_current_process() {
+        println!("[kernel] {}", msg);
+        exit_current_and_run_next(errno);
+    }
+    if let Some((errno, msg)) = check_signals_of_current_thread() {
         println!("[kernel] {}", msg);
         exit_current_and_run_next(errno);
     }

@@ -114,6 +114,8 @@ pub struct TaskUserRes {
     pub tid: usize,
     pub ustack_top: usize,
     pub process: Weak<ProcessControlBlock>,
+    // The stack space of some threads is managed by the main thread and does not require OS processing
+    pub self_stack: bool,
 }
 
 fn trap_cx_bottom_from_tid(tid: usize) -> usize {
@@ -129,12 +131,18 @@ fn ustack_top_from_id(ustack_top: usize, id: usize) -> usize {
 }
 
 impl TaskUserRes {
-    pub fn new(process: Arc<ProcessControlBlock>, ustack_top: usize, alloc_user_res: bool, alloc_user_stack: bool) -> Self {
+    pub fn new(
+        process: Arc<ProcessControlBlock>,
+        ustack_top: usize,
+        alloc_user_res: bool,
+        alloc_user_stack: bool,
+    ) -> Self {
         let tid = process.inner_exclusive_access().alloc_tid();
-        let task_user_res = Self {
+        let mut task_user_res = Self {
             tid,
             ustack_top,
             process: Arc::downgrade(&process),
+            self_stack: true,
         };
         if alloc_user_res {
             task_user_res.alloc_user_res(alloc_user_stack);
@@ -142,9 +150,10 @@ impl TaskUserRes {
         task_user_res
     }
 
-    pub fn alloc_user_res(&self, alloc_user_stack: bool) {
+    pub fn alloc_user_res(&mut self, alloc_user_stack: bool) {
         let process = self.process.upgrade().unwrap();
         let mut process_inner = process.inner_exclusive_access();
+        self.self_stack = alloc_user_stack;
         if alloc_user_stack {
             // alloc user stack
             let ustack_top = ustack_top_from_id(self.ustack_top, self.tid);
@@ -173,13 +182,15 @@ impl TaskUserRes {
         // dealloc tid
         let process = self.process.upgrade().unwrap();
         let mut process_inner = process.inner_exclusive_access();
-        // dealloc ustack manually
-        let ustack_top = ustack_top_from_id(self.ustack_top, self.tid);
-        let ustack_bottom_va: VirtAddr = (ustack_top - USER_STACK_SIZE).into();
-        // let ustack_bottom_va: VirtAddr = ustack_bottom_from_tid(self.ustack_base, self.tid).into();
-        process_inner
-            .memory_set
-            .remove_area_with_start_vpn(ustack_bottom_va.into());
+        if self.self_stack {
+            // dealloc ustack manually
+            let ustack_top = ustack_top_from_id(self.ustack_top, self.tid);
+            let ustack_bottom_va: VirtAddr = (ustack_top - USER_STACK_SIZE).into();
+            // let ustack_bottom_va: VirtAddr = ustack_bottom_from_tid(self.ustack_base, self.tid).into();
+            process_inner
+                .memory_set
+                .remove_area_with_start_vpn(ustack_bottom_va.into());
+        }
         // dealloc trap_cx manually
         let trap_cx_bottom_va: VirtAddr = trap_cx_bottom_from_tid(self.tid).into();
         process_inner

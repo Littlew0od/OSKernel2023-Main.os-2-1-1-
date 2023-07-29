@@ -152,10 +152,12 @@ impl SignalFlags {
             Some((-6, "Aborted, SIGABRT=6"))
         } else if self.contains(Self::SIGFPE) {
             Some((-8, "Erroneous Arithmetic Operation, SIGFPE=8"))
+        } else if self.contains(Self::SIGKILL) {
+            Some((-9, "Application being killed, SIGSEGV=9"))
         } else if self.contains(Self::SIGSEGV) {
             Some((-11, "Segmentation Fault, SIGSEGV=11"))
-        } else if self.contains(Self::SIGKILL){
-            Some((-9, "Application being killed, SIGSEGV=9"))
+        } else if self.contains(Self::SIGCANCEL) {
+            Some((-1, "Thread being killed, SIGSEGV=33"))
         } else {
             None
         }
