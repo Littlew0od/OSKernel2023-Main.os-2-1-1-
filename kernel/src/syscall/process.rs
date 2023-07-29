@@ -377,10 +377,10 @@ pub fn sys_futex(
     }
 
     let cmd = futex_op & FUTEX_CMD_MASK;
-    // println!(
-    //     "[futex] uaddr: {:?}, futex_op: {:?}, val: {:#x}, timeout: {:?}, uaddr2: {:?}, val3: {:#x}",
-    //     uaddr, cmd, val, timeout, uaddr2, val3
-    // );
+    println!(
+        "[futex] uaddr: {:?}, futex_op: {:?}, val: {:#x}, timeout: {:?}, uaddr2: {:?}, val3: {:#x}",
+        uaddr, cmd, val, timeout, uaddr2, val3
+    );
     match cmd {
         FUTEX_WAIT => {
             futex_wait(uaddr, timeout, val)
