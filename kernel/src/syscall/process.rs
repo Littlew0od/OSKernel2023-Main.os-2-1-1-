@@ -2,25 +2,19 @@ use crate::config::PAGE_SIZE;
 use crate::fs::OpenFlags;
 use crate::mm::VirtAddr;
 use crate::mm::MPROCTECTPROT;
-//open_file
 use crate::mm::{translated_ref, translated_refmut, translated_str};
 use crate::sbi::shutdown;
+use crate::sync::futex_signal;
+use crate::sync::futex_wait;
+use crate::sync::FUTEX_REQUEUE;
+use crate::sync::{FUTEX_CMD_MASK, FUTEX_PRIVATE_FLAG, FUTEX_WAIT, FUTEX_WAKE};
 use crate::syscall::errno::ECHILD;
-use crate::task::block_current_and_run_next;
-use crate::task::current_task;
-use crate::task::CloneFlags;
-use crate::task::CSIGNAL;
-use crate::task::FUTEX_CMD_MASK;
-use crate::task::FUTEX_PRIVATE_FLAG;
+use crate::syscall::process;
 use crate::task::{
-    current_process, current_user_token, exit_current_and_run_next, suspend_current_and_run_next,
-    SignalFlags,
+    block_current_and_run_next, current_process, current_task, current_user_token,
+    exit_current_and_run_next, suspend_current_and_run_next, CloneFlags, SignalFlags, CSIGNAL,
 };
-use crate::timer::get_time_us;
-use crate::timer::TimeSpec;
-use crate::timer::TimeVal;
-use crate::timer::Times;
-use crate::timer::CLOCK_REALTIME;
+use crate::timer::{get_time_us, TimeSpec, TimeVal, Times, CLOCK_REALTIME};
 use alloc::string::String;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
@@ -370,7 +364,7 @@ pub fn sys_prlimit() -> isize {
 }
 
 pub fn sys_futex(
-    uaddr: *const u32,
+    uaddr: *mut u32,
     futex_op: usize,
     val: u32,
     timeout: *const TimeSpec,
@@ -382,11 +376,16 @@ pub fn sys_futex(
     }
 
     let cmd = futex_op & FUTEX_CMD_MASK;
-
     println!(
-        "[futex] uaddr: {:?}, futex_op: {:?}, val: {:X}, timeout: {:?}, uaddr2: {:?}, val3: {:X}",
+        "[futex] uaddr: {:?}, futex_op: {:?}, val: {:#x}, timeout: {:?}, uaddr2: {:?}, val3: {:#x}",
         uaddr, cmd, val, timeout, uaddr2, val3
     );
-    // todo!();
-    SUCCESS
+    match cmd {
+        FUTEX_WAIT => {
+            futex_wait(uaddr, timeout, val)
+        }
+        FUTEX_WAKE => futex_signal(uaddr, val),
+        FUTEX_REQUEUE => todo!(),
+        _ => EINVAL,
+    }
 }

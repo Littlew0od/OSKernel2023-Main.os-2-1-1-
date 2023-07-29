@@ -9,7 +9,7 @@ use crate::fs::{File, Stdin, Stdout};
 use crate::mm::{
     kernel_token, translated_refmut, AuxHeader, MemorySet, PageTable, VirtAddr, KERNEL_SPACE,
 };
-use crate::sync::{Condvar, Mutex, Semaphore, UPSafeCell};
+use crate::sync::{Condvar, Mutex, Semaphore, UPSafeCell, Futex};
 use crate::syscall::errno::{EPERM, SUCCESS};
 use crate::timer::Times;
 use crate::trap::{trap_handler, TrapContext};
@@ -56,6 +56,7 @@ pub struct ProcessControlBlockInner {
     // for times syscall
     pub tms: Times,
     pub exit_signal: SignalFlags,
+    pub futex: Futex,
 }
 
 bitflags! {
@@ -231,6 +232,7 @@ impl ProcessControlBlock {
                     signal_actions: SignalActions::default(),
                     tms: Times::new(),
                     exit_signal: SignalFlags::empty(),
+                    futex: Futex::new(),
                 })
             },
         });
@@ -367,6 +369,7 @@ impl ProcessControlBlock {
                     signal_actions: SignalActions::default(),
                     tms: Times::new(),
                     exit_signal: SignalFlags::SIGCHLD,
+                    futex: Futex::new(),
                 })
             },
         });

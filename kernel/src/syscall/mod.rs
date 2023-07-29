@@ -86,7 +86,7 @@ pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
         SYSCALL_EXIT_GROUP => sys_exit(args[0] as i32),
         SYSCALL_SET_TID_ADDRESS => sys_set_tid_address(args[0]),
         SYSCALL_FUTEX => sys_futex(
-            args[0] as *const u32,
+            args[0] as *mut u32,
             args[1],
             args[2] as u32,
             args[3] as *const TimeSpec,

@@ -7,12 +7,11 @@ mod process;
 mod processor;
 mod signal;
 mod switch;
-mod futex;
 #[allow(clippy::module_inception)]
 mod task;
 
 use self::id::TaskUserRes;
-use self::manager::{block_task, unblock_task};
+use self::manager::block_task;
 use crate::fs::{OpenFlags, ROOT_FD}; // open_file,
 use crate::sbi::shutdown;
 use crate::timer::remove_timer;
@@ -25,7 +24,9 @@ use switch::__switch;
 pub use action::{SignalAction, SignalActions};
 pub use context::TaskContext;
 pub use id::{kstack_alloc, pid_alloc, KernelStack, PidHandle, IDLE_PID};
-pub use manager::{add_task, pid2process, remove_from_pid2process, remove_task, wakeup_task};
+pub use manager::{
+    add_task, pid2process, remove_from_pid2process, remove_task, unblock_task, wakeup_task,
+};
 pub use process::{CloneFlags, Flags, CSIGNAL};
 pub use processor::{
     current_kstack_top, current_process, current_task, current_trap_cx, current_trap_cx_user_va,
@@ -33,7 +34,6 @@ pub use processor::{
 };
 pub use signal::{SigInfo, SignalFlags, MAX_SIG, SIG_BLOCK, SIG_SETMASK, SIG_UNBLOCK};
 pub use task::{TaskControlBlock, TaskStatus};
-pub use futex::*;
 
 pub fn suspend_current_and_run_next() {
     // There must be an application running.
