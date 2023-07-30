@@ -1,9 +1,10 @@
 mod virtio_blk;
 mod block_dev;
 mod sdcard;
-mod mem_dlk;
+mod mem_blk;
 
 pub use sdcard::SDCardWrapper;
+pub use mem_blk::MemBlockWrapper;
 pub use virtio_blk::VirtIOBlock;
 pub use block_dev::{BlockDevice, BLOCK_SZ};
 

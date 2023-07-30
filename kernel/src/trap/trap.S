@@ -67,3 +67,11 @@ __restore:
     # back to user stack
     ld sp, 2*8(sp)
     sret
+
+    .section .text.signaltrampoline
+    .globl __call_sigreturn
+    .align 2
+__call_sigreturn:
+    # ecall sys_sigreturn
+    li a7, 139
+    ecall

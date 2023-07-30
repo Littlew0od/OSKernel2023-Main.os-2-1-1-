@@ -4,7 +4,7 @@ use super::{PTEFlags, PageTable, PageTableEntry};
 use super::{PhysAddr, PhysPageNum, VirtAddr, VirtPageNum};
 use super::{StepByOne, VPNRange};
 use crate::config::{
-    CLOCK_FREQ, DYN_BASE, MEMORY_END, MMAP_BASE, MMIO, PAGE_SIZE, STACK_TOP, TRAMPOLINE,
+    CLOCK_FREQ, DYN_BASE, MEMORY_END, MMAP_BASE, MMIO, PAGE_SIZE, STACK_TOP, TRAMPOLINE, SIGNAL_TRAMPOLINE,
 };
 use crate::fs::{OpenFlags, ROOT_FD};
 use crate::mm::config::{
@@ -36,6 +36,7 @@ extern "C" {
     fn ebss();
     fn ekernel();
     fn strampoline();
+    fn ssignaltrampoline();
 }
 
 lazy_static! {
@@ -123,6 +124,14 @@ impl MemorySet {
             VirtAddr::from(TRAMPOLINE).into(),
             PhysAddr::from(strampoline as usize).into(),
             PTEFlags::R | PTEFlags::X,
+        );
+    }
+    /// Can be accessed in user mode.
+    fn map_signaltrampoline(&mut self) {
+        self.page_table.map(
+            VirtAddr::from(SIGNAL_TRAMPOLINE).into(),
+            PhysAddr::from(ssignaltrampoline as usize).into(),
+            PTEFlags::R | PTEFlags::X | PTEFlags::U,
         );
     }
     /// Without kernel stacks.
