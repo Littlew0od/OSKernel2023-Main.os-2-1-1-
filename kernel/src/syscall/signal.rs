@@ -79,12 +79,12 @@ pub fn sys_sigaction(
     action: *const SignalAction,
     old_action: *mut SignalAction,
 ) -> isize {
-    // tip!(
-    //     "[sys_sigaction] signum = {:#x}, action = {:X}, old_action = {:X}",
-    //     signum,
-    //     action as usize,
-    //     old_action as usize
-    // );
+    tip!(
+        "[sys_sigaction] signum = {:#x}, action = {:X}, old_action = {:X}",
+        signum,
+        action as usize,
+        old_action as usize
+    );
     let token = current_user_token();
     let process = current_process();
     let mut inner_process = process.inner_exclusive_access();
