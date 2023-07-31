@@ -11,6 +11,7 @@ pub use address::{PhysAddr, PhysPageNum, StepByOne, VirtAddr, VirtPageNum};
 pub use frame_allocator::{frame_alloc, frame_alloc_arc, frame_dealloc, FrameTracker};
 pub use memory_set::remap_test;
 pub use memory_set::{kernel_token, MapPermission, MemorySet, KERNEL_SPACE, MapType, MPROCTECTPROT, AuxHeader};
+pub use heap_allocator::get_rest;
 use page_table::PTEFlags;
 use core::arch::asm;
 use config::*;

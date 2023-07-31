@@ -4,7 +4,6 @@
 
 extern crate alloc;
 
-#[macro_use]
 extern crate user_lib;
 
 use alloc::string::String;

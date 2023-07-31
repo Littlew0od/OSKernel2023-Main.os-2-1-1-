@@ -19,6 +19,11 @@ pub fn init_heap() {
     }
 }
 
+pub fn get_rest() {
+    let rest = KERNEL_HEAP_SIZE - HEAP_ALLOCATOR.lock().stats_alloc_actual();
+    tip!("There are {:#x} bytes rest in heap", rest);
+}
+
 #[allow(unused)]
 pub fn heap_test() {
     use alloc::boxed::Box;
