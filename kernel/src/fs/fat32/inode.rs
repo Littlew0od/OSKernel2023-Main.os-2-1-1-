@@ -1,7 +1,7 @@
 use crate::fs::directory_tree::DirectoryTreeNode;
 use crate::fs::file_trait::File;
 use crate::fs::*;
-use crate::mm::{UserBuffer, get_rest};
+use crate::mm::UserBuffer;
 use crate::syscall::errno::*;
 use core::panic;
 
@@ -106,7 +106,6 @@ impl File for OSInode {
         let mut v: Vec<u8> = Vec::new();
         let mut offset = 0;
         loop {
-            get_rest();
             let len = self.inner.read_at_block_cache(offset, buffer);
             // If return value is equal to zero, it means the file end
             if len == 0 {

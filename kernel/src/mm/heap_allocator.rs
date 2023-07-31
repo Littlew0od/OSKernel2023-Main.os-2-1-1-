@@ -2,7 +2,7 @@ use crate::config::KERNEL_HEAP_SIZE;
 use buddy_system_allocator::LockedHeap;
 
 #[global_allocator]
-static HEAP_ALLOCATOR: LockedHeap = LockedHeap::empty();
+static HEAP_ALLOCATOR: LockedHeap<32> = LockedHeap::empty();
 
 #[alloc_error_handler]
 pub fn handle_alloc_error(layout: core::alloc::Layout) -> ! {
@@ -20,8 +20,7 @@ pub fn init_heap() {
 }
 
 pub fn get_rest() {
-    let rest = KERNEL_HEAP_SIZE - HEAP_ALLOCATOR.lock().stats_alloc_actual();
-    tip!("There are {:#x} bytes rest in heap", rest);
+    tip!("There are {:?} bytes rest in heap", HEAP_ALLOCATOR.lock());
 }
 
 #[allow(unused)]
