@@ -217,6 +217,8 @@ impl MemorySet {
         let mut memory_set = Self::new_bare();
         // map trampoline
         memory_set.map_trampoline();
+        // map signaltrampoline
+        memory_set.map_signaltrampoline();
         // map program headers of elf, with U flag
         let elf = xmas_elf::ElfFile::new(elf_data).unwrap();
         let elf_header = elf.header;
@@ -424,6 +426,9 @@ impl MemorySet {
         let mut memory_set = Self::new_bare();
         // map trampoline
         memory_set.map_trampoline();
+        // map signaltrampoline
+        memory_set.map_signaltrampoline();
+        // copy mmap
         memory_set.mmap_end = user_space.mmap_end;
         // copy data sections/trap_context/user_stack
         for area in user_space.areas.iter() {

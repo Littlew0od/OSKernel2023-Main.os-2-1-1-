@@ -70,7 +70,7 @@ pub fn block_task(task: Arc<TaskControlBlock>) {
 }
 
 pub fn unblock_task(task: Arc<TaskControlBlock>) {
-    println!("[unblock_task] unblock thread");
+    // println!("[unblock_task] unblock thread");
     let mut task_manager = TASK_MANAGER.exclusive_access();
     task.inner_exclusive_access().task_status = TaskStatus::Ready;
     if let Some((idx, t)) = task_manager
