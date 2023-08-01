@@ -10,7 +10,6 @@ use crate::syscall::process;
 //copy_from_user_array,copy_to_user, copy_to_user_array, copy_to_user_string,
 use crate::task::{current_process, current_user_token};
 use crate::timer::TimeSpec;
-// use crate::timer::TimeSpec;
 use alloc::boxed::Box;
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -518,7 +517,7 @@ bitflags! {
 pub fn sys_fstatat(dirfd: usize, path: *const u8, buf: *mut u8, flags: u32) -> isize {
     let token = current_user_token();
     let path = translated_str(token, path);
-    println!("[sys_fstatat] dirfh = {}, path = {}", dirfd as isize, path);
+    // println!("[sys_fstatat] dirfh = {}, path = {}", dirfd as isize, path);
     let flags = match FstatatFlags::from_bits(flags) {
         Some(flags) => flags,
         None => {
@@ -784,13 +783,74 @@ pub fn sys_faccessat2(dirfd: usize, pathname: *const u8, mode: u32, flags: u32) 
     }
 }
 
+bitflags! {
+    pub struct UtimensatFlags: u32 {
+        const AT_SYMLINK_NOFOLLOW = 0x100;
+    }
+}
+
 pub fn sys_utimensat(
     dirfd: usize,
     pathname: *const u8,
-    times: *const [TimeSpec; 2],
-    flags: isize,
+    times: *mut [TimeSpec; 2],
+    flags: u32,
 ) -> isize {
-    todo!();
+    const UTIME_NOW: usize = 0x3fffffff;
+    const UTIME_OMIT: usize = 0x3ffffffe;
+
+    let token = current_user_token();
+    let path = if !pathname.is_null() {
+        translated_str(token, pathname)
+    } else {
+        String::new()
+    };
+    let flags = match UtimensatFlags::from_bits(flags) {
+        Some(flags) => flags,
+        None => {
+            warn!("[sys_utimensat] unknown flags");
+            return EINVAL;
+        }
+    };
+
+    // info!(
+    //     "[sys_utimensat] dirfd: {}, path: {}, times: {:?}, flags: {:?}",
+    //     dirfd as isize, path, times, flags
+    // );
+
+    let process = current_process();
+    let inner = process.inner_exclusive_access();
+    let fd_table = inner.fd_table.lock();
+
+    let dir_descriptor = match dirfd {
+        AT_FDCWD => inner.work_path.lock().working_inode.as_ref().clone(),
+        fd => match fd_table.get_ref(fd) {
+            Ok(file_descriptor) => file_descriptor.clone(),
+            Err(errno) => return errno,
+        },
+    };
+    let file_descriptor = match dir_descriptor.open(path.as_str(), OpenFlags::O_RDONLY, false) {
+        Ok(file_descriptor) => file_descriptor.clone(),
+        Err(errno) => return errno,
+    };
+
+    let now = TimeSpec::now();
+    let mut atime = Some(now.tv_sec);
+    let mut mtime = Some(now.tv_sec);
+    if !times.is_null() {
+        let timespec = translated_refmut(token, times);
+        match timespec[0].tv_nsec {
+            UTIME_NOW => (),
+            UTIME_OMIT => atime = None,
+            _ => atime = Some(timespec[0].tv_sec),
+        }
+        match timespec[1].tv_nsec {
+            UTIME_NOW => (),
+            UTIME_OMIT => mtime = None,
+            _ => mtime = Some(timespec[1].tv_sec),
+        }
+    }
+
+    file_descriptor.set_timestamp(None, atime, mtime);
     SUCCESS
 }
 
@@ -878,11 +938,7 @@ pub fn sys_readlinkat(dirfd: usize, pathname: *const u8, buf: *mut u8, bufsiz: u
     // );
     let cwd = process.inner_exclusive_access().self_exe.clone();
     if path.as_str() == "/proc/self/exe" {
-        let mut user_buf = UserBuffer::new(translated_byte_buffer(
-            token,
-            buf,
-            bufsiz,
-        ));
+        let mut user_buf = UserBuffer::new(translated_byte_buffer(token, buf, bufsiz));
         user_buf.write(cwd.as_bytes()) as isize
     } else {
         log!("[sys_readlinkat] unsupport pathname!");
@@ -890,3 +946,80 @@ pub fn sys_readlinkat(dirfd: usize, pathname: *const u8, buf: *mut u8, bufsiz: u
     }
 }
 
+pub fn sys_pread(fd: usize, buf: usize, count: usize, offset: usize) -> isize {
+    let token = current_user_token();
+    let process = current_process();
+    let inner = process.inner_exclusive_access();
+    let fd_table = inner.fd_table.lock();
+    let file_descriptor = match fd_table.get_ref(fd) {
+        Ok(file_descriptor) => file_descriptor,
+        Err(errno) => return errno,
+    };
+    // fd is not open for reading
+    if !file_descriptor.readable() {
+        return EBADF;
+    }
+    file_descriptor.read_user(
+        Some(offset),
+        UserBuffer::new({ translated_byte_buffer(token, buf as *const u8, count) }),
+    ) as isize
+}
+
+pub fn sys_statfs(_path: *const u8, buf: *const u8) -> isize {
+    let token = current_user_token();
+    let mut userbuf = UserBuffer::new(translated_byte_buffer(token, buf, size_of::<Statfs>()));
+    let statfs = Statfs::new();
+    userbuf.write(statfs.as_bytes());
+    SUCCESS
+}
+
+#[repr(C)]
+pub struct Statfs {
+    f_type: i64,
+    // Type of filesystem
+    f_bsize: i64,
+    // Optimal transfer block size
+    f_blocks: i64,
+    // Total data blocks in filesystem
+    f_bfree: i64,
+    // Free blocks in filesystem
+    f_bavail: i64,
+    // Free blocks available to unprivileged user
+    f_files: i64,
+    // Total inodes in filesystem
+    f_ffree: i64,
+    // Free inodes in filesystem
+    f_fsid: i64,
+    // Filesystem ID
+    f_name_len: i64,
+    // Maximum length of filenames
+    f_frsize: i64,
+    // Fragment size
+    f_flags: i64,
+    // Mount flags of filesystem
+    f_spare: [i64; 4], // Padding bytes
+}
+
+impl Statfs {
+    pub fn new() -> Self {
+        Self {
+            f_type: 0x4006,
+            f_bsize: 512,
+            f_blocks: 1048576,
+            f_bfree: 1048576,
+            f_bavail: 0,
+            f_files: 131072,
+            f_ffree: 131072,
+            f_fsid: 0,
+            f_name_len: 255,
+            f_frsize: 0,
+            f_flags: 0,
+            f_spare: [0; 4],
+        }
+    }
+    
+    pub fn as_bytes(&self) -> &[u8] {
+        let size = core::mem::size_of::<Self>();
+        unsafe { core::slice::from_raw_parts(self as *const _ as usize as *mut u8, size) }
+    }
+}

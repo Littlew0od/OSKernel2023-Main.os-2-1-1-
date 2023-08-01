@@ -62,6 +62,8 @@ pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
         SYSCALL_WRITE => sys_write(args[0], args[1] as *const u8, args[2]),
         SYSCALL_READV => sys_readv(args[0], args[1], args[2]),
         SYSCALL_WRITEV => sys_writev(args[0], args[1], args[2]),
+        SYSCALL_STATFS =>sys_statfs(args[0] as *const u8, args[1] as *const u8),
+        SYSCALL_PREAD => sys_pread(args[0], args[1], args[2], args[3]),
         SYSCALL_SENDFILE => sys_sendfile(args[0], args[1], args[2] as *mut usize, args[3]),
         SYSCALL_PPOLL => sys_ppoll(
             args[0] as *mut PollFd,
@@ -82,8 +84,8 @@ pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
         SYSCALL_UTIMENSAT => sys_utimensat(
             args[0],
             args[1] as *const u8,
-            args[2] as *const [TimeSpec; 2],
-            args[3] as isize,
+            args[2] as *mut [TimeSpec; 2],
+            args[3] as u32,
         ),
         SYSCALL_EXIT => sys_exit(args[0] as i32),
         SYSCALL_EXIT_GROUP => sys_exit(args[0] as i32),
@@ -126,6 +128,7 @@ pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
         SYSCALL_GETPPID => sys_getppid(),
         SYSCALL_GETUID => sys_getuid(),
         SYSCALL_GETEUID => sys_geteuid(),
+        SYSCALL_GETEGID => sys_getegid(),
         SYSCALL_GETTID => sys_gettid(),
         SYSCALL_SYSINFO => sys_sysinfo(args[0] as *mut u8),
         SYSCALL_BRK => sys_brk(args[0]),
@@ -157,7 +160,12 @@ pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
             args[2] as u32,
             args[3],
         ),
-        SYSCALL_PRLIMIT => sys_prlimit(),
+        SYSCALL_PRLIMIT => sys_prlimit(
+            args[0],
+            args[1] as u32,
+            args[2] as *const RLimit,
+            args[3] as *mut RLimit,
+        ),
         SYSCALL_RENAMEAT2 => sys_renameat2(
             args[0],
             args[1] as *const u8,

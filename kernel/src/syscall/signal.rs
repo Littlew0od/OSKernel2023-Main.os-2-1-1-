@@ -1,12 +1,11 @@
 use crate::{
     mm::{translated_ref, translated_refmut},
-    syscall::{errno::EAGAIN, process},
     task::{
         current_process, current_task, current_user_token, pid2process,
         suspend_current_and_run_next, SigInfo, SignalAction, SignalFlags, MAX_SIG, SIG_BLOCK,
         SIG_SETMASK, SIG_UNBLOCK,
     },
-    timer::TimeSpec,
+    timer::TimeSpec, syscall::errno::EAGAIN,
 };
 
 use super::errno::{EPERM, SUCCESS};
@@ -57,6 +56,7 @@ pub fn sys_sigprocmask(
 }
 
 pub fn sys_sigreturn() -> isize {
+    log!("[sys_sigreturn] return.");
     let task = current_task().unwrap();
     let mut inner = task.inner_exclusive_access();
     inner.handling_sig = -1;
@@ -197,11 +197,12 @@ pub fn sys_tkill(tid: usize, signum: usize) -> isize {
     };
     let signal = SignalFlags::from_bits(1 << (signum - 1)).unwrap();
     let thread = process.inner_exclusive_access().get_task(tid);
+    let count = process.inner_exclusive_access().thread_count();
     // Thread may be null.
     thread.inner_exclusive_access().signal_pending |= signal;
-    // println!(
-    //     "[sys_tkill] tid = {}, signum = {}, signal = {:?}",
-    //     tid, signum, signal
-    // );
+    println!(
+        "[sys_tkill] tid = {}, signum = {}, signal = {:?}, thread count = {}",
+        tid, signum, signal, count
+    );
     SUCCESS
 }

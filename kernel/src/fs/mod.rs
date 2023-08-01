@@ -9,28 +9,23 @@ mod layout;
 pub mod swap;
 
 pub use self::dev::{hwclock::*, null::*, pipe::*, socket::*, zero::*};
-use core::{
-    slice::{Iter, IterMut},
-};
+use core::slice::{Iter, IterMut};
 
 pub use self::layout::*;
 
 pub use self::fat32::{BlockDevice, DiskInodeType, BLOCK_SZ};
 
 use self::{cache::PageCache, directory_tree::DirectoryTreeNode};
-use crate::{
-    mm::{UserBuffer},
-    syscall::errno::*, config::SYSTEM_FD_LIMIT,
-};
+use crate::{config::SYSTEM_FD_LIMIT, mm::UserBuffer, syscall::errno::*};
 use alloc::{
     string::{String, ToString},
     sync::Arc,
     vec::Vec,
 };
-use lazy_static::*;
-use spin::Mutex;
 pub use dev::stdio::{Stdin, Stdout};
 pub use file_trait::File;
+use lazy_static::*;
+use spin::Mutex;
 
 lazy_static! {
     pub static ref ROOT_FD: Arc<FileDescriptor> = Arc::new(FileDescriptor::new(
@@ -270,7 +265,7 @@ pub struct FdTable {
 
 #[allow(unused)]
 impl FdTable {
-    pub const DEFAULT_FD_LIMIT: usize = 128;// 64
+    pub const DEFAULT_FD_LIMIT: usize = 128; // 64
     pub const SYSTEM_FD_LIMIT: usize = SYSTEM_FD_LIMIT;
     pub fn new(inner: Vec<Option<FileDescriptor>>) -> Self {
         Self {
@@ -339,7 +334,7 @@ impl FdTable {
             Some(file_descriptor) => {
                 self.recycled.push(fd as u8);
                 Ok(file_descriptor)
-            },
+            }
             None => Err(EBADF),
         }
     }
@@ -365,7 +360,7 @@ impl FdTable {
             Some(fd) => {
                 self.inner[fd as usize] = Some(file_descriptor);
                 fd as usize
-            },
+            }
             None => {
                 let current = self.inner.len();
                 if current == self.soft_limit {
@@ -381,7 +376,11 @@ impl FdTable {
 
     /// insert at `pos`, if there is an existing fd, it will be replaced.
     #[inline]
-    pub fn insert_at(&mut self, file_descriptor: FileDescriptor, pos: usize) -> Result<usize, isize> {
+    pub fn insert_at(
+        &mut self,
+        file_descriptor: FileDescriptor,
+        pos: usize,
+    ) -> Result<usize, isize> {
         let current = self.inner.len();
         if pos < current {
             if self.inner[pos].is_none() {
@@ -393,7 +392,9 @@ impl FdTable {
             if pos >= self.soft_limit {
                 return Err(EMFILE);
             } else {
-                (current..pos).rev().for_each(|fd| self.recycled.push(fd as u8));
+                (current..pos)
+                    .rev()
+                    .for_each(|fd| self.recycled.push(fd as u8));
                 self.inner.resize(pos, None);
                 self.inner.push(Some(file_descriptor));
                 Ok(pos)
@@ -403,26 +404,28 @@ impl FdTable {
 
     /// try to insert at the lowest-numbered available fd greater than or equal to `hint`(no replace)
     #[inline]
-    pub fn try_insert_at(&mut self, file_descriptor: FileDescriptor, hint: usize) -> Result<usize, isize> {
+    pub fn try_insert_at(
+        &mut self,
+        file_descriptor: FileDescriptor,
+        hint: usize,
+    ) -> Result<usize, isize> {
         if hint >= self.soft_limit {
             return Err(EMFILE);
         }
         let current = self.inner.len();
         if hint < current {
             match self.inner[hint] {
-                Some(_) => {
-                    match self.recycled.iter().copied().find(|&fd| fd as usize > hint) {
-                        Some(fd) => {
-                            self.inner[fd as usize] = Some(file_descriptor);
-                            Ok(fd as usize)
-                        },
-                        None => {
-                            if current == self.soft_limit {
-                                return Err(EMFILE);
-                            } else {
-                                self.inner.push(Some(file_descriptor));
-                                Ok(current)
-                            }
+                Some(_) => match self.recycled.iter().copied().find(|&fd| fd as usize > hint) {
+                    Some(fd) => {
+                        self.inner[fd as usize] = Some(file_descriptor);
+                        Ok(fd as usize)
+                    }
+                    None => {
+                        if current == self.soft_limit {
+                            return Err(EMFILE);
+                        } else {
+                            self.inner.push(Some(file_descriptor));
+                            Ok(current)
                         }
                     }
                 },
@@ -430,7 +433,7 @@ impl FdTable {
                     self.recycled.retain(|&fd| fd as usize != hint);
                     self.inner[hint] = Some(file_descriptor);
                     Ok(hint)
-                },
+                }
             }
         } else {
             if hint >= self.soft_limit {
@@ -443,7 +446,7 @@ impl FdTable {
             }
         }
     }
-    pub fn clear_inner(&mut self){
+    pub fn clear_inner(&mut self) {
         self.inner.clear();
     }
 }

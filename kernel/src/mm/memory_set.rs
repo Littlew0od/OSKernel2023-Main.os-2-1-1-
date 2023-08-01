@@ -4,7 +4,8 @@ use super::{PTEFlags, PageTable, PageTableEntry};
 use super::{PhysAddr, PhysPageNum, VirtAddr, VirtPageNum};
 use super::{StepByOne, VPNRange};
 use crate::config::{
-    CLOCK_FREQ, DYN_BASE, MEMORY_END, MMAP_BASE, MMIO, PAGE_SIZE, STACK_TOP, TRAMPOLINE, SIGNAL_TRAMPOLINE,
+    CLOCK_FREQ, DYN_BASE, MEMORY_END, MMAP_BASE, MMIO, PAGE_SIZE, SIGNAL_TRAMPOLINE, STACK_TOP,
+    TRAMPOLINE,
 };
 use crate::fs::{OpenFlags, ROOT_FD};
 use crate::mm::config::{
@@ -539,14 +540,14 @@ impl MemorySet {
                 // let frame = frame_alloc().unwrap();
                 match self.mmap_area.get(&vpn) {
                     Some(_) => {
-                        println!("Found page");
+                        // println!("Found page");
                     }
                     None => {
                         let frame = frame_alloc().unwrap();
                         let ppn = frame.ppn;
                         self.mmap_area.insert(vpn, frame);
                         self.page_table
-                            .map(vpn, ppn, PTEFlags::R | PTEFlags::W | PTEFlags::U);
+                            .map(vpn, ppn, PTEFlags::R | PTEFlags::W | PTEFlags::U | PTEFlags::X);
                     }
                 }
             }
@@ -557,9 +558,15 @@ impl MemorySet {
                 let ppn = frame.ppn;
                 self.mmap_area.insert(vpn, frame);
                 self.page_table
-                    .map(vpn, ppn, PTEFlags::R | PTEFlags::W | PTEFlags::U);
+                    .map(vpn, ppn, PTEFlags::R | PTEFlags::W | PTEFlags::U | PTEFlags::X);
             }
         }
+        // println!(
+        //     "[mmap] context.len() = {}, offset = {}, len = {}",
+        //     context.len(),
+        //     offset,
+        //     len
+        // );
         // write context
         if !flags.contains(Flags::MAP_ANONYMOUS) {
             let mut start: usize = offset;

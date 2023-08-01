@@ -5,16 +5,18 @@ mod id;
 mod manager;
 mod process;
 mod processor;
+mod rusage;
 mod signal;
 mod switch;
-mod rusage;
 #[allow(clippy::module_inception)]
 mod task;
 
 use self::id::TaskUserRes;
 use self::manager::block_task;
+use crate::config::SIGNAL_TRAMPOLINE;
 use crate::fs::{OpenFlags, ROOT_FD}; // open_file,
 use crate::sbi::shutdown;
+use crate::task::signal::SaFlags;
 use crate::timer::remove_timer;
 use alloc::{sync::Arc, vec::Vec};
 use lazy_static::*;
@@ -24,7 +26,6 @@ use switch::__switch;
 
 pub use action::{SignalAction, SignalActions};
 pub use context::TaskContext;
-pub use rusage::Rusage;
 pub use id::{kstack_alloc, pid_alloc, KernelStack, PidHandle, IDLE_PID};
 pub use manager::{
     add_task, pid2process, remove_from_pid2process, remove_task, unblock_task, wakeup_task,
@@ -34,6 +35,7 @@ pub use processor::{
     current_kstack_top, current_process, current_task, current_trap_cx, current_trap_cx_user_va,
     current_user_token, run_tasks, schedule, take_current_task,
 };
+pub use rusage::Rusage;
 pub use signal::{SigInfo, SignalFlags, MAX_SIG, SIG_BLOCK, SIG_SETMASK, SIG_UNBLOCK};
 pub use task::{TaskControlBlock, TaskStatus};
 
@@ -263,20 +265,28 @@ fn call_kernel_signal_handler(signal: SignalFlags) {
     }
 }
 
-fn call_user_signal_handler(sig: usize, signal: SignalFlags) {
-    // tip!("[call_user_signal_handler]");
+fn call_user_signal_handler(sig: usize, signal: SignalFlags, thread: bool) {
     let task = current_task().unwrap();
     let mut task_inner = task.inner_exclusive_access();
     let process = current_process();
     let mut process_inner = process.inner_exclusive_access();
+    let action = process_inner.signal_actions.table[sig];
 
-    let handler = process_inner.signal_actions.table[sig].sa_handler;
+    let handler = action.sa_handler;
     if handler != 0 {
+        // println!(
+        //     "[call_user_signal_handler] handler = {:#x}, ra = {:#x}",
+        //     handler, action.sa_restorer
+        // );
         // change current mask
         process_inner.signal_mask = process_inner.signal_actions.table[sig].mask;
         // handle flag
         task_inner.handling_sig = sig as isize;
-        process_inner.signals_pending ^= signal;
+        if thread {
+            task_inner.signal_pending ^= signal;
+        } else {
+            process_inner.signals_pending ^= signal;
+        }
 
         // backup trapframe
         let mut trap_ctx = task_inner.get_trap_cx();
@@ -287,6 +297,15 @@ fn call_user_signal_handler(sig: usize, signal: SignalFlags) {
 
         // put args (a0)
         trap_ctx.x[10] = sig;
+
+        // put sigreturn function address
+        trap_ctx.x[1] = if action.sa_flags.contains(SaFlags::SA_RESTORER) {
+            action.sa_restorer // legacy, signal trampoline provided by C library's wrapper function
+        } else {
+            SIGNAL_TRAMPOLINE // ra <- __call_sigreturn, when handler ret, we will go to __call_sigreturn
+        }
+    } else {
+        task_inner.killed = true;
     }
 }
 fn check_pending_signals() {
@@ -296,19 +315,23 @@ fn check_pending_signals() {
         let sigcancel = SignalFlags::SIGCANCEL;
         let task = current_task().unwrap();
         let task_inner = task.inner_exclusive_access();
+        // log!("[check_pending_signals] tid = {}", task_inner.gettid());
         let process = current_process();
         let mut process_inner = process.inner_exclusive_access();
-
+        // tip!(
+        //     "[check_pending_signals] signal_pending = {:?}",
+        //     task_inner.signal_pending
+        // );
         if task_inner.signal_pending.contains(sigcancel)
-            && process_inner.signal_mask.contains(sigcancel)
+            && (!process_inner.signal_mask.contains(sigcancel))
         {
             if task_inner.handling_sig == -1 {
                 drop(task_inner);
                 drop(task);
                 drop(process_inner);
                 drop(process);
-                // signal is a kernel signal
-                call_kernel_signal_handler(sigcancel)
+                // signal is a user signal
+                call_user_signal_handler(33, sigcancel, true);
             } else {
                 if !process_inner.signal_actions.table[task_inner.handling_sig as usize]
                     .mask
@@ -318,8 +341,8 @@ fn check_pending_signals() {
                     drop(task);
                     drop(process_inner);
                     drop(process);
-                    // signal is a kernel signal
-                    call_kernel_signal_handler(sigcancel)
+                    // signal is a user signal
+                    call_user_signal_handler(33, sigcancel, true);
                 }
             }
         }
@@ -347,7 +370,7 @@ fn check_pending_signals() {
                     call_kernel_signal_handler(signal);
                 } else {
                     // signal is a user signal
-                    call_user_signal_handler(sig, signal);
+                    call_user_signal_handler(sig, signal, false);
                     return;
                 }
             } else {
@@ -367,7 +390,7 @@ fn check_pending_signals() {
                         call_kernel_signal_handler(signal);
                     } else {
                         // signal is a user signal
-                        call_user_signal_handler(sig, signal);
+                        call_user_signal_handler(sig, signal, false);
                         return;
                     }
                 }

@@ -24,9 +24,9 @@ pub fn load_final2_test_cmds() -> Vec<String> {
     // cmds.push(String::from("./busybox sh ./lua_testcode.sh"));
     // cmds.push(String::from("./time-test"));
     // cmds.push(String::from("./busybox sh ./run-static.sh"));
-    // cmds.push(String::from("./busybox sh ./run-dynamic.sh"));
+    cmds.push(String::from("./busybox sh ./run-dynamic.sh"));
     // cmds.push(String::from("./busybox sh ./iozone_testcode.sh"));
-    cmds.push(String::from("./busybox sh ./lmbench_testcode.sh"));
+    // cmds.push(String::from("./busybox sh ./lmbench_testcode.sh"));
     // cmds.push(String::from("./busybox sh ./unixbench_testcode.sh"));
     // cmds.push(String::from("./busybox sh ./iperf_testcode.sh"));
     // cmds.push(String::from("./busybox sh ./cyclictest_testcode.sh"));
@@ -41,7 +41,6 @@ pub fn load_final2_test_cmds() -> Vec<String> {
     // cmds.push(String::from("./runtest.exe -w entry-static.exe pthread_exit_cancel"));
     // cmds.push(String::from("./runtest.exe -w entry-static.exe pthread_once_deadlock"));
     // cmds.push(String::from("./runtest.exe -w entry-static.exe pthread_rwlock_ebusy"));
-    // cmds.push(String::from("./runtest.exe -w entry-static.exe"));
     // cmds.push(String::from("./runtest.exe -w entry-static.exe"));
     cmds
 }

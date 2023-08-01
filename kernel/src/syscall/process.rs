@@ -1,3 +1,4 @@
+#![allow(unused)]
 use crate::config::PAGE_SIZE;
 use crate::fs::OpenFlags;
 use crate::mm::VirtAddr;
@@ -97,6 +98,11 @@ pub fn sys_getuid() -> isize {
 
 // MainOS does not support multi-user
 pub fn sys_geteuid() -> isize {
+    0
+}
+
+// MainOS does not support multi-user
+pub fn sys_getegid() -> isize {
     0
 }
 
@@ -360,8 +366,59 @@ pub fn sys_mprotect(addr: usize, len: usize, prot: usize) -> isize {
     }
 }
 
-pub fn sys_prlimit() -> isize {
-    log!("[sys_prlimit] fake.");
+#[allow(unused)]
+#[derive(Clone, Copy, Debug)]
+pub struct RLimit {
+    rlim_cur: usize, /* Soft limit */
+    rlim_max: usize, /* Hard limit (ceiling for rlim_cur) */
+}
+
+pub const RESOURCE_CPU: u32 = 0;
+pub const RESOURCE_FSIZE: u32 = 1;
+pub const RESOURCE_DATA: u32 = 2;
+pub const RESOURCE_STACK: u32 = 3;
+pub const RESOURCE_CORE: u32 = 4;
+pub const RESOURCE_RSS: u32 = 5;
+pub const RESOURCE_NPROC: u32 = 6;
+pub const RESOURCE_NOFILE: u32 = 7;
+pub const RESOURCE_MEMLOCK: u32 = 8;
+pub const RESOURCE_AS: u32 = 9;
+pub const RESOURCE_LOCKS: u32 = 10;
+pub const RESOURCE_SIGPENDING: u32 = 11;
+pub const RESOURCE_MSGQUEUE: u32 = 12;
+pub const RESOURCE_NICE: u32 = 13;
+pub const RESOURCE_RTPRIO: u32 = 14;
+pub const RESOURCE_RTTIME: u32 = 15;
+pub const RESOURCE_NLIMITS: u32 = 16;
+
+pub fn sys_prlimit(
+    pid: usize,
+    resource: u32,
+    new_limit: *const RLimit,
+    old_limit: *mut RLimit,
+) -> isize {
+    // println!("[sys_prlimit] pid: {}, resource: {:?}", pid, resource);
+    if !new_limit.is_null() {
+        let rlimit = &mut RLimit {
+            rlim_cur: 0,
+            rlim_max: 0,
+        };
+        let token = current_user_token();
+        let process = current_process();
+        let inner = process.inner_exclusive_access();
+        let mut fd_table = inner.fd_table.lock();
+        let rlimit = translated_ref(token, new_limit);
+        match resource {
+            RESOURCE_NOFILE => {
+                fd_table.set_soft_limit(rlimit.rlim_cur);
+                fd_table.set_hard_limit(rlimit.rlim_max);
+            }
+            RESOURCE_STACK => {
+                // println!("[prlimit] Unsupported modification stack");
+            }
+            _ => todo!(),
+        }
+    }
     SUCCESS
 }
 
@@ -398,7 +455,7 @@ pub fn sys_getrusage(who: isize, usage: *mut Rusage) -> isize {
     let token = current_user_token();
     let process = current_process();
     let inner = process.inner_exclusive_access();
-    
+
     *translated_refmut(token, usage) = inner.rusage;
     //tip!("[sys_getrusage] who: RUSAGE_SELF, usage: {:?}", inner.rusage);
     SUCCESS

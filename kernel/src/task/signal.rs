@@ -156,8 +156,8 @@ impl SignalFlags {
             Some((-9, "Application being killed, SIGSEGV=9"))
         } else if self.contains(Self::SIGSEGV) {
             Some((-11, "Segmentation Fault, SIGSEGV=11"))
-        } else if self.contains(Self::SIGCANCEL) {
-            Some((-1, "Thread being killed, SIGSEGV=33"))
+        // } else if self.contains(Self::SIGCANCEL) {
+        //     Some((-1, "Thread being killed, SIGSEGV=33"))
         } else {
             None
         }

@@ -121,11 +121,9 @@ impl ProcessControlBlockInner {
             };
             let context = file_descriptor.read_all();
             let file_len = context.len();
-            let mut length = len;
+            let length = len.min(file_len - offset);
             if file_len <= offset {
                 return EPERM;
-            } else if file_len > len + offset {
-                length = file_len - offset;
             };
             (context, length)
         };

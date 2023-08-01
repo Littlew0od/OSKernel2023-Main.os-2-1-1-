@@ -1,6 +1,7 @@
 #![allow(unused)]
 use crate::fs::{File, DiskInodeType};
 use crate::sbi::console_getchar;
+use crate::syscall::errno::ESPIPE;
 use crate::task::suspend_current_and_run_next;
 use crate::{mm::UserBuffer, syscall::errno::ENOTDIR};
 use alloc::sync::{Arc, Weak};
@@ -148,7 +149,7 @@ impl File for Stdin {
     }
 
     fn lseek(&self, offset: isize, whence: crate::fs::SeekWhence) -> Result<usize, isize> {
-        todo!()
+        Err(ESPIPE)
     }
 
     fn modify_size(&self, diff: isize) -> Result<(), isize> {

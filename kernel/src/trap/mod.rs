@@ -3,9 +3,9 @@ mod context;
 use crate::config::TRAMPOLINE;
 use crate::syscall::{sys_getpid, syscall};
 use crate::task::{
-    check_signals_of_current_process, check_signals_of_current_thread, current_add_signal,
-    current_trap_cx, current_trap_cx_user_va, current_user_token, exit_current_and_run_next,
-    handle_signals, suspend_current_and_run_next, SignalFlags,
+    check_signals_of_current_process, current_add_signal, current_trap_cx, current_trap_cx_user_va,
+    current_user_token, exit_current_and_run_next, handle_signals, suspend_current_and_run_next,
+    SignalFlags,
 };
 use crate::timer::{check_timer, set_next_trigger};
 use core::arch::{asm, global_asm};
@@ -104,10 +104,10 @@ pub fn trap_handler() -> ! {
         println!("[kernel] {}", msg);
         exit_current_and_run_next(errno);
     }
-    if let Some((errno, msg)) = check_signals_of_current_thread() {
-        println!("[kernel] {}", msg);
-        exit_current_and_run_next(errno);
-    }
+    // if let Some((errno, msg)) = check_signals_of_current_thread() {
+    //     println!("[kernel] {}", msg);
+    //     exit_current_and_run_next(errno);
+    // }
     trap_return();
 }
 
