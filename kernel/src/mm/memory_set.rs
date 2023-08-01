@@ -652,23 +652,23 @@ impl MemorySet {
         //      Environment String (envp[]): now has SHELL, PWD, LOGNAME, HOME, USER, PATH
         // STACK BOTTOM (high address)
 
-        let envp_vec = vec![
-            String::from("SHELL=/bin/sh"),
-            String::from("PWD=/"),
-            String::from("USER=root"),
-            String::from("MOTD_SHOWN=pam"),
-            String::from("LANG=C.UTF-8"),
-            String::from("INVOCATION_ID=e9500a871cf044d9886a157f53826684"),
-            String::from("TERM=vt220"),
-            String::from("SHLVL=2"),
-            String::from("JOURNAL_STREAM=8:9265"),
-            String::from("OLDPWD=/root"),
-            String::from("_=busybox"),
-            String::from("LOGNAME=root"),
-            String::from("HOME=/"),
-            String::from("LD_LIBRARY_PATH=/"),
-            String::from("PATH=/:/bin/"),
-        ];
+        // let envp_vec = vec![
+        //     String::from("SHELL=/bin/sh"),
+        //     String::from("PWD=/"),
+        //     String::from("USER=root"),
+        //     String::from("MOTD_SHOWN=pam"),
+        //     String::from("LANG=C.UTF-8"),
+        //     String::from("INVOCATION_ID=e9500a871cf044d9886a157f53826684"),
+        //     String::from("TERM=vt220"),
+        //     String::from("SHLVL=2"),
+        //     String::from("JOURNAL_STREAM=8:9265"),
+        //     String::from("OLDPWD=/root"),
+        //     String::from("_=busybox"),
+        //     String::from("LOGNAME=root"),
+        //     String::from("HOME=/"),
+        //     String::from("LD_LIBRARY_PATH=/"),
+        //     String::from("PATH=/:/bin/"),
+        // ];
 
         let push_stack = |parms: Vec<String>, user_sp: &mut usize| {
             //record parm ptr
