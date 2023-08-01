@@ -7,6 +7,7 @@ mod process;
 mod processor;
 mod signal;
 mod switch;
+mod rusage;
 #[allow(clippy::module_inception)]
 mod task;
 

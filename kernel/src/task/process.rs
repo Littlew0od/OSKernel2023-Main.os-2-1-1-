@@ -1,5 +1,6 @@
 use super::id::RecycleAllocator;
 use super::manager::insert_into_pid2process;
+use super::rusage::Rusage;
 use super::{add_task, current_task, SignalFlags};
 use super::{pid_alloc, PidHandle};
 use super::{SignalActions, TaskControlBlock};
@@ -58,6 +59,7 @@ pub struct ProcessControlBlockInner {
     pub exit_signal: SignalFlags,
     pub futex: Futex,
     pub self_exe: String,
+    pub rusage: Rusage,
 }
 
 bitflags! {
@@ -235,6 +237,7 @@ impl ProcessControlBlock {
                     exit_signal: SignalFlags::empty(),
                     futex: Futex::new(),
                     self_exe: String::new(),
+                    rusage: Rusage::new(),
                 })
             },
         });
@@ -373,6 +376,7 @@ impl ProcessControlBlock {
                     exit_signal: SignalFlags::SIGCHLD,
                     futex: Futex::new(),
                     self_exe: parent.self_exe.clone(),
+                    rusage: Rusage::new(),
                 })
             },
         });
