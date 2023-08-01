@@ -10,7 +10,7 @@ mod system;
 mod thread;
 
 use crate::{
-    task::{SigInfo, SignalAction, SignalFlags},
+    task::{SigInfo, SignalAction, SignalFlags, Rusage},
     timer::{TimeSpec, Times},
 };
 use config::*;
@@ -120,6 +120,7 @@ pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
         // SYSCALL_TIMES => sys_get_process_time(args[0] as *mut u64),
         SYSCALL_TIMES => sys_times(args[0] as *mut Times),
         SYSCALL_UNAME => sys_uname(args[0] as *mut u8),
+        SYSCALL_GETRUSAGE => sys_getrusage(args[0] as isize, args[1] as *mut Rusage),
         SYSCALL_GET_TIME_DAY => sys_get_time_day(args[0] as *mut crate::timer::TimeVal),
         SYSCALL_GETPID => sys_getpid(),
         SYSCALL_GETPPID => sys_getppid(),

@@ -9,6 +9,7 @@ use crate::sync::futex_wait;
 use crate::sync::FUTEX_REQUEUE;
 use crate::sync::{FUTEX_CMD_MASK, FUTEX_PRIVATE_FLAG, FUTEX_WAIT, FUTEX_WAKE};
 use crate::syscall::errno::ECHILD;
+use crate::task::Rusage;
 use crate::task::{
     block_current_and_run_next, current_process, current_task, current_user_token,
     exit_current_and_run_next, suspend_current_and_run_next, CloneFlags, SignalFlags, CSIGNAL,
@@ -388,4 +389,17 @@ pub fn sys_futex(
         FUTEX_REQUEUE => todo!(),
         _ => EINVAL,
     }
+}
+
+pub fn sys_getrusage(who: isize, usage: *mut Rusage) -> isize {
+    if who != 0 {
+        panic!("[sys_getrusage] parameter 'who' is not RUSAGE_SELF.");
+    }
+    let token = current_user_token();
+    let process = current_process();
+    let inner = process.inner_exclusive_access();
+    
+    *translated_refmut(token, usage) = inner.rusage;
+    //tip!("[sys_getrusage] who: RUSAGE_SELF, usage: {:?}", inner.rusage);
+    SUCCESS
 }

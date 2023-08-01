@@ -22,6 +22,7 @@ pub const SYSCALL_WRITE: usize = 64;
 pub const SYSCALL_READV: usize = 65;
 pub const SYSCALL_WRITEV: usize = 66;
 pub const SYSCALL_SENDFILE: usize = 71;
+pub const SYSCALL_PSELECT6: usize = 72;
 pub const SYSCALL_PPOLL: usize = 73;
 pub const SYSCALL_READLINKAT: usize = 78;
 pub const SYSCALL_FSTATAT: usize = 79;
