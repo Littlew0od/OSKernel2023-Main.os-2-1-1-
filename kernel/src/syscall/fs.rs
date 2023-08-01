@@ -37,6 +37,7 @@ pub fn sys_getcwd(buf: *mut u8, size: usize) -> isize {
         .working_inode
         .get_cwd()
         .unwrap();
+    // println!("[sys_getcwd] cwd = {}",working_dir);
     if working_dir.len() >= size {
         // The size argument is less than the length of the absolute pathname of the working directory,
         // including the terminating null byte.
@@ -517,6 +518,7 @@ bitflags! {
 pub fn sys_fstatat(dirfd: usize, path: *const u8, buf: *mut u8, flags: u32) -> isize {
     let token = current_user_token();
     let path = translated_str(token, path);
+    println!("[sys_fstatat] dirfh = {}, path = {}", dirfd as isize, path);
     let flags = match FstatatFlags::from_bits(flags) {
         Some(flags) => flags,
         None => {
@@ -597,12 +599,12 @@ pub fn sys_fcntl(fd: usize, cmd: u32, arg: usize) -> isize {
     let inner = process.inner_exclusive_access();
     let mut fd_table = inner.fd_table.lock();
 
-    info!(
-        "[sys_fcntl] fd: {}, cmd: {:?}, arg: {:X}",
-        fd,
-        Fcntl_Command::from_primitive(cmd),
-        arg
-    );
+    // tip!(
+    //     "[sys_fcntl] fd: {}, cmd: {:?}, arg: {:X}",
+    //     fd,
+    //     Fcntl_Command::from_primitive(cmd),
+    //     arg
+    // );
 
     match Fcntl_Command::from_primitive(cmd) {
         Fcntl_Command::DUPFD => {
@@ -788,6 +790,7 @@ pub fn sys_utimensat(
     times: *const [TimeSpec; 2],
     flags: isize,
 ) -> isize {
+    todo!();
     SUCCESS
 }
 
@@ -859,5 +862,30 @@ pub fn sys_renameat2(
     ) {
         Ok(_) => SUCCESS,
         Err(errno) => errno,
+    }
+}
+
+pub fn sys_readlinkat(dirfd: usize, pathname: *const u8, buf: *mut u8, bufsiz: usize) -> isize {
+    let token = current_user_token();
+    let process = current_process();
+    let path = translated_str(token, pathname);
+    // log!(
+    //     "[sys_readlinkat] dirfd: {}, pathname: {}, buf: {:?}, bufsiz: {}",
+    //     dirfd as isize,
+    //     path,
+    //     buf,
+    //     bufsiz,
+    // );
+    let cwd = process.inner_exclusive_access().self_exe.clone();
+    if path.as_str() == "/proc/self/exe" {
+        let mut user_buf = UserBuffer::new(translated_byte_buffer(
+            token,
+            buf,
+            bufsiz,
+        ));
+        user_buf.write(cwd.as_bytes()) as isize
+    } else {
+        log!("[sys_readlinkat] unsupport pathname!");
+        return EINVAL;
     }
 }

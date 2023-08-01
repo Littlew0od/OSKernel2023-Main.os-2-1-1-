@@ -23,6 +23,7 @@ pub const SYSCALL_READV: usize = 65;
 pub const SYSCALL_WRITEV: usize = 66;
 pub const SYSCALL_SENDFILE: usize = 71;
 pub const SYSCALL_PPOLL: usize = 73;
+pub const SYSCALL_READLINKAT: usize = 78;
 pub const SYSCALL_FSTATAT: usize = 79;
 pub const SYSCALL_FSTAT: usize = 80;
 pub const SYSCALL_UTIMENSAT: usize = 88;
@@ -42,6 +43,7 @@ pub const SYSCALL_SIGTIMEDWAIT: usize = 137;
 pub const SYSCALL_SIGRETURN: usize = 139;
 pub const SYSCALL_TIMES: usize = 153;
 pub const SYSCALL_UNAME: usize = 160;
+pub const SYSCALL_GETRUSAGE: usize = 165;
 pub const SYSCALL_GET_TIME_DAY: usize = 169;
 pub const SYSCALL_GETPID: usize = 172;
 pub const SYSCALL_GETPPID: usize = 173;
@@ -136,6 +138,7 @@ pub fn syscall_name(id: usize) -> &'static str {
         SYSCALL_SIGTIMEDWAIT => "sigtimedwait",
         SYSCALL_PRLIMIT => "prlimit64",
         SYSCALL_TKILL => "tkill",
+        SYSCALL_GETRUSAGE => "getruasge",
         // non-standard
         SYSCALL_SHUTDOWN => "shutdown",
         _ => "unknown",

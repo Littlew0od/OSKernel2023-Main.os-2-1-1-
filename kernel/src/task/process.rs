@@ -9,7 +9,7 @@ use crate::fs::{File, Stdin, Stdout};
 use crate::mm::{
     kernel_token, translated_refmut, AuxHeader, MemorySet, PageTable, VirtAddr, KERNEL_SPACE,
 };
-use crate::sync::{Condvar, Mutex, Semaphore, UPSafeCell, Futex};
+use crate::sync::{Condvar, Futex, Mutex, Semaphore, UPSafeCell};
 use crate::syscall::errno::{EPERM, SUCCESS};
 use crate::timer::Times;
 use crate::trap::{trap_handler, TrapContext};
@@ -57,6 +57,7 @@ pub struct ProcessControlBlockInner {
     pub tms: Times,
     pub exit_signal: SignalFlags,
     pub futex: Futex,
+    pub self_exe: String,
 }
 
 bitflags! {
@@ -233,6 +234,7 @@ impl ProcessControlBlock {
                     tms: Times::new(),
                     exit_signal: SignalFlags::empty(),
                     futex: Futex::new(),
+                    self_exe: String::new(),
                 })
             },
         });
@@ -241,7 +243,7 @@ impl ProcessControlBlock {
             Arc::clone(&process),
             ustack_top,
             true,
-            true
+            true,
         ));
         // prepare trap_cx of main thread
         let task_inner = task.inner_exclusive_access();
@@ -370,6 +372,7 @@ impl ProcessControlBlock {
                     tms: Times::new(),
                     exit_signal: SignalFlags::SIGCHLD,
                     futex: Futex::new(),
+                    self_exe: parent.self_exe.clone(),
                 })
             },
         });
@@ -388,7 +391,7 @@ impl ProcessControlBlock {
             // here we do not allocate trap_cx or ustack again
             // but mention that we allocate a new kstack here
             false,
-            false
+            false,
         ));
         // attach task to child process
         let mut child_inner = child.inner_exclusive_access();
@@ -433,7 +436,7 @@ impl ProcessControlBlock {
             Arc::clone(&process),
             thread_stack,
             true,
-            false
+            false,
         ));
         let new_task_inner = new_task.inner_exclusive_access();
         let new_task_res = new_task_inner.res.as_ref().unwrap();
@@ -461,7 +464,7 @@ impl ProcessControlBlock {
 
         // add new task to scheduler
         add_task(Arc::clone(&new_task));
-        
+
         drop(new_task_inner);
         new_task
     }

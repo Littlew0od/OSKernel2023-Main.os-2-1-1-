@@ -69,6 +69,9 @@ pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
             args[2] as *const TimeSpec,
             args[3] as *const SignalFlags,
         ),
+        SYSCALL_READLINKAT => {
+            sys_readlinkat(args[0], args[1] as *const u8, args[2] as *mut u8, args[3])
+        }
         SYSCALL_FSTATAT => sys_fstatat(
             args[0],
             args[1] as *const u8,
@@ -161,17 +164,7 @@ pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
             args[3] as *const u8,
             args[4] as u32,
         ),
-        SYSCALL_THREAD_CREATE => sys_thread_create(args[0], args[1]),
         SYSCALL_WAITTID => sys_waittid(args[0]) as isize,
-        SYSCALL_MUTEX_CREATE => sys_mutex_create(args[0] == 1),
-        SYSCALL_MUTEX_LOCK => sys_mutex_lock(args[0]),
-        SYSCALL_MUTEX_UNLOCK => sys_mutex_unlock(args[0]),
-        SYSCALL_SEMAPHORE_CREATE => sys_semaphore_create(args[0]),
-        SYSCALL_SEMAPHORE_UP => sys_semaphore_up(args[0]),
-        SYSCALL_SEMAPHORE_DOWN => sys_semaphore_down(args[0]),
-        SYSCALL_CONDVAR_CREATE => sys_condvar_create(),
-        SYSCALL_CONDVAR_SIGNAL => sys_condvar_signal(args[0]),
-        SYSCALL_CONDVAR_WAIT => sys_condvar_wait(args[0], args[1]),
         SYSCALL_SHUTDOWN => sys_shutdown(args[0] != 0),
         _ => panic!("Unsupported syscall_id: {}", syscall_id),
     };
