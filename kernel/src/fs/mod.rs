@@ -224,7 +224,7 @@ impl FileDescriptor {
     //     let caches = self.get_all_caches().unwrap();
     //     let frames = caches
     //         .iter()
-    //         .map(|cache| Frame::InMemory(cache.try_lock().unwrap().get_tracker()))
+    //         .map(|cache| cache.try_lock().unwrap().get_tracker())
     //         .collect();
 
     //     crate::mm::KERNEL_SPACE

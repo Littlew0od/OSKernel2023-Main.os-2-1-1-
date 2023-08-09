@@ -1,7 +1,7 @@
 use crate::fs::directory_tree::DirectoryTreeNode;
 use crate::fs::file_trait::File;
 use crate::fs::*;
-use crate::mm::UserBuffer;
+use crate::mm::{get_rest, UserBuffer};
 use crate::syscall::errno::*;
 use core::panic;
 
@@ -284,11 +284,8 @@ impl File for OSInode {
             .inner
             .get_all_files_lock(&inode_lock)
             .iter()
-            .map(|(name, short_ent, offset)|{
-                (name.clone(),get_dyn_file(short_ent, *offset))
-            })
-            .collect()
-        )
+            .map(|(name, short_ent, offset)| (name.clone(), get_dyn_file(short_ent, *offset)))
+            .collect())
     }
     fn create(&self, name: &str, file_type: DiskInodeType) -> Result<Arc<dyn File>, isize> {
         let inode_lock = self.inner.write();
