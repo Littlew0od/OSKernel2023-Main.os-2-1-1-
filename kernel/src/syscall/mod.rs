@@ -177,13 +177,13 @@ pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
         SYSCALL_SHUTDOWN => sys_shutdown(args[0] != 0),
         _ => panic!("Unsupported syscall_id: {}", syscall_id),
     };
-    tip!(
-        "[syscall] pid: {}, syscall_name: {}, syscall_id: {}, returned {:#x}",
-        sys_getpid(),
-        syscall_name(syscall_id),
-        syscall_id,
-        ret
-    );
+    // tip!(
+    //     "[syscall] pid: {}, syscall_name: {}, syscall_id: {}, returned {:#x}",
+    //     sys_getpid(),
+    //     syscall_name(syscall_id),
+    //     syscall_id,
+    //     ret
+    // );
 
     // if [
     //     SYSCALL_SIGACTION,

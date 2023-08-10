@@ -193,14 +193,14 @@ pub fn sys_execve(path: *const u8, mut args: *const usize, mut envp: *const usiz
         args_vec.insert(0, String::from("/busybox"));
         path = String::from("./busybox");
     }
-    log!(
-        "[exec] path: {} argv: {:?} /* {} vars */, envp: {:?} /* {} vars */",
-        path,
-        args_vec,
-        args_vec.len(),
-        envp_vec,
-        envp_vec.len()
-    );
+    // log!(
+    //     "[exec] path: {} argv: {:?} /* {} vars */, envp: {:?} /* {} vars */",
+    //     path,
+    //     args_vec,
+    //     args_vec.len(),
+    //     envp_vec,
+    //     envp_vec.len()
+    // );
     let process = current_process();
     let working_inode = process
         .inner_exclusive_access()
