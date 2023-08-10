@@ -101,6 +101,8 @@ impl MemorySet {
         {
             area.unmap(&mut self.page_table);
             self.areas.remove(idx);
+        } else {
+            panic!("Not found");
         }
     }
     fn push(&mut self, mut map_area: MapArea, data: Option<&[u8]>) {
@@ -546,8 +548,11 @@ impl MemorySet {
                         let frame = frame_alloc().unwrap();
                         let ppn = frame.ppn;
                         self.mmap_area.insert(vpn, frame);
-                        self.page_table
-                            .map(vpn, ppn, PTEFlags::R | PTEFlags::W | PTEFlags::U | PTEFlags::X);
+                        self.page_table.map(
+                            vpn,
+                            ppn,
+                            PTEFlags::R | PTEFlags::W | PTEFlags::U | PTEFlags::X,
+                        );
                     }
                 }
             }
@@ -557,8 +562,11 @@ impl MemorySet {
                 let frame = frame_alloc().unwrap();
                 let ppn = frame.ppn;
                 self.mmap_area.insert(vpn, frame);
-                self.page_table
-                    .map(vpn, ppn, PTEFlags::R | PTEFlags::W | PTEFlags::U | PTEFlags::X);
+                self.page_table.map(
+                    vpn,
+                    ppn,
+                    PTEFlags::R | PTEFlags::W | PTEFlags::U | PTEFlags::X,
+                );
             }
         }
         // println!(
@@ -767,6 +775,16 @@ impl MemorySet {
 
         (user_sp, argc, argv_base, envp_base, aux_base)
     }
+
+    pub fn map_app_data(
+        &mut self,
+        start_va: VirtAddr,
+        map_perm: MapPermission,
+        frame_trackers: Vec<Arc<FrameTracker>>,
+    ) {
+        let map_area = MapArea::from_existed(start_va, MapType::Marked, map_perm, frame_trackers);
+        self.push(map_area, None);
+    }
 }
 
 bitflags! {
@@ -835,6 +853,36 @@ impl MapArea {
             map_perm: another.map_perm,
         }
     }
+    pub fn from_existed(
+        start_va: VirtAddr,
+        map_type: MapType,
+        map_perm: MapPermission,
+        frame_trackers: Vec<Arc<FrameTracker>>,
+    ) -> Self {
+        let page_count = frame_trackers.len();
+
+        let start_vpn = start_va.floor();
+        let end_vpn = VirtPageNum::from(start_vpn.0 + page_count);
+
+        let vpn_range = VPNRange::new(start_vpn, end_vpn);
+        let mut data_frames: BTreeMap<VirtPageNum, FrameTracker> = BTreeMap::new();
+
+        let mut vpn = start_vpn;
+        for page_id in 0..page_count {
+            // println!(
+            //     "[from_existed] vpn = {:?}, ppn = {:?}",
+            //     vpn, frame_trackers[page_id].ppn
+            // );
+            data_frames.insert(vpn, FrameTracker::cover(frame_trackers[page_id].ppn));
+            vpn.step();
+        }
+        Self {
+            vpn_range,
+            data_frames,
+            map_type,
+            map_perm,
+        }
+    }
     pub fn map_one(&mut self, page_table: &mut PageTable, vpn: VirtPageNum) {
         let ppn: PhysPageNum;
         match self.map_type {
@@ -846,7 +894,18 @@ impl MapArea {
                 ppn = frame.ppn;
                 self.data_frames.insert(vpn, frame);
             }
+            MapType::Marked => {
+                panic!("Marked MapArea will never use this function!");
+            }
         }
+        let pte_flags = PTEFlags::from_bits(self.map_perm.bits).unwrap();
+        // println!(
+        //     "[map_one] vpn = {:#x}, ppn = {:#x}, pey_flags = {:?}",
+        //     vpn.0, ppn.0, pte_flags
+        // );
+        page_table.map(vpn, ppn, pte_flags);
+    }
+    pub fn map_one_unalloc(&self, page_table: &mut PageTable, vpn: VirtPageNum, ppn: PhysPageNum) {
         let pte_flags = PTEFlags::from_bits(self.map_perm.bits).unwrap();
         // println!(
         //     "[map_one] vpn = {:#x}, ppn = {:#x}, pey_flags = {:?}",
@@ -861,11 +920,26 @@ impl MapArea {
         page_table.unmap(vpn);
     }
     pub fn map(&mut self, page_table: &mut PageTable) {
-        for vpn in self.vpn_range {
-            // println!("[memory_set] map vpn = {:#x}", vpn.0);
-            self.map_one(page_table, vpn);
+        match self.map_type {
+            MapType::Identical | MapType::Framed => {
+                for vpn in self.vpn_range {
+                    // println!("[memory_set] map vpn = {:#x}", vpn.0);
+                    self.map_one(page_table, vpn);
+                }
+            }
+            MapType::Marked => {
+                for (vpn, frame) in &self.data_frames {
+                    // println!(
+                    //     "[memory_set] map unalloc vpn = {:#x}, ppn = {:?}",
+                    //     vpn.0,
+                    //     frame.ppn
+                    // );
+                    self.map_one_unalloc(page_table, *vpn, frame.ppn.clone());
+                }
+            }
         }
     }
+
     pub fn unmap(&mut self, page_table: &mut PageTable) {
         for vpn in self.vpn_range {
             // println!("[memory_set] unmap vpn = {:#x}", vpn.0);
@@ -902,6 +976,7 @@ impl MapArea {
 pub enum MapType {
     Identical,
     Framed,
+    Marked,
 }
 
 bitflags! {

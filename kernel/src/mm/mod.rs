@@ -1,20 +1,22 @@
 #![allow(unused)]
 mod address;
+mod config;
 mod frame_allocator;
 mod heap_allocator;
 mod memory_set;
 mod page_table;
-mod config;
 
 use address::VPNRange;
 pub use address::{PhysAddr, PhysPageNum, StepByOne, VirtAddr, VirtPageNum};
-pub use frame_allocator::{frame_alloc, frame_alloc_arc, frame_dealloc, FrameTracker};
-pub use memory_set::remap_test;
-pub use memory_set::{kernel_token, MapPermission, MemorySet, KERNEL_SPACE, MapType, MPROCTECTPROT, AuxHeader};
-pub use heap_allocator::get_rest;
-use page_table::PTEFlags;
-use core::arch::asm;
 use config::*;
+use core::arch::asm;
+pub use frame_allocator::{frame_alloc, frame_alloc_arc, frame_dealloc, FrameTracker};
+pub use heap_allocator::get_rest;
+pub use memory_set::{
+    kernel_token, remap_test, AuxHeader, MapPermission, MapType, MemorySet, KERNEL_SPACE,
+    MPROCTECTPROT,
+};
+use page_table::PTEFlags;
 
 pub use page_table::{
     translated_byte_buffer, translated_ref, translated_refmut, translated_str, PageTable,

@@ -188,6 +188,7 @@ impl ProcessControlBlock {
         self.inner.exclusive_access()
     }
 
+    // only for initproc
     pub fn new(elf_data: &[u8]) -> Arc<Self> {
         // memory_set with elf program headers/trampoline/trap context/user stack
         let (memory_set, uheap_base, ustack_top, entry_point, auxv, _) =
@@ -270,11 +271,21 @@ impl ProcessControlBlock {
     }
 
     /// Only support processes with a single thread.
-    pub fn exec(self: &Arc<Self>, elf_data: &[u8], argv_vec: Vec<String>, envp_vec: Vec<String>) {
+    pub fn exec(
+        self: &Arc<Self>,
+        file: FileDescriptor,
+        argv_vec: Vec<String>,
+        envp_vec: Vec<String>,
+    ) {
+        // elf_data: &[u8]
         assert_eq!(self.inner_exclusive_access().thread_count(), 1);
         // memory_set with elf program headers/trampoline/trap context/user stack
+        let elf_data = file.map_to_kernel_space(MMAP_BASE);
         let (memory_set, uheap_base, ustack_top, entry_point, mut auxv, interp_entry) =
             MemorySet::from_elf(elf_data);
+        crate::mm::KERNEL_SPACE
+            .exclusive_access()
+            .remove_area_with_start_vpn(VirtAddr::from(MMAP_BASE).floor());
         let new_token = memory_set.token();
         // substitute memory_set
         self.inner_exclusive_access().memory_set = memory_set;

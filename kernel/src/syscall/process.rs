@@ -1,4 +1,5 @@
 #![allow(unused)]
+use crate::config::MMAP_BASE;
 use crate::config::PAGE_SIZE;
 use crate::fs::OpenFlags;
 use crate::mm::VirtAddr;
@@ -192,14 +193,14 @@ pub fn sys_execve(path: *const u8, mut args: *const usize, mut envp: *const usiz
         args_vec.insert(0, String::from("/busybox"));
         path = String::from("./busybox");
     }
-    // log!(
-    //     "[exec] path: {} argv: {:?} /* {} vars */, envp: {:?} /* {} vars */",
-    //     path,
-    //     args_vec,
-    //     args_vec.len(),
-    //     envp_vec,
-    //     envp_vec.len()
-    // );
+    log!(
+        "[exec] path: {} argv: {:?} /* {} vars */, envp: {:?} /* {} vars */",
+        path,
+        args_vec,
+        args_vec.len(),
+        envp_vec,
+        envp_vec.len()
+    );
     let process = current_process();
     let working_inode = process
         .inner_exclusive_access()
@@ -210,9 +211,8 @@ pub fn sys_execve(path: *const u8, mut args: *const usize, mut envp: *const usiz
     match working_inode.open(&path, OpenFlags::O_RDONLY, false) {
         Ok(file) => {
             let cwd = file.get_cwd().unwrap();
-            let all_data = file.read_all();
             let argc = args_vec.len();
-            process.exec(all_data.as_slice(), args_vec, envp_vec);
+            process.exec(file, args_vec, envp_vec);
             process.inner_exclusive_access().self_exe = cwd;
             // return argc because cx.x[10] will be covered with it later
             argc as isize

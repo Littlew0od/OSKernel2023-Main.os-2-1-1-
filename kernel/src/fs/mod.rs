@@ -16,6 +16,7 @@ pub use self::layout::*;
 pub use self::fat32::{BlockDevice, DiskInodeType, BLOCK_SZ};
 
 use self::{cache::PageCache, directory_tree::DirectoryTreeNode};
+use crate::mm::FrameTracker;
 use crate::{config::SYSTEM_FD_LIMIT, mm::UserBuffer, syscall::errno::*};
 use alloc::{
     string::{String, ToString},
@@ -219,24 +220,22 @@ impl FileDescriptor {
     pub fn ioctl(&self, cmd: u32, argp: usize) -> isize {
         self.file.ioctl(cmd, argp)
     }
-    // // for execve
-    // pub fn map_to_kernel_space(&self, addr: usize) -> &'static [u8] {
-    //     let caches = self.get_all_caches().unwrap();
-    //     let frames = caches
-    //         .iter()
-    //         .map(|cache| cache.try_lock().unwrap().get_tracker())
-    //         .collect();
+    // for execve
+    // unmap?
+    pub fn map_to_kernel_space(&self, addr: usize) -> &'static [u8] {
+        let caches = self.get_all_caches().unwrap();
+        let frames: Vec<Arc<FrameTracker>> = caches
+            .iter()
+            .map(|cache| cache.try_lock().unwrap().get_tracker().clone())
+            .collect();
 
-    //     crate::mm::KERNEL_SPACE
-    //         .lock()
-    //         .insert_program_area(
-    //             addr.into(),
-    //             crate::mm::MapPermission::R | crate::mm::MapPermission::W,
-    //             frames,
-    //         )
-    //         .unwrap();
-    //     unsafe { core::slice::from_raw_parts_mut(addr as *mut u8, self.get_size()) }
-    // }
+        crate::mm::KERNEL_SPACE.exclusive_access().map_app_data(
+            addr.into(),
+            crate::mm::MapPermission::R | crate::mm::MapPermission::W,
+            frames,
+        );
+        unsafe { core::slice::from_raw_parts_mut(addr as *mut u8, self.get_size()) }
+    }
 }
 
 #[derive(Clone)]
