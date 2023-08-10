@@ -1,12 +1,13 @@
 use super::{PhysAddr, PhysPageNum};
 use crate::config::MEMORY_END;
 use crate::sync::UPSafeCell;
-use alloc::{vec::Vec, sync::Arc};
+use alloc::{sync::Arc, vec::Vec};
 use core::fmt::{self, Debug, Formatter};
 use lazy_static::*;
 
 pub struct FrameTracker {
     pub ppn: PhysPageNum,
+    pub hold: bool,
 }
 
 impl FrameTracker {
@@ -16,10 +17,10 @@ impl FrameTracker {
         for i in bytes_array {
             *i = 0;
         }
-        Self { ppn }
+        Self { ppn, hold: true }
     }
     pub fn cover(ppn: PhysPageNum) -> Self {
-        Self { ppn }
+        Self { ppn, hold: false }
     }
 }
 
@@ -31,7 +32,9 @@ impl Debug for FrameTracker {
 
 impl Drop for FrameTracker {
     fn drop(&mut self) {
-        frame_dealloc(self.ppn);
+        if self.hold {
+            frame_dealloc(self.ppn);
+        }
     }
 }
 
@@ -109,7 +112,11 @@ pub fn frame_alloc() -> Option<FrameTracker> {
 
 #[cfg(not(feature = "oom_handler"))]
 pub fn frame_alloc_arc() -> Option<Arc<FrameTracker>> {
-    FRAME_ALLOCATOR.exclusive_access().alloc().map(FrameTracker::new).map(|frame_tracker| Arc::new(frame_tracker))
+    FRAME_ALLOCATOR
+        .exclusive_access()
+        .alloc()
+        .map(FrameTracker::new)
+        .map(|frame_tracker| Arc::new(frame_tracker))
 }
 
 pub fn frame_dealloc(ppn: PhysPageNum) {
