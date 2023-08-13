@@ -189,10 +189,14 @@ impl ProcessControlBlock {
     }
 
     // only for initproc
-    pub fn new(elf_data: &[u8]) -> Arc<Self> {
+    pub fn new(elf_fd: FileDescriptor) -> Arc<Self> {
         // memory_set with elf program headers/trampoline/trap context/user stack
+        let elf_data = elf_fd.map_to_kernel_space(MMAP_BASE);
         let (memory_set, uheap_base, ustack_top, entry_point, auxv, _) =
             MemorySet::from_elf(elf_data);
+        crate::mm::KERNEL_SPACE
+            .exclusive_access()
+            .remove_area_with_start_vpn(VirtAddr::from(MMAP_BASE).floor());
         // allocate a pid
         let pid_handle = pid_alloc();
         let process = Arc::new(Self {
