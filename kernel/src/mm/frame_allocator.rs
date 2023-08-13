@@ -1,6 +1,6 @@
 use super::{PhysAddr, PhysPageNum};
-use crate::config::MEMORY_END;
 use crate::sync::UPSafeCell;
+use crate::{config::MEMORY_END, fs};
 use alloc::{sync::Arc, vec::Vec};
 use core::fmt::{self, Debug, Formatter};
 use lazy_static::*;
@@ -104,13 +104,19 @@ pub fn init_frame_allocator() {
 }
 
 pub fn frame_alloc() -> Option<FrameTracker> {
-    FRAME_ALLOCATOR
-        .exclusive_access()
-        .alloc()
-        .map(FrameTracker::new)
+    match FRAME_ALLOCATOR.exclusive_access().alloc() {
+        Some(frame) => Some(FrameTracker::new(frame)),
+        None => {
+            oom_handler(1).unwrap();
+            FRAME_ALLOCATOR
+                .exclusive_access()
+                .alloc()
+                .map(FrameTracker::new)
+        }
+    }
+    // .map(FrameTracker::new)
 }
 
-#[cfg(not(feature = "oom_handler"))]
 pub fn frame_alloc_arc() -> Option<Arc<FrameTracker>> {
     FRAME_ALLOCATOR
         .exclusive_access()
@@ -139,4 +145,17 @@ pub fn frame_allocator_test() {
     }
     drop(v);
     println!("frame_allocator_test passed!");
+}
+
+pub fn oom_handler(req: usize) -> Result<(), ()> {
+    // clean fs
+    println!("[oom_handler] start");
+    let mut released = 0;
+    released += fs::directory_tree::oom();
+    if released >= req {
+        println!("[oom_handler] end");
+        return Ok(());
+    }
+    println!("[oom_handler] end");
+    Err(())
 }
