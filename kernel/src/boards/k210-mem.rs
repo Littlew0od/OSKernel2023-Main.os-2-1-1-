@@ -4,6 +4,7 @@ pub const MEMORY_END: usize = 0x80600000;
 pub const MMIO: &[(usize, usize)] = &[
     // we don't need clint in S priv when running
     // we only need claim/complete for target0 after initializing
+    (0x8800_0000, 0x100_0000)/* ROM     */
     (0x0C00_0000, 0x3000), /* PLIC      */
     (0x0C20_0000, 0x1000), /* PLIC      */
     (0x3800_0000, 0x1000), /* UARTHS    */

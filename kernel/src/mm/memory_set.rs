@@ -890,7 +890,12 @@ impl MapArea {
                 ppn = PhysPageNum(vpn.0);
             }
             MapType::Framed => {
-                let frame = frame_alloc().unwrap();
+                let frame: FrameTracker = if let Some(frame) = frame_alloc() {
+                    frame
+                } else {
+                    panic!("Memory end!");
+                };
+                // let frame: FrameTracker = frame_alloc().unwrap();
                 ppn = frame.ppn;
                 self.data_frames.insert(vpn, frame);
             }
