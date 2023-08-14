@@ -10,7 +10,9 @@ use address::VPNRange;
 pub use address::{PhysAddr, PhysPageNum, StepByOne, VirtAddr, VirtPageNum};
 use config::*;
 use core::arch::asm;
-pub use frame_allocator::{frame_alloc, frame_alloc_arc, frame_dealloc, FrameTracker};
+pub use frame_allocator::{
+    frame_alloc, frame_alloc_arc, frame_dealloc, show_unallocated_frames, FrameTracker, FRAME_ALLOCATOR,
+};
 pub use heap_allocator::get_rest;
 pub use memory_set::{
     kernel_token, remap_test, AuxHeader, MapPermission, MapType, MemorySet, KERNEL_SPACE,

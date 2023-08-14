@@ -559,7 +559,7 @@ pub fn oom() -> usize {
     tlb_invalidate();
     const MAX_FAIL_TIME: usize = 3;
     let mut fail_time = 0;
-    log!("[oom] start oom");
+    // log!("[oom] start oom");
     let mut lock = DIRECTORY_VEC.lock();
     update_directory_vec(&mut lock);
     loop {
@@ -569,7 +569,7 @@ pub fn oom() -> usize {
             dropped += inode.file.oom();
         }
         if dropped > 0 {
-            log!("[oom] recycle pages: {}", dropped);
+            // log!("[oom] recycle pages: {}", dropped);
             return dropped;
         }
         fail_time += 1;

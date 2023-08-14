@@ -284,6 +284,7 @@ impl ProcessControlBlock {
         // elf_data: &[u8]
         assert_eq!(self.inner_exclusive_access().thread_count(), 1);
         // memory_set with elf program headers/trampoline/trap context/user stack
+        self.inner_exclusive_access().memory_set = MemorySet::new_bare();
         let elf_data = file.map_to_kernel_space(MMAP_BASE);
         let (memory_set, uheap_base, ustack_top, entry_point, mut auxv, interp_entry) =
             MemorySet::from_elf(elf_data);

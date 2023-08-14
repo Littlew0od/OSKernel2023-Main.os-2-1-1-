@@ -57,6 +57,9 @@ impl StackFrameAllocator {
         self.end = r.0;
         println!("last {} Physical Frames.", self.end - self.current);
     }
+    pub fn unallocated_frames(&self) -> usize {
+        self.recycled.len() + self.end - self.current
+    }
 }
 impl FrameAllocator for StackFrameAllocator {
     fn new() -> Self {
@@ -118,11 +121,17 @@ pub fn frame_alloc() -> Option<FrameTracker> {
 }
 
 pub fn frame_alloc_arc() -> Option<Arc<FrameTracker>> {
+    let result = FRAME_ALLOCATOR.exclusive_access().alloc();
+    if let Some(frame) = result {
+        return Some(Arc::new(FrameTracker::new(frame)));
+    }
+    drop(result);
+    oom_handler(1).unwrap();
     FRAME_ALLOCATOR
         .exclusive_access()
         .alloc()
         .map(FrameTracker::new)
-        .map(|frame_tracker| Arc::new(frame_tracker))
+        .map(Arc::new)
 }
 
 pub fn frame_dealloc(ppn: PhysPageNum) {
@@ -149,13 +158,21 @@ pub fn frame_allocator_test() {
 
 pub fn oom_handler(req: usize) -> Result<(), ()> {
     // clean fs
-    println!("[oom_handler] start");
+
+    show_unallocated_frames();
     let mut released = 0;
     released += fs::directory_tree::oom();
+    show_unallocated_frames();
     if released >= req {
-        println!("[oom_handler] end");
         return Ok(());
     }
-    println!("[oom_handler] end");
+    println!("[oom_handler] fail");
     Err(())
+}
+
+pub fn show_unallocated_frames(){
+    println!(
+        "unallocated frames = {}",
+        FRAME_ALLOCATOR.exclusive_access().unallocated_frames()
+    );
 }
