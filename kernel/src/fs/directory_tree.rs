@@ -565,18 +565,13 @@ pub fn oom() -> usize {
     loop {
         let mut dropped = 0;
         for inode in &lock.0 {
-            log!("[oom] oom stage 1, dropped = {}", dropped);
             let inode = inode.upgrade().unwrap();
-            log!("[oom] oom stage 1.1");
             dropped += inode.file.oom();
-            log!("[oom] oom stage 1.2");
         }
-        log!("[oom] oom stage 2");
         if dropped > 0 {
             log!("[oom] recycle pages: {}", dropped);
             return dropped;
         }
-        log!("[oom] oom stage 3");
         fail_time += 1;
         if fail_time >= MAX_FAIL_TIME {
             return dropped;

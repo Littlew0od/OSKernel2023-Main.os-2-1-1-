@@ -415,9 +415,7 @@ impl PageCacheManager {
                 inner_lock.sync(block_ids, block_device);
                 dropped += 1;
                 drop(inner_lock);
-                println!("in");
                 lock[inner_cache_id] = None;
-                println!("out");
             }
         }
         *self.allocated_cache.lock() = new_allocated_cache;

@@ -3,6 +3,7 @@ use crate::sync::UPSafeCell;
 use crate::{config::MEMORY_END, fs};
 use alloc::{sync::Arc, vec::Vec};
 use core::fmt::{self, Debug, Formatter};
+use core::result;
 use lazy_static::*;
 
 pub struct FrameTracker {
@@ -104,17 +105,16 @@ pub fn init_frame_allocator() {
 }
 
 pub fn frame_alloc() -> Option<FrameTracker> {
-    match FRAME_ALLOCATOR.exclusive_access().alloc() {
-        Some(frame) => Some(FrameTracker::new(frame)),
-        None => {
-            oom_handler(1).unwrap();
-            FRAME_ALLOCATOR
-                .exclusive_access()
-                .alloc()
-                .map(FrameTracker::new)
-        }
+    let result = FRAME_ALLOCATOR.exclusive_access().alloc();
+    if let Some(frame) = result {
+        return Some(FrameTracker::new(frame));
     }
-    // .map(FrameTracker::new)
+    drop(result);
+    oom_handler(1).unwrap();
+    FRAME_ALLOCATOR
+        .exclusive_access()
+        .alloc()
+        .map(FrameTracker::new)
 }
 
 pub fn frame_alloc_arc() -> Option<Arc<FrameTracker>> {
