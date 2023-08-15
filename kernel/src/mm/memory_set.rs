@@ -310,9 +310,6 @@ impl MemorySet {
                     &elf.input[ph.offset() as usize..(ph.offset() + ph.file_size() - 1) as usize],
                 )
                 .to_string();
-                if path == "/lib/ld-musl-riscv64-sf.so.1" {
-                    path = String::from("/libc.so");
-                }
                 match ROOT_FD.open(&path, OpenFlags::O_RDONLY, false) {
                     Ok(file) => {
                         let all_data = file.read_all();
