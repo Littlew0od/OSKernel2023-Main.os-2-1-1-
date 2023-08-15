@@ -157,7 +157,7 @@ impl PageTable {
             if !pte.is_valid() {
                 return false;
             }
-            pte.bits = pte.ppn().0 << 10 & !(flags.bits() as usize);
+            pte.bits = pte.bits & !(flags.bits() as usize);
             true
         } else {
             false

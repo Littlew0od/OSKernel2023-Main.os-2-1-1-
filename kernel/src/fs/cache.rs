@@ -278,9 +278,9 @@ impl PageCache {
         };
         block_device.read_block(start_block_id, buf);
         self.page_ptr[block_ids.len() * BUFFER_SIZE..].fill(0);
-        // KERNEL_SPACE
-        //     .exclusive_access()
-        //     .clear_dirty_bit(self.tracker.ppn.0.into());
+        KERNEL_SPACE
+            .exclusive_access()
+            .clear_dirty_bit(self.tracker.ppn.0.into());
     }
 
     pub fn write_back(&self, block_ids: Vec<usize>, block_device: &Arc<dyn BlockDevice>) {

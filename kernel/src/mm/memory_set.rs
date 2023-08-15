@@ -485,6 +485,7 @@ impl MemorySet {
     pub fn translate(&self, vpn: VirtPageNum) -> Option<PageTableEntry> {
         self.page_table.translate(vpn)
     }
+    // assume vpn == ppn because only kernel can use this function
     pub fn clear_dirty_bit(&mut self, vpn: VirtPageNum) {
         self.page_table.delete_pte_flags(vpn, PTEFlags::D);
     }
