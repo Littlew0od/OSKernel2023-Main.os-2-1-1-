@@ -128,6 +128,7 @@ pub fn sys_clone(
         assert!(stack_ptr == 0);
         return current_process.fork() as isize;
     } else {
+        println!("[sys_clone] create thread");
         let new_thread = current_process.clone2(exit_signal, clone_signals, stack_ptr, tls);
 
         // The thread ID of the main thread needs to be the same as the Process ID,

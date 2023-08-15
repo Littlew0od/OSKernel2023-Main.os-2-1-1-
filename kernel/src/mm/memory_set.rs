@@ -431,18 +431,23 @@ impl MemorySet {
         // copy mmap
         memory_set.mmap_end = user_space.mmap_end;
         // copy data sections/trap_context/user_stack
+        // println!("start areas!");
         for area in user_space.areas.iter() {
             let new_area = MapArea::from_another(area);
             memory_set.push(new_area, None);
             // copy data from another space
             for vpn in area.vpn_range {
+                // println!("vpn = {:?}!", vpn);
                 let src_ppn = user_space.translate(vpn).unwrap().ppn();
+                // println!("src_ppn = {:?}!", src_ppn);
                 let dst_ppn = memory_set.translate(vpn).unwrap().ppn();
+                // println!("dst_ppn = {:?}!", dst_ppn);
                 dst_ppn
                     .get_bytes_array()
                     .copy_from_slice(src_ppn.get_bytes_array());
             }
         }
+        // println!("start heap_area!");
         // copy heap_area
         for (vpn, src_frame) in user_space.heap_area.iter() {
             let dst_frame = frame_alloc().unwrap();
@@ -458,6 +463,7 @@ impl MemorySet {
                 .get_bytes_array()
                 .copy_from_slice(src_ppn.get_bytes_array());
         }
+        // println!("start mmap_area!");
         // copy mmap_area
         for (vpn, src_frame) in user_space.mmap_area.iter() {
             let dst_frame = frame_alloc().unwrap();
@@ -473,6 +479,7 @@ impl MemorySet {
                 .get_bytes_array()
                 .copy_from_slice(src_ppn.get_bytes_array());
         }
+        // println!("end copy!");
         memory_set
     }
     pub fn activate(&self) {

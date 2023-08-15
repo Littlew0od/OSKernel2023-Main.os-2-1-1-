@@ -55,7 +55,7 @@ impl StackFrameAllocator {
     pub fn init(&mut self, l: PhysPageNum, r: PhysPageNum) {
         self.current = l.0;
         self.end = r.0;
-        println!("last {} Physical Frames.", self.end - self.current);
+        println!("last {} Physical Frames, memory = {:#X}000", self.end - self.current, self.end);
     }
     pub fn unallocated_frames(&self) -> usize {
         self.recycled.len() + self.end - self.current
@@ -166,7 +166,7 @@ pub fn frame_allocator_test() {
 
 pub fn oom_handler(req: usize) -> Result<(), ()> {
     // clean fs
-
+    println!("[oom_handler] start");
     show_unallocated_frames();
     let mut released = 0;
     released += fs::directory_tree::oom();

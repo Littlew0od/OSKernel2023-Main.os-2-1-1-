@@ -2,8 +2,12 @@
 #![allow(non_camel_case_types)]
 #![allow(unused)]
 
+use crate::{
+    config::CLOCK_FREQ,
+    timer::{get_time, get_time_sec},
+};
+
 use super::BlockDevice;
-use crate::sync::UPSafeCell;
 use core::convert::TryInto;
 use k210_hal::prelude::*;
 use k210_pac::{Peripherals, SPI0};
@@ -17,6 +21,7 @@ use k210_soc::{
     sysctl,
 };
 use lazy_static::*;
+use spin::Mutex;
 
 pub struct SDCard<SPI> {
     spi: SPI,
@@ -314,21 +319,21 @@ impl</*'a,*/ X: SPI> SDCard</*'a,*/ X> {
             timeout -= 1;
         }
         /* After time out */
-        0xFF
+        return 0xFF;
     }
 
     /*
      * Get SD card data response.
      * @param  None
      * @retval The SD status: Read data response xxx0<status>1
-     *         - status 010: Data accecpted
+     *         - status 010: Data accepted
      *         - status 101: Data rejected due to a crc error
      *         - status 110: Data rejected due to a Write error.
      *         - status 111: Data rejected due to other error.
      */
     fn get_dataresponse(&self) -> u8 {
         let response = &mut [0u8];
-        /* Read resonse */
+        /* Read response */
         self.read_data(response);
         /* Mask unused bits */
         response[0] &= 0x1F;
@@ -341,7 +346,7 @@ impl</*'a,*/ X: SPI> SDCard</*'a,*/ X> {
             self.read_data(response);
         }
         /* Return response */
-        0
+        return 0;
     }
 
     /*
@@ -371,7 +376,7 @@ impl</*'a,*/ X: SPI> SDCard</*'a,*/ X> {
         self.read_data(&mut csd_tab);
         self.end_cmd();
         /* see also: https://cdn-shop.adafruit.com/datasheets/TS16GUSDHC6.pdf */
-        Ok(SDCardCSD {
+        return Ok(SDCardCSD {
             /* Byte 0 */
             CSDStruct: (csd_tab[0] & 0xC0) >> 6,
             SysSpecVersion: (csd_tab[0] & 0x3C) >> 2,
@@ -423,8 +428,8 @@ impl</*'a,*/ X: SPI> SDCard</*'a,*/ X> {
             /* Byte 15 */
             CSD_CRC: (csd_tab[15] & 0xFE) >> 1,
             Reserved4: 1,
-            /* Return the reponse */
-        })
+            /* Return the response */
+        });
     }
 
     /*
@@ -453,7 +458,7 @@ impl</*'a,*/ X: SPI> SDCard</*'a,*/ X> {
         /* Get CRC bytes (not really needed by us, but required by SD) */
         self.read_data(&mut cid_tab);
         self.end_cmd();
-        Ok(SDCardCID {
+        return Ok(SDCardCID {
             /* Byte 0 */
             ManufacturerID: cid_tab[0],
             /* Byte 1, 2 */
@@ -478,7 +483,7 @@ impl</*'a,*/ X: SPI> SDCard</*'a,*/ X> {
             /* Byte 15 */
             CID_CRC: (cid_tab[15] & 0xFE) >> 1,
             Reserved2: 1,
-        })
+        });
     }
 
     /*
@@ -610,7 +615,7 @@ impl</*'a,*/ X: SPI> SDCard</*'a,*/ X> {
         }
         let mut error = false;
         //let mut dma_chunk = [0u32; SEC_LEN];
-        let mut tmp_chunk = [0u8; SEC_LEN];
+        // let mut tmp_chunk = [0u8; SEC_LEN];
         for chunk in data_buf.chunks_mut(SEC_LEN) {
             if self.get_response() != SD_START_DATA_SINGLE_BLOCK_READ {
                 error = true;
@@ -618,12 +623,12 @@ impl</*'a,*/ X: SPI> SDCard</*'a,*/ X> {
             }
             /* Read the SD block data : read NumByteToRead data */
             //self.read_data_dma(&mut dma_chunk);
-            self.read_data(&mut tmp_chunk);
+            self.read_data(chunk);
             /* Place the data received as u32 units from DMA into the u8 target buffer */
-            for (a, b) in chunk.iter_mut().zip(/*dma_chunk*/ tmp_chunk.iter()) {
-                //*a = (b & 0xff) as u8;
-                *a = *b;
-            }
+            // for (a, b) in chunk.iter_mut().zip(/*dma_chunk*/ tmp_chunk.iter()) {
+            //     //*a = (b & 0xff) as u8;
+            //     *a = *b;
+            // }
             /* Get CRC bytes (not really needed by us, but required by SD) */
             let mut frame = [0u8; 2];
             self.read_data(&mut frame);
@@ -674,17 +679,17 @@ impl</*'a,*/ X: SPI> SDCard</*'a,*/ X> {
             return Err(());
         }
         //let mut dma_chunk = [0u32; SEC_LEN];
-        let mut tmp_chunk = [0u8; SEC_LEN];
+        // let mut tmp_chunk = [0u8; SEC_LEN];
         for chunk in data_buf.chunks(SEC_LEN) {
             /* Send the data token to signify the start of the data */
             self.write_data(&frame);
             /* Write the block data to SD : write count data by block */
-            for (a, &b) in /*dma_chunk*/ tmp_chunk.iter_mut().zip(chunk.iter()) {
-                //*a = b.into();
-                *a = b;
-            }
+            // for (a, &b) in /*dma_chunk*/ tmp_chunk.iter_mut().zip(chunk.iter()) {
+            //     //*a = b.into();
+            //     *a = b;
+            // }
             //self.write_data_dma(&mut dma_chunk);
-            self.write_data(&tmp_chunk);
+            self.write_data(chunk);
             /* Put dummy CRC bytes */
             self.write_data(&[0xff, 0xff]);
             /* Read data response */
@@ -715,8 +720,7 @@ fn io_init() {
 }
 
 lazy_static! {
-    static ref PERIPHERALS: UPSafeCell<Peripherals> =
-        unsafe { UPSafeCell::new(Peripherals::take().unwrap()) };
+    static ref PERIPHERALS: Mutex<Peripherals> = Mutex::new(Peripherals::take().unwrap());
 }
 
 fn init_sdcard() -> SDCard<SPIImpl<SPI0>> {
@@ -724,7 +728,7 @@ fn init_sdcard() -> SDCard<SPIImpl<SPI0>> {
     usleep(100000);
     let peripherals = unsafe { Peripherals::steal() };
     sysctl::pll_set_freq(sysctl::pll::PLL0, 800_000_000).unwrap();
-    sysctl::pll_set_freq(sysctl::pll::PLL1, 300_000_000).unwrap();
+    sysctl::pll_set_freq(sysctl::pll::PLL1, 500_000_000).unwrap();
     sysctl::pll_set_freq(sysctl::pll::PLL2, 45_158_400).unwrap();
     let clocks = k210_hal::clock::Clocks::new();
     peripherals.UARTHS.configure(115_200.bps(), &clocks);
@@ -736,29 +740,85 @@ fn init_sdcard() -> SDCard<SPIImpl<SPI0>> {
     let num_sectors = info.CardCapacity / 512;
     assert!(num_sectors > 0);
 
-    println!("[kernel] init sdcard!");
+    println!("init sdcard!");
     sd
 }
 
-pub struct SDCardWrapper(UPSafeCell<SDCard<SPIImpl<SPI0>>>);
+pub struct SDCardWrapper(Mutex<SDCard<SPIImpl<SPI0>>>);
 
 impl SDCardWrapper {
     pub fn new() -> Self {
-        unsafe { Self(UPSafeCell::new(init_sdcard())) }
+        Self(Mutex::new(init_sdcard()))
+    }
+    fn wait_for_one_sec() {
+        let mut time = get_time();
+        time += CLOCK_FREQ;
+        log::error!("Waiting...");
+        loop {
+            if get_time() >= time {
+                break;
+            }
+        }
+        log::error!("Done.");
     }
 }
 
 impl BlockDevice for SDCardWrapper {
     fn read_block(&self, block_id: usize, buf: &mut [u8]) {
-        self.0
-            .exclusive_access()
-            .read_sector(buf, block_id as u32)
-            .unwrap();
+        let lock = self.0.lock();
+        let mut result = lock.read_sector(buf, block_id as u32);
+        let mut cont_cnt = 0;
+        while result.is_err() {
+            if cont_cnt >= 0 {
+                log::error!("[sdcard] read_sector(buf, {}) error. Retrying...", block_id);
+                result = lock.read_sector(buf, block_id as u32);
+            }
+            cont_cnt += 1;
+            if cont_cnt >= 5 {
+                log::error!(
+                    "[sdcard] read_sector(buf[{}], {}) error exceeded contineous retry count, waiting...",
+                    buf.len(),
+                    block_id
+                );
+                Self::wait_for_one_sec();
+                if lock.read_sector(buf, block_id as u32).is_err() {
+                    lock.init();
+                    Self::wait_for_one_sec();
+                } else {
+                    break;
+                }
+                cont_cnt = 0;
+            }
+        }
     }
     fn write_block(&self, block_id: usize, buf: &[u8]) {
-        self.0
-            .exclusive_access()
-            .write_sector(buf, block_id as u32)
-            .unwrap();
+        let lock = self.0.lock();
+        let mut result = lock.write_sector(buf, block_id as u32);
+        let mut cont_cnt = 0;
+        while result.is_err() {
+            if cont_cnt >= 0 {
+                log::error!(
+                    "[sdcard] write_sector(buf, {}) error. Retrying...",
+                    block_id
+                );
+                result = lock.write_sector(buf, block_id as u32);
+            }
+            cont_cnt += 1;
+            if cont_cnt >= 5 {
+                log::error!(
+                    "[sdcard] write_sector(buf[{}], {}) error exceeded contineous retry count, waiting...",
+                    buf.len(),
+                    block_id
+                );
+                Self::wait_for_one_sec();
+                if lock.write_sector(buf, block_id as u32).is_err() {
+                    lock.init();
+                    Self::wait_for_one_sec();
+                } else {
+                    break;
+                }
+                cont_cnt = 0;
+            }
+        }
     }
 }
