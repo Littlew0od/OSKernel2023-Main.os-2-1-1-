@@ -345,6 +345,7 @@ impl ProcessControlBlock {
         assert_eq!(parent.thread_count(), 1);
         // clone parent's memory_set completely including trampoline/ustacks/trap_cxs
         let memory_set = MemorySet::from_existed_user(&parent.memory_set);
+        println!("fork memory_set return");
         let signals_pending = parent.signals_pending;
         // alloc a pid
         let pid = pid_alloc();

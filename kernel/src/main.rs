@@ -75,6 +75,7 @@ pub fn rust_main() -> ! {
     // we embeded initproc process and shell process into kernel
     // we should load them into file system first
     task::load_initialproc();
+    println!("[kernel] Finish load initproc! ");
     task::add_initproc();
     println!("[kernel] Finish add initproc! ");
     task::run_tasks();
