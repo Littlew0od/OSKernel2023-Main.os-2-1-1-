@@ -43,6 +43,9 @@ impl PageTableEntry {
     pub fn is_valid(&self) -> bool {
         (self.flags() & PTEFlags::V) != PTEFlags::empty()
     }
+    pub fn is_dirty(&self) -> bool {
+        (self.flags() & PTEFlags::D) != PTEFlags::empty()
+    }
     pub fn readable(&self) -> bool {
         (self.flags() & PTEFlags::R) != PTEFlags::empty()
     }
@@ -144,6 +147,17 @@ impl PageTable {
                 return false;
             }
             pte.bits = pte.ppn().0 << 10 | (flags | PTEFlags::U | PTEFlags::V).bits() as usize;
+            true
+        } else {
+            false
+        }
+    }
+    pub fn delete_pte_flags(&self, vpn: VirtPageNum, flags: PTEFlags) -> bool {
+        if let Some(pte) = self.find_pte(vpn) {
+            if !pte.is_valid() {
+                return false;
+            }
+            pte.bits = pte.ppn().0 << 10 & !(flags.bits() as usize);
             true
         } else {
             false

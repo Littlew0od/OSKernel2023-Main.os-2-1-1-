@@ -107,6 +107,13 @@ pub fn init_frame_allocator() {
     );
 }
 
+pub fn frame_reserve(num: usize) {
+    let remain = FRAME_ALLOCATOR.exclusive_access().unallocated_frames();
+    if remain < num {
+        oom_handler(num - remain).unwrap()
+    }
+}
+
 pub fn frame_alloc() -> Option<FrameTracker> {
     let result = FRAME_ALLOCATOR.exclusive_access().alloc();
     if let Some(frame) = result {
@@ -170,7 +177,7 @@ pub fn oom_handler(req: usize) -> Result<(), ()> {
     Err(())
 }
 
-pub fn show_unallocated_frames(){
+pub fn show_unallocated_frames() {
     println!(
         "unallocated frames = {}",
         FRAME_ALLOCATOR.exclusive_access().unallocated_frames()
