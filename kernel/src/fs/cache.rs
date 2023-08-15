@@ -236,13 +236,13 @@ impl PageCache {
         self.tracker.clone()
     }
 
-    // fn get_pte(&self) -> Option<PageTableEntry> {
-    //     let lock = KERNEL_SPACE.exclusive_access().;
-    //     match lock {
-    //         Some(lock) => Some(lock.translate(self.tracker.ppn.0.into())).unwrap(),
-    //         None => None,
-    //     }
-    // }
+    fn get_pte(&self) -> Option<PageTableEntry> {
+        // let lock = KERNEL_SPACE.exclusive_access().;
+        match lock {
+            Some(lock) => Some(lock.translate(self.tracker.ppn.0.into())).unwrap(),
+            None => None,
+        }
+    }
 
     pub fn read_in(&mut self, block_ids: Vec<usize>, block_device: &Arc<dyn BlockDevice>) {
         if block_ids.is_empty() {
