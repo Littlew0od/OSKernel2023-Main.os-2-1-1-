@@ -110,7 +110,8 @@ pub fn init_frame_allocator() {
 pub fn frame_reserve(num: usize) {
     let remain = FRAME_ALLOCATOR.exclusive_access().unallocated_frames();
     if remain < num {
-        oom_handler(num - remain).unwrap()
+        panic!("[frame_reserve] failed");
+        // oom_handler(num - remain).unwrap()
     }
 }
 

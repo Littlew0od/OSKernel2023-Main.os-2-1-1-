@@ -192,6 +192,7 @@ impl ProcessControlBlock {
     pub fn new(elf_fd: FileDescriptor) -> Arc<Self> {
         // memory_set with elf program headers/trampoline/trap context/user stack
         let elf_data = elf_fd.map_to_kernel_space(MMAP_BASE);
+        // let elf_data = &elf_fd.read_all();
         let (memory_set, uheap_base, ustack_top, entry_point, auxv, _) =
             MemorySet::from_elf(elf_data);
         crate::mm::KERNEL_SPACE
@@ -345,7 +346,6 @@ impl ProcessControlBlock {
         assert_eq!(parent.thread_count(), 1);
         // clone parent's memory_set completely including trampoline/ustacks/trap_cxs
         let memory_set = MemorySet::from_existed_user(&parent.memory_set);
-        println!("fork memory_set return");
         let signals_pending = parent.signals_pending;
         // alloc a pid
         let pid = pid_alloc();

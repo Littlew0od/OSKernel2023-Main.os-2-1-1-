@@ -427,26 +427,21 @@ impl MemorySet {
         // map trampoline
         memory_set.map_trampoline();
         // map signaltrampoline
-        println!("1");
         memory_set.map_signaltrampoline();
         // copy mmap
         memory_set.mmap_end = user_space.mmap_end;
         // copy data sections/trap_context/user_stack
         for area in user_space.areas.iter() {
-            println!("1.1");
             let new_area = MapArea::from_another(area);
             memory_set.push(new_area, None);
             // copy data from another space
             for vpn in area.vpn_range {
-                println!("1.2 vpn = {:?}", vpn);
                 let src_ppn = user_space.translate(vpn).unwrap().ppn();
                 let dst_ppn = memory_set.translate(vpn).unwrap().ppn();
-                println!("1.2.1");
                 dst_ppn
                     .get_bytes_array()
                     .copy_from_slice(src_ppn.get_bytes_array());
             }
-            println!("1.3");
         }
         // copy heap_area
         for (vpn, src_frame) in user_space.heap_area.iter() {
