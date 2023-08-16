@@ -11,7 +11,7 @@
       "./kernel/Cargo.toml",
       "./user/Cargo.toml",
    ],
-   // "rust-analyzer.cargo.features": [
-   //     "board_qemu"
-   // ]
+   "rust-analyzer.cargo.features": [
+       "board_qemu"
+   ]
 }

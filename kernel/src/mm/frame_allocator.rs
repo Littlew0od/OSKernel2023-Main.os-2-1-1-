@@ -115,6 +115,15 @@ pub fn frame_reserve(num: usize) {
     }
 }
 
+#[cfg(feature = "board_qemu")]
+pub fn frame_alloc() -> Option<FrameTracker> {
+    FRAME_ALLOCATOR
+        .exclusive_access()
+        .alloc()
+        .map(FrameTracker::new)
+}
+
+#[cfg(feature = "board_k210")]
 pub fn frame_alloc() -> Option<FrameTracker> {
     let result = FRAME_ALLOCATOR.exclusive_access().alloc();
     if let Some(frame) = result {

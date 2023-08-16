@@ -2,10 +2,16 @@
 
 pub const USER_STACK_SIZE: usize = 4096 * 10;
 pub const KERNEL_STACK_SIZE: usize = 4096 * 2;
-pub const KERNEL_HEAP_SIZE: usize = PAGE_SIZE * 0xc0; // 20_0000
-                                                        // pub const MEMORY_END: usize = 0x80800000;
+#[cfg(feature = "board_qemu")]
+pub const KERNEL_HEAP_SIZE: usize = PAGE_SIZE * 0x500;
+#[cfg(feature = "board_k210")]
+pub const KERNEL_HEAP_SIZE: usize = PAGE_SIZE * 0xc0;
 // pub const MEMORY_END: usize = 0x8800_0000;
-// pub const MEMORY_END: usize = 0x809e_0000;
+
+#[cfg(feature = "board_qemu")]
+pub const MEMORY_END: usize = 0x8800_0000;
+// pub const MEMORY_END: usize = 0x8800_0000;
+#[cfg(feature = "board_k210")]
 pub const MEMORY_END: usize = 0x8080_0000;
 pub const PAGE_SIZE: usize = 0x1000;
 pub const PAGE_SIZE_BITS: usize = 0xc;

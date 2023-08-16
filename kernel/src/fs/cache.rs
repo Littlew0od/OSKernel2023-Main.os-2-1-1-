@@ -216,6 +216,7 @@ impl Cache for PageCache {
             }
             None => {}
         }
+        // println!("write_back, frametracker = {:#x}", self.tracker.ppn.0);
         self.write_back(block_ids, block_device)
     }
 }
@@ -278,6 +279,7 @@ impl PageCache {
         };
         block_device.read_block(start_block_id, buf);
         self.page_ptr[block_ids.len() * BUFFER_SIZE..].fill(0);
+        // println!("read_in, clear_dirty_bit = {:#x}", self.tracker.ppn.0);
         KERNEL_SPACE
             .exclusive_access()
             .clear_dirty_bit(self.tracker.ppn.0.into());
