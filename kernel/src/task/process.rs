@@ -287,6 +287,7 @@ impl ProcessControlBlock {
         // release memory before loading the application
         self.inner_exclusive_access().memory_set = MemorySet::new_bare();
         // memory_set with elf program headers/trampoline/trap context/user stack
+        // let elf_data = &file.read_all();
         let elf_data = file.map_to_kernel_space(MMAP_BASE);
         let (memory_set, uheap_base, ustack_top, entry_point, mut auxv, interp_entry) =
             MemorySet::from_elf(elf_data);

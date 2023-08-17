@@ -25,7 +25,8 @@ k210-hal = { path = "../dependency/k210-hal" }
 k210-soc = { path = "../dependency/k210-soc" }
 
 [features]
-board_qemu = []
+show_syscall = []
+board_qemu = ['show_syscall']
 board_k210 = []
 
 [profile.release]

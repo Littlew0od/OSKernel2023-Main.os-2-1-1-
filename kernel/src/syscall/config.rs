@@ -62,6 +62,7 @@ pub const SYSCALL_CLONE: usize = 220;
 pub const SYSCALL_EXECVE: usize = 221;
 pub const SYSCALL_MMAP: usize = 222;
 pub const SYSCALL_MPROTECT: usize = 226;
+pub const SYSCALL_MADVISE: usize = 233;
 pub const SYSCALL_WAIT4: usize = 260;
 pub const SYSCALL_PRLIMIT: usize = 261;
 pub const SYSCALL_RENAMEAT2: usize = 276;
@@ -136,6 +137,7 @@ pub fn syscall_name(id: usize) -> &'static str {
         SYSCALL_PSELECT6 => "peselect6",
         SYSCALL_GETEGID => "getegid",
         SYSCALL_PREAD => "pread",
+        SYSCALL_MADVISE => "madvise",
         // non-standard
         SYSCALL_SHUTDOWN => "shutdown",
         _ => "unknown",

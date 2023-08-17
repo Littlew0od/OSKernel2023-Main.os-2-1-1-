@@ -22,7 +22,7 @@ pub fn load_final2_test_cmds() -> Vec<String> {
     let mut cmds = Vec::new();
     // cmds.push(String::from("./libc-bench"));
     // cmds.push(String::from("./busybox sh ./busybox_testcode.sh"));
-    cmds.push(String::from("./busybox sh ./lua_testcode.sh"));
+    // cmds.push(String::from("./busybox sh ./lua_testcode.sh"));
     // cmds.push(String::from("./time-test"));
     // cmds.push(String::from("./busybox sh ./run-static.sh"));
     // cmds.push(String::from("./busybox sh ./run-dynamic.sh"));
@@ -32,11 +32,11 @@ pub fn load_final2_test_cmds() -> Vec<String> {
     // cmds.push(String::from("./busybox sh ./iperf_testcode.sh"));
     // cmds.push(String::from("./busybox sh ./cyclictest_testcode.sh"));
     // cmds.push(String::from("./runtest.exe -w entry-static.exe pthread_cancel_points"));
-    // cmds.push(String::from("./runtest.exe -w entry-static.exe pthread_cancel"));
-    // cmds.push(String::from("./runtest.exe -w entry-static.exe pthread_cond"));
-    // cmds.push(String::from("./runtest.exe -w entry-static.exe pthread_tsd"));
-    // cmds.push(String::from("./runtest.exe -w entry-static.exe pthread_robust_detach"));
-    // cmds.push(String::from("./runtest.exe -w entry-static.exe pthread_cancel_sem_wait"));
+    cmds.push(String::from("./runtest.exe -w entry-static.exe pthread_cancel"));
+    cmds.push(String::from("./runtest.exe -w entry-static.exe pthread_cond"));
+    cmds.push(String::from("./runtest.exe -w entry-static.exe pthread_tsd"));
+    cmds.push(String::from("./runtest.exe -w entry-static.exe pthread_robust_detach"));
+    cmds.push(String::from("./runtest.exe -w entry-static.exe pthread_cancel_sem_wait"));
     // cmds.push(String::from("./runtest.exe -w entry-static.exe pthread_cond_smasher"));
     // cmds.push(String::from("./runtest.exe -w entry-static.exe pthread_condattr_setclock"));
     // cmds.push(String::from("./runtest.exe -w entry-static.exe pthread_exit_cancel"));

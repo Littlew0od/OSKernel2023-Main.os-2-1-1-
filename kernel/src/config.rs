@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-pub const USER_STACK_SIZE: usize = 4096 * 10;
+pub const USER_STACK_SIZE: usize = 4096 * 20;
 pub const KERNEL_STACK_SIZE: usize = 4096 * 2;
 #[cfg(feature = "board_qemu")]
 pub const KERNEL_HEAP_SIZE: usize = PAGE_SIZE * 0x500;

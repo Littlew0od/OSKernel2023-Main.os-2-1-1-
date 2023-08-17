@@ -274,8 +274,8 @@ fn call_user_signal_handler(sig: usize, signal: SignalFlags, thread: bool) {
     let handler = action.sa_handler;
     if handler != 0 {
         // println!(
-        //     "[call_user_signal_handler] handler = {:#x}, ra = {:#x}",
-        //     handler, action.sa_restorer
+        //     "[call_user_signal_handler] handler = {:#x}, ra = {:#x}, flag = {:?}",
+        //     handler, action.sa_restorer, action.sa_flags
         // );
         // change current mask
         process_inner.signal_mask = process_inner.signal_actions.table[sig].mask;
@@ -330,6 +330,7 @@ fn check_pending_signals() {
                 drop(process_inner);
                 drop(process);
                 // signal is a user signal
+                // println!("[check_pending_signals] call_user_signal_handler(SIGCANCEL)");
                 call_user_signal_handler(33, sigcancel, true);
             } else {
                 if !process_inner.signal_actions.table[task_inner.handling_sig as usize]
@@ -341,6 +342,7 @@ fn check_pending_signals() {
                     drop(process_inner);
                     drop(process);
                     // signal is a user signal
+                    // println!("[check_pending_signals] call_user_signal_handler(SIGCANCEL)");
                     call_user_signal_handler(33, sigcancel, true);
                 }
             }

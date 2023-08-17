@@ -84,6 +84,7 @@ pub fn futex_wait(uaddr: *mut u32, timeout: *const TimeSpec, val: u32) -> isize 
         return EAGAIN;
     } else {
         let thread = current_task().unwrap();
+        let thread_id = thread.inner_exclusive_access().gettid();
 
         if let Some(inner) = process_inner.futex.inner.get_mut(&(uaddr as usize)) {
             inner.wait_queue.push_front(thread.clone());
@@ -96,7 +97,7 @@ pub fn futex_wait(uaddr: *mut u32, timeout: *const TimeSpec, val: u32) -> isize 
         drop(process_inner);
         drop(process);
         drop(thread);
-        println!("[futex_wait] block_current_and_run_next");
+        println!("[futex_wait] block_current_and_run_next, thread_id = {}", thread_id);
         block_current_and_run_next();
     }
     SUCCESS

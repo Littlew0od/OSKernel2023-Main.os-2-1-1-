@@ -65,6 +65,7 @@ pub fn sys_get_time_day(tr: *mut TimeVal) -> isize {
 }
 
 pub fn sys_clock_gettime(clk_id: usize, tp: *mut TimeSpec) -> isize {
+    // println!("[sys_clock_gettime] tp = {:#x}", tp as usize);
     if clk_id == CLOCK_REALTIME {
         if !tp.is_null() {
             let token = current_user_token();
@@ -223,7 +224,7 @@ pub fn sys_execve(path: *const u8, mut args: *const usize, mut envp: *const usiz
 }
 
 pub fn sys_brk(addr: usize) -> isize {
-    // println!("[sys_brk] addr = {:#x}", addr);
+    println!("[sys_brk] addr = {:#x}", addr);
     let process = current_process();
     let mut inner = process.inner_exclusive_access();
     if addr == 0 {
@@ -445,7 +446,7 @@ pub fn sys_futex(
         FUTEX_WAIT => futex_wait(uaddr, timeout, val),
         FUTEX_WAKE => futex_signal(uaddr, val),
         FUTEX_REQUEUE => todo!(),
-        _ => EINVAL,
+        _ => todo!(),
     }
 }
 
@@ -459,5 +460,40 @@ pub fn sys_getrusage(who: isize, usage: *mut Rusage) -> isize {
 
     *translated_refmut(token, usage) = inner.rusage;
     //tip!("[sys_getrusage] who: RUSAGE_SELF, usage: {:?}", inner.rusage);
+    SUCCESS
+}
+
+pub const MADV_NORMAL: usize = 0; /* no further special treatment */
+pub const MADV_RANDOM: usize = 1; /* expect random page references */
+pub const MADV_SEQUENTIAL: usize = 2; /* expect sequential page references */
+pub const MADV_WILLNEED: usize = 3; /* will need these pages */
+pub const MADV_DONTNEED: usize = 4; /* don't need these pages */
+pub const MADV_SPACEAVAIL: usize = 5; /* ensure resources are available */
+
+
+/* common/generic parameters */
+pub const MADV_FREE: usize = 8; /* free pages only if memory pressure */
+pub const MADV_REMOVE: usize = 9; /* remove these pages & resources */
+pub const MADV_DONTFORK: usize = 10; /* don't inherit across fork */
+pub const MADV_DOFORK: usize = 11; /* do inherit across fork */
+
+pub const MADV_MERGEABLE: usize = 12; /* KSM may merge identical pages */
+pub const MADV_UNMERGEABLE: usize = 13; /* KSM may not merge identical pages */
+
+pub const MADV_HUGEPAGE: usize = 14; /* Worth backing with hugepages */
+pub const MADV_NOHUGEPAGE: usize = 15; /* Not worth backing with hugepages */
+
+pub const MADV_DONTDUMP: usize = 16; /* Explicity exclude from the core dump,
+                                     overrides the coredump filter bits */
+pub const MADV_DODUMP: usize = 17; /* Clear the MADV_NODUMP flag */
+
+pub const MADV_WIPEONFORK: usize = 18; /* Zero memory on fork, child only */
+pub const MADV_KEEPONFORK: usize = 19; /* Undo MADV_WIPEONFORK */
+
+pub fn sys_madvise(addr: usize, length: usize, advice: usize) -> isize {
+    println!(
+        "[sys_madvise] addr = {:#x}, length = {:#x}, advice = {}",
+        addr, length, advice
+    );
     SUCCESS
 }
