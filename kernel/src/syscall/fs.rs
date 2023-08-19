@@ -8,16 +8,19 @@ use crate::mm::{
 use crate::syscall::process;
 // translated_byte_buffer_append_to_existing_vec,copy_from_user, try_get_from_user,
 //copy_from_user_array,copy_to_user, copy_to_user_array, copy_to_user_string,
-use crate::task::{current_process, current_user_token};
+use crate::task::{current_process, current_user_token, SignalFlags};
 use crate::timer::TimeSpec;
 use alloc::boxed::Box;
 use alloc::string::String;
 use alloc::vec::Vec;
+use core::fmt::write;
 use core::mem::size_of;
+use core::panic;
 use log::{debug, error, info, trace, warn};
 use num_enum::FromPrimitive;
 
 use super::errno::*;
+use super::ppoll::{pselect, FdSet};
 
 pub const AT_FDCWD: usize = 100usize.wrapping_neg();
 
@@ -1017,9 +1020,68 @@ impl Statfs {
             f_spare: [0; 4],
         }
     }
-    
+
     pub fn as_bytes(&self) -> &[u8] {
         let size = core::mem::size_of::<Self>();
         unsafe { core::slice::from_raw_parts(self as *const _ as usize as *mut u8, size) }
     }
+}
+
+pub fn sys_pselect(
+    nfds: usize,
+    read_fds: *mut FdSet,
+    write_fds: *mut FdSet,
+    exception_fds: *mut FdSet,
+    timeout: *mut TimeSpec,
+    sigmask: *const SignalFlags,
+) -> isize {
+    println!("[sys_pselect] nfds = {:#x}, read_fds = {:#x}, write_fds = {:#x}, exception_fds = {:#x}, timeout = {:#x}, sigmask = {:#x}.", nfds, read_fds as usize,write_fds as usize, exception_fds as usize, timeout as usize, sigmask as usize);
+    if (nfds as isize) < 0 {
+        return EINVAL;
+    }
+    let token = current_user_token();
+    let mut kread_fds = if read_fds as usize != 0 {
+        Some(*translated_ref(token, read_fds))
+    } else {
+        None
+    };
+    let mut kwrite_fds = if write_fds as usize != 0 {
+        Some(*translated_ref(token, write_fds))
+    } else {
+        None
+    };
+    let mut kexception_fds = if exception_fds as usize != 0 {
+        Some(*translated_ref(token, exception_fds))
+    } else {
+        None
+    };
+    let ktimeout = if timeout as usize != 0 {
+        Some(*translated_ref(token, timeout))
+    } else {
+        None
+    };
+    let ret = pselect(
+        nfds,
+        &mut kread_fds,
+        &mut kwrite_fds,
+        &mut kexception_fds,
+        &ktimeout,
+        sigmask,
+    );
+    if let Some(kread_fds) = &kread_fds {
+        trace!("[pselect] read_fds: {:?}", kread_fds);
+        // copy_to_user(token, kread_fds, read_fds);
+        *translated_refmut(token, read_fds) = *kread_fds;
+    }
+    if let Some(kwrite_fds) = &kwrite_fds {
+        trace!("[pselect] write_fds: {:?}", kwrite_fds);
+        // copy_to_user(token, kwrite_fds, write_fds);
+        *translated_refmut(token, write_fds) = *kwrite_fds;
+    }
+    if let Some(kexception_fds) = &kexception_fds {
+        trace!("[pselect] exception_fds: {:?}", kexception_fds);
+        // copy_to_user(token, kexception_fds, exception_fds);
+        *translated_refmut(token, exception_fds) = *kexception_fds;
+    }
+    ret
 }

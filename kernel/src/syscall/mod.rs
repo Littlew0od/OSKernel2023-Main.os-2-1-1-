@@ -66,6 +66,14 @@ pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
         SYSCALL_STATFS =>sys_statfs(args[0] as *const u8, args[1] as *const u8),
         SYSCALL_PREAD => sys_pread(args[0], args[1], args[2], args[3]),
         SYSCALL_SENDFILE => sys_sendfile(args[0], args[1], args[2] as *mut usize, args[3]),
+        SYSCALL_PSELECT6 => sys_pselect(
+            args[0],
+            args[1] as *mut FdSet,
+            args[2] as *mut FdSet,
+            args[3] as *mut FdSet,
+            args[4] as *mut TimeSpec,
+            args[5] as *const SignalFlags,
+        ),
         SYSCALL_PPOLL => sys_ppoll(
             args[0] as *mut PollFd,
             args[1],

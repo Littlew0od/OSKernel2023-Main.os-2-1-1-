@@ -652,7 +652,7 @@ impl MemorySet {
         &self,
         mut user_sp: usize,
         argv_vec: Vec<String>,
-        envp_vec: Vec<String>,
+        mut envp_vec: Vec<String>,
         mut auxv_vec: Vec<AuxHeader>,
     ) -> (usize, usize, usize, usize, usize) {
         // The structure of the user stack
@@ -685,6 +685,8 @@ impl MemorySet {
         //     String::from("LD_LIBRARY_PATH=/"),
         //     String::from("PATH=/:/bin/"),
         // ];
+        
+        envp_vec.push(String::from("PATH=/:/bin/"));
 
         let push_stack = |parms: Vec<String>, user_sp: &mut usize| {
             //record parm ptr
