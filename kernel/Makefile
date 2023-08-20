@@ -28,7 +28,7 @@ else ifeq ($(BOARD), k210)
 endif
 
 # Run K210
-K210-SERIALPORT	= /dev/ttyUSB0
+K210-SERIALPORT	= /dev/ttyUSB1
 K210-BURNER	= ../tools/kflash.py
 
 # Binutils
