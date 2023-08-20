@@ -4,8 +4,8 @@ use super::{PTEFlags, PageTable, PageTableEntry};
 use super::{PhysAddr, PhysPageNum, VirtAddr, VirtPageNum};
 use super::{StepByOne, VPNRange};
 use crate::config::{
-    CLOCK_FREQ, DYN_BASE, MEMORY_END, MMAP_BASE, MMIO, PAGE_SIZE, SIGNAL_TRAMPOLINE, STACK_TOP,
-    TRAMPOLINE,
+    CLOCK_FREQ, DYN_BASE, MEMORY_END, MMAP_BASE, MMIO, PAGE_SIZE, SECOND_MMAP_BASE,
+    SIGNAL_TRAMPOLINE, STACK_TOP, TRAMPOLINE,
 };
 use crate::fs::{OpenFlags, ROOT_FD};
 use crate::mm::config::{
@@ -312,8 +312,12 @@ impl MemorySet {
                 .to_string();
                 match ROOT_FD.open(&path, OpenFlags::O_RDONLY, false) {
                     Ok(file) => {
-                        let all_data = file.read_all();
-                        let (entry, base) = memory_set.load_interp(all_data.as_slice());
+                        // let elf_data = file.read_all();
+                        let elf_data = file.map_to_kernel_space(SECOND_MMAP_BASE);
+                        let (entry, base) = memory_set.load_interp(elf_data);
+                        crate::mm::KERNEL_SPACE
+                            .exclusive_access()
+                            .remove_area_with_start_vpn(VirtAddr::from(SECOND_MMAP_BASE).floor());
                         interp_entry = Some(entry);
                         interp_base = Some(base);
                     }
@@ -685,7 +689,7 @@ impl MemorySet {
         //     String::from("LD_LIBRARY_PATH=/"),
         //     String::from("PATH=/:/bin/"),
         // ];
-        
+
         envp_vec.push(String::from("PATH=/:/bin/"));
 
         let push_stack = |parms: Vec<String>, user_sp: &mut usize| {
