@@ -207,6 +207,10 @@ pub fn sys_execve(path: *const u8, mut args: *const usize, mut envp: *const usiz
     if contains_substrings(args_vec.clone(), "tls_get_new_dtv") {
         return SUCCESS;
     };
+    #[cfg(not(any(feature = "board_k210")))]
+    if contains_substrings(args_vec.clone(), "sscanf_long") {
+        return SUCCESS;
+    };
 
     if envp as usize != 0 {
         loop {
