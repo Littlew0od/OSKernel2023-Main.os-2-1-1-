@@ -176,6 +176,8 @@ pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
             args[2] as *const RLimit,
             args[3] as *mut RLimit,
         ),
+        SYSCALL_GETITIMER => sys_getitimer(args[0] as isize, args[1] as usize),
+        SYSCALL_SETITIMER => sys_setitimer(args[0] as isize, args[1] as _, args[2] as _),
         SYSCALL_RENAMEAT2 => sys_renameat2(
             args[0],
             args[1] as *const u8,

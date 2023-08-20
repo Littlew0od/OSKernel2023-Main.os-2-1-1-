@@ -1,9 +1,13 @@
 #![allow(unused)]
+use core::mem::size_of;
+
 use crate::config::MMAP_BASE;
 use crate::config::PAGE_SIZE;
 use crate::fs::OpenFlags;
+use crate::mm::UserBuffer;
 use crate::mm::VirtAddr;
 use crate::mm::MPROCTECTPROT;
+use crate::mm::translated_byte_buffer;
 use crate::mm::{translated_ref, translated_refmut, translated_str};
 use crate::sbi::shutdown;
 use crate::sync::futex_signal;
@@ -16,6 +20,8 @@ use crate::task::{
     block_current_and_run_next, current_process, current_task, current_user_token,
     exit_current_and_run_next, suspend_current_and_run_next, CloneFlags, SignalFlags, CSIGNAL,
 };
+use crate::timer::ITimerVal;
+use crate::timer::USEC_PER_SEC;
 use crate::timer::{get_time_us, TimeSpec, TimeVal, Times, CLOCK_REALTIME};
 use alloc::string::String;
 use alloc::sync::Arc;
@@ -224,7 +230,7 @@ pub fn sys_execve(path: *const u8, mut args: *const usize, mut envp: *const usiz
 }
 
 pub fn sys_brk(addr: usize) -> isize {
-    println!("[sys_brk] addr = {:#x}", addr);
+    // println!("[sys_brk] addr = {:#x}", addr);
     let process = current_process();
     let mut inner = process.inner_exclusive_access();
     if addr == 0 {
@@ -470,7 +476,6 @@ pub const MADV_WILLNEED: usize = 3; /* will need these pages */
 pub const MADV_DONTNEED: usize = 4; /* don't need these pages */
 pub const MADV_SPACEAVAIL: usize = 5; /* ensure resources are available */
 
-
 /* common/generic parameters */
 pub const MADV_FREE: usize = 8; /* free pages only if memory pressure */
 pub const MADV_REMOVE: usize = 9; /* remove these pages & resources */
@@ -496,4 +501,60 @@ pub fn sys_madvise(addr: usize, length: usize, advice: usize) -> isize {
         addr, length, advice
     );
     SUCCESS
+}
+
+pub fn sys_getitimer(which: isize, curr_value: usize) -> isize {
+    // 决赛只需实现 which == ITIMER_REAL
+    if curr_value != 0 {
+        let token = current_user_token();
+        // 将 itimer 写入到 curr_value 指向的地址中
+        let itimer = current_task().unwrap().inner_exclusive_access().itimer;
+        let mut buf = UserBuffer::new(translated_byte_buffer(
+            token,
+            curr_value as *const u8,
+            size_of::<ITimerVal>(),
+        ));
+        buf.write(itimer.as_bytes());
+        0
+    } else {
+        -1
+    }
+}
+
+pub fn sys_setitimer(which: isize, new_value: *mut ITimerVal, old_value: *mut ITimerVal) -> isize {
+    // 决赛只需实现 which == ITIMER_REAL
+    // struct itimerval {
+    //     struct timeval it_interval; /* next value */
+    //     struct timeval it_value;    /* current value */
+    // };
+    // struct timeval {
+    //     time_t      tv_sec;         /* seconds */
+    //     suseconds_t tv_usec;        /* microseconds */
+    // };
+    let token = current_user_token();
+    // 将原本的itimer写入old_value
+    if old_value as usize != 0 {
+        let mut itimer = current_task().unwrap().inner_exclusive_access().itimer;
+        let old_itimer = translated_refmut(token, old_value);
+        if !itimer.is_zero() {
+            let mut us = (itimer.it_value.to_us() - get_time_us()) as isize;
+            us = us.max(0);
+            itimer.it_value.tv_sec = us as usize / USEC_PER_SEC;
+            itimer.it_value.tv_usec = us as usize % USEC_PER_SEC;
+        }
+        old_itimer.it_interval = itimer.it_interval;
+        old_itimer.it_value = itimer.it_value;
+    }
+    if new_value as usize != 0 {
+        let new_itimer = translated_refmut(token, new_value);
+        let mut itimer = current_task().unwrap().inner_exclusive_access().itimer;
+        itimer.it_interval = new_itimer.it_interval;
+        itimer.it_value = new_itimer.it_value;
+        if !itimer.it_value.is_zero() {
+            let mut us = itimer.it_value.to_us() + get_time_us();
+            itimer.it_value.tv_sec = us / USEC_PER_SEC;
+            itimer.it_value.tv_usec = us % USEC_PER_SEC;
+        }
+    }
+    0
 }

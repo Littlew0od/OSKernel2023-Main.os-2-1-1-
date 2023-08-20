@@ -1035,7 +1035,7 @@ pub fn sys_pselect(
     timeout: *mut TimeSpec,
     sigmask: *const SignalFlags,
 ) -> isize {
-    println!("[sys_pselect] nfds = {:#x}, read_fds = {:#x}, write_fds = {:#x}, exception_fds = {:#x}, timeout = {:#x}, sigmask = {:#x}.", nfds, read_fds as usize,write_fds as usize, exception_fds as usize, timeout as usize, sigmask as usize);
+    // println!("[sys_pselect] nfds = {:#x}, read_fds = {:#x}, write_fds = {:#x}, exception_fds = {:#x}, timeout = {:#x}, sigmask = {:#x}.", nfds, read_fds as usize,write_fds as usize, exception_fds as usize, timeout as usize, sigmask as usize);
     if (nfds as isize) < 0 {
         return EINVAL;
     }

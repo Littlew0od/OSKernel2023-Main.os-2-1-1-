@@ -3,6 +3,7 @@ use super::{
     kstack_alloc, KernelStack, ProcessControlBlock, SignalActions, SignalFlags, TaskContext,
 };
 use crate::fs::Null;
+use crate::timer::ITimerVal;
 use crate::trap::TrapContext;
 use crate::{mm::PhysPageNum, sync::UPSafeCell};
 use alloc::sync::{Arc, Weak};
@@ -43,6 +44,7 @@ pub struct TaskControlBlockInner {
     pub frozen: bool,
     pub trap_ctx_backup: Option<TrapContext>,
     pub clear_child_tid: usize,
+    pub itimer: ITimerVal,
 }
 
 impl TaskControlBlockInner {
@@ -92,6 +94,7 @@ impl TaskControlBlock {
                     frozen: false,
                     trap_ctx_backup: None,
                     clear_child_tid: 0,
+                    itimer: ITimerVal::new(),
                 })
             },
         }
