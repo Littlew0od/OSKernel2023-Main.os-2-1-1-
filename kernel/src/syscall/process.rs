@@ -530,10 +530,10 @@ pub const MADV_WIPEONFORK: usize = 18; /* Zero memory on fork, child only */
 pub const MADV_KEEPONFORK: usize = 19; /* Undo MADV_WIPEONFORK */
 
 pub fn sys_madvise(addr: usize, length: usize, advice: usize) -> isize {
-    println!(
-        "[sys_madvise] addr = {:#x}, length = {:#x}, advice = {}",
-        addr, length, advice
-    );
+    // println!(
+    //     "[sys_madvise] addr = {:#x}, length = {:#x}, advice = {}",
+    //     addr, length, advice
+    // );
     SUCCESS
 }
 

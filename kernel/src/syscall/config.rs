@@ -11,6 +11,7 @@ pub const SYSCALL_LINKAT: usize = 37;
 pub const SYSCALL_UMOUNT2: usize = 39;
 pub const SYSCALL_MOUNT: usize = 40;
 pub const SYSCALL_STATFS: usize = 43;
+pub const SYSCALL_FTRUNCATE: usize = 46;
 pub const SYSCALL_FACCESSAT: usize = 48;
 pub const SYSCALL_CHDIR: usize = 49;
 pub const SYSCALL_OPENAT: usize = 56;
@@ -68,6 +69,7 @@ pub const SYSCALL_MADVISE: usize = 233;
 pub const SYSCALL_WAIT4: usize = 260;
 pub const SYSCALL_PRLIMIT: usize = 261;
 pub const SYSCALL_RENAMEAT2: usize = 276;
+pub const SYSCALL_COPY_FILE_RANGE: usize = 285;
 pub const SYSCALL_WAITTID: usize = 1002;
 
 // Not standard POSIX sys_call
@@ -140,6 +142,7 @@ pub fn syscall_name(id: usize) -> &'static str {
         SYSCALL_GETEGID => "getegid",
         SYSCALL_PREAD => "pread",
         SYSCALL_MADVISE => "madvise",
+        SYSCALL_COPY_FILE_RANGE => "copy_file_range",
         // non-standard
         SYSCALL_SHUTDOWN => "shutdown",
         _ => "unknown",

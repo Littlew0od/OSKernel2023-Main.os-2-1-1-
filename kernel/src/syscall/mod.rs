@@ -10,8 +10,8 @@ mod system;
 mod thread;
 
 use crate::{
-    task::{SigInfo, SignalAction, SignalFlags, Rusage},
-    timer::{TimeSpec, Times, ITimerVal},
+    task::{Rusage, SigInfo, SignalAction, SignalFlags},
+    timer::{ITimerVal, TimeSpec, Times},
 };
 use config::*;
 use fs::*;
@@ -63,7 +63,7 @@ pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
         SYSCALL_WRITE => sys_write(args[0], args[1] as *const u8, args[2]),
         SYSCALL_READV => sys_readv(args[0], args[1], args[2]),
         SYSCALL_WRITEV => sys_writev(args[0], args[1], args[2]),
-        SYSCALL_STATFS =>sys_statfs(args[0] as *const u8, args[1] as *const u8),
+        SYSCALL_STATFS => sys_statfs(args[0] as *const u8, args[1] as *const u8),
         SYSCALL_PREAD => sys_pread(args[0], args[1], args[2], args[3]),
         SYSCALL_SENDFILE => sys_sendfile(args[0], args[1], args[2] as *mut usize, args[3]),
         SYSCALL_PSELECT6 => sys_pselect(
@@ -90,6 +90,7 @@ pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
             args[3] as u32,
         ),
         SYSCALL_FSTAT => sys_fstat(args[0], args[1] as *mut u8),
+        SYSCALL_FTRUNCATE => sys_ftruncate(args[0], args[1] as isize),
         SYSCALL_UTIMENSAT => sys_utimensat(
             args[0],
             args[1] as *const u8,
@@ -177,7 +178,11 @@ pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
             args[3] as *mut RLimit,
         ),
         SYSCALL_GETITIMER => sys_getitimer(args[0] as isize, args[1] as *mut ITimerVal),
-        SYSCALL_SETITIMER => sys_setitimer(args[0] as isize, args[1] as *mut ITimerVal, args[2] as *mut ITimerVal),
+        SYSCALL_SETITIMER => sys_setitimer(
+            args[0] as isize,
+            args[1] as *mut ITimerVal,
+            args[2] as *mut ITimerVal,
+        ),
         SYSCALL_RENAMEAT2 => sys_renameat2(
             args[0],
             args[1] as *const u8,
@@ -186,6 +191,7 @@ pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
             args[4] as u32,
         ),
         SYSCALL_WAITTID => sys_waittid(args[0]) as isize,
+        SYSCALL_COPY_FILE_RANGE => sys_copy_file_range(args[0], args[1] as *mut usize, args[2], args[3] as *mut usize, args[4]),
         SYSCALL_SHUTDOWN => sys_shutdown(args[0] != 0),
         _ => panic!("Unsupported syscall_id: {}", syscall_id),
     };

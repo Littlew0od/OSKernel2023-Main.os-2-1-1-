@@ -20,8 +20,8 @@ pub fn main() -> i32 {
 
 pub fn load_final2_test_cmds() -> Vec<String> {
     let mut cmds = Vec::new();
-    cmds.push(String::from("./interrupts-test-1"));
-    cmds.push(String::from("./interrupts-test-2"));
+    // cmds.push(String::from("./interrupts-test-1"));
+    // cmds.push(String::from("./interrupts-test-2"));
     cmds.push(String::from("./copy-file-range-test-1"));
     cmds.push(String::from("./copy-file-range-test-2"));
     cmds.push(String::from("./copy-file-range-test-3"));

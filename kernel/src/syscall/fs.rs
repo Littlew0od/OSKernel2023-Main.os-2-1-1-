@@ -65,7 +65,7 @@ pub fn sys_read(fd: usize, buf: *const u8, len: usize) -> isize {
 
     if fd == INTERRUPTS_FD {
         let interrupt_str = INTERRUPT.exclusive_access().get();
-        println!("{}", interrupt_str);
+        // println!("{}", interrupt_str);
         let mut userbuf = UserBuffer::new(translated_byte_buffer(token, buf, len));
         let ret = userbuf.write(interrupt_str.as_bytes());
         return interrupt_str.len() as isize;
@@ -273,13 +273,13 @@ pub fn sys_openat(dirfd: usize, path: *const u8, flags: u32, mode: u32) -> isize
         }
     };
     let mode = StatMode::from_bits(mode);
-    log!(
-        "[sys_openat] dirfd: {}, path: {}, flags: {:?}, mode: {:?}",
-        dirfd as isize,
-        path,
-        flags,
-        mode
-    );
+    // log!(
+    //     "[sys_openat] dirfd: {}, path: {}, flags: {:?}, mode: {:?}",
+    //     dirfd as isize,
+    //     path,
+    //     flags,
+    //     mode
+    // );
     if path == "/proc/interrupts" && flags.contains(OpenFlags::O_RDONLY) {
         INTERRUPT.exclusive_access().offset = 0;
         return INTERRUPTS_FD as isize;
@@ -1100,4 +1100,96 @@ pub fn sys_pselect(
         *translated_refmut(token, exception_fds) = *kexception_fds;
     }
     ret
+}
+
+pub fn sys_copy_file_range(
+    fd_in: usize,
+    mut off_in: *mut usize,
+    fd_out: usize,
+    mut off_out: *mut usize,
+    len: usize,
+) -> isize {
+    let token = current_user_token();
+    let process = current_process();
+    let inner = process.inner_exclusive_access();
+    let fd_table = inner.fd_table.lock();
+    let in_file = match fd_table.get_ref(fd_in) {
+        Ok(file_descriptor) => file_descriptor.clone(),
+        Err(errno) => return errno,
+    };
+    let out_file = match fd_table.get_ref(fd_out) {
+        Ok(file_descriptor) => file_descriptor.clone(),
+        Err(errno) => return errno,
+    };
+
+    if !in_file.readable() || !out_file.writable() {
+        return EBADF;
+    }
+    let off_in = if off_in as usize != 0 {
+        translated_refmut(token, off_in)
+    } else {
+        off_in
+    };
+    let off_out = if off_out as usize != 0 {
+        translated_refmut(token, off_out)
+    } else {
+        off_out
+    };
+
+    if off_in as usize !=0 {
+        println!("off_in {}", unsafe{*off_in});
+    }
+
+    if off_out as usize !=0 {
+        println!("off_out {}", unsafe{*off_out});
+    }
+
+    log!(
+        "[sys_copy_file_range] in_fd: {}, out_fd: {}, len = {:#x}",
+        fd_in,
+        fd_out,
+        len
+    );
+
+
+    // a buffer in kernel
+    const BUFFER_SIZE: usize = 0x4096;
+    let mut buffer = Vec::<u8>::with_capacity(BUFFER_SIZE);
+
+    let mut left_bytes = if len != 0 { len } else { BUFFER_SIZE };
+    let mut write_size = 0;
+
+    drop(fd_table);
+    drop(inner);
+    drop(process);
+    loop {
+        unsafe {
+            buffer.set_len(left_bytes.min(BUFFER_SIZE));
+        }
+        let read_size = in_file.read(unsafe { off_in.as_mut() }, buffer.as_mut_slice());
+        if read_size == 0 {
+            break;
+        }
+        unsafe {
+            buffer.set_len(read_size);
+        }
+        write_size += out_file.write(unsafe { off_out.as_mut() }, buffer.as_slice());
+        left_bytes -= read_size;
+    }
+    tip!("[sys_copy_file_range] written bytes: {}", write_size);
+    write_size as isize
+}
+
+pub fn sys_ftruncate(fd: usize, length: isize) -> isize {
+    let process = current_process();
+    let inner = process.inner_exclusive_access();
+    let fd_table = inner.fd_table.lock();
+    let file_descriptor = match fd_table.get_ref(fd) {
+        Ok(file_descriptor) => file_descriptor,
+        Err(errno) => return errno,
+    };
+    match file_descriptor.truncate_size(length) {
+        Ok(()) => SUCCESS,
+        Err(errno) => errno,
+    }
 }
