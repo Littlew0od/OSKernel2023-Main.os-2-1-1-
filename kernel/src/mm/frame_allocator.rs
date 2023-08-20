@@ -175,11 +175,11 @@ pub fn frame_allocator_test() {
 
 pub fn oom_handler(req: usize) -> Result<(), ()> {
     // clean fs
-    println!("[oom_handler] start");
-    show_unallocated_frames();
+    // println!("[oom_handler] start");
+    // show_unallocated_frames();
     let mut released = 0;
     released += fs::directory_tree::oom();
-    show_unallocated_frames();
+    // show_unallocated_frames();
     if released >= req {
         return Ok(());
     }
