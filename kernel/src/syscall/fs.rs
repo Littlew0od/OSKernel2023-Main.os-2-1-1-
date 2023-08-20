@@ -1,4 +1,5 @@
 #![allow(unused)]
+use crate::config::INTERRUPTS_FD;
 // use crate::fs::poll::{ppoll, pselect, FdSet, PollFd};
 use crate::fs::*;
 use crate::mm::{
@@ -10,6 +11,7 @@ use crate::syscall::process;
 //copy_from_user_array,copy_to_user, copy_to_user_array, copy_to_user_string,
 use crate::task::{current_process, current_user_token, SignalFlags};
 use crate::timer::TimeSpec;
+use crate::trap::INTERRUPT;
 use alloc::boxed::Box;
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -18,6 +20,7 @@ use core::mem::size_of;
 use core::panic;
 use log::{debug, error, info, trace, warn};
 use num_enum::FromPrimitive;
+use riscv::interrupt;
 
 use super::errno::*;
 use super::ppoll::{pselect, FdSet};
@@ -59,6 +62,15 @@ pub fn sys_read(fd: usize, buf: *const u8, len: usize) -> isize {
     let token = current_user_token();
     let process = current_process();
     let inner = process.inner_exclusive_access();
+
+    if fd == INTERRUPTS_FD {
+        let interrupt_str = INTERRUPT.exclusive_access().get();
+        println!("{}", interrupt_str);
+        let mut userbuf = UserBuffer::new(translated_byte_buffer(token, buf, len));
+        let ret = userbuf.write(interrupt_str.as_bytes());
+        return interrupt_str.len() as isize;
+    }
+
     let fd_table = inner.fd_table.lock();
     let file_descriptor = match fd_table.get_ref(fd) {
         Ok(file_descriptor) => file_descriptor.clone(),
@@ -261,13 +273,17 @@ pub fn sys_openat(dirfd: usize, path: *const u8, flags: u32, mode: u32) -> isize
         }
     };
     let mode = StatMode::from_bits(mode);
-    // log!(
-    //     "[sys_openat] dirfd: {}, path: {}, flags: {:?}, mode: {:?}",
-    //     dirfd as isize,
-    //     path,
-    //     flags,
-    //     mode
-    // );
+    log!(
+        "[sys_openat] dirfd: {}, path: {}, flags: {:?}, mode: {:?}",
+        dirfd as isize,
+        path,
+        flags,
+        mode
+    );
+    if path == "/proc/interrupts" && flags.contains(OpenFlags::O_RDONLY) {
+        INTERRUPT.exclusive_access().offset = 0;
+        return INTERRUPTS_FD as isize;
+    }
     let inner = process.inner_exclusive_access();
     let mut fd_table = inner.fd_table.lock();
     let file_descriptor = match dirfd {

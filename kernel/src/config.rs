@@ -29,6 +29,7 @@ pub const STACK_TOP: usize = 0x1_0000_0000;
 pub const MMAP_BASE: usize = 0x2000_0000;
 pub const SECOND_MMAP_BASE: usize = 0x4000_0000;
 pub const DYN_BASE: usize = 0x6000_0000;
+pub const INTERRUPTS_FD: usize = 0x520;
+pub const MAX_TRAP_ID: usize = 0xB;
 
 pub const DISK_IMAGE_BASE: usize = 0x10_0000;
-
