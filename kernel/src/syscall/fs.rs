@@ -1136,21 +1136,20 @@ pub fn sys_copy_file_range(
         off_out
     };
 
-    if off_in as usize !=0 {
-        println!("off_in {}", unsafe{*off_in});
-    }
+    // if off_in as usize !=0 {
+    //     println!("off_in {}", unsafe{*off_in});
+    // }
 
-    if off_out as usize !=0 {
-        println!("off_out {}", unsafe{*off_out});
-    }
+    // if off_out as usize !=0 {
+    //     println!("off_out {}", unsafe{*off_out});
+    // }
 
-    log!(
-        "[sys_copy_file_range] in_fd: {}, out_fd: {}, len = {:#x}",
-        fd_in,
-        fd_out,
-        len
-    );
-
+    // log!(
+    //     "[sys_copy_file_range] in_fd: {}, out_fd: {}, len = {:#x}",
+    //     fd_in,
+    //     fd_out,
+    //     len
+    // );
 
     // a buffer in kernel
     const BUFFER_SIZE: usize = 0x4096;
@@ -1176,7 +1175,7 @@ pub fn sys_copy_file_range(
         write_size += out_file.write(unsafe { off_out.as_mut() }, buffer.as_slice());
         left_bytes -= read_size;
     }
-    tip!("[sys_copy_file_range] written bytes: {}", write_size);
+    // tip!("[sys_copy_file_range] written bytes: {}", write_size);
     write_size as isize
 }
 
