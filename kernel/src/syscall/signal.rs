@@ -171,7 +171,7 @@ pub fn sys_sigtimedwait(
 }
 
 pub fn sys_kill(pid: usize, signum: usize) -> isize {
-    tip!("[sys_kill] Add siganl = {:?}.", signum);
+    // tip!("[sys_kill] Add siganl = {:?}.", signum);
     if let Some(process) = pid2process(pid) {
         if let Some(flag) = SignalFlags::from_bits(1 << (signum - 1)) {
             process.inner_exclusive_access().signals_pending |= flag;
