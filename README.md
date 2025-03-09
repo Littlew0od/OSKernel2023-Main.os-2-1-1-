@@ -13,8 +13,7 @@ markdown文档在[doc](./doc/)文件夹中
 <br>
 参赛学校：北京科技大学
 <br>
-队伍成员：丁博宁
-
+Upload junk projects to GitHub, and all talented programmers will be laughed to death by me. 😊
 ## 使用说明
 
 在根目录中运行`make all`，即可在根目录获得操作系统以及SBI的二进制文件
