@@ -22,3 +22,4 @@ pushall.sh
 sbi-qemu
 kernel-qemu
 kernel/buildfs.sh
+fs-fuse/fat32.img
